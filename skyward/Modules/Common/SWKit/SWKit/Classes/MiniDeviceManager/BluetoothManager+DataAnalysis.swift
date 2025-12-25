@@ -11,6 +11,50 @@ import CoreBluetooth
 // MARK: - 数据解析具体实现
 extension BluetoothManager {
     
+    // 辅助方法：从Data中解析UInt64（大端序）
+    private func parseUInt64(from data: Data, at offset: inout Int) -> UInt64 {
+        var value: UInt64 = 0
+        value |= UInt64(data[offset]) << 56
+        value |= UInt64(data[offset + 1]) << 48
+        value |= UInt64(data[offset + 2]) << 40
+        value |= UInt64(data[offset + 3]) << 32
+        value |= UInt64(data[offset + 4]) << 24
+        value |= UInt64(data[offset + 5]) << 16
+        value |= UInt64(data[offset + 6]) << 8
+        value |= UInt64(data[offset + 7])
+        offset += 8
+        return value
+    }
+    
+    // 辅助方法：从Data中解析UInt32（大端序）
+    private func parseUInt32(from data: Data, at offset: inout Int) -> UInt32 {
+        var value: UInt32 = 0
+        value |= UInt32(data[offset]) << 24
+        value |= UInt32(data[offset + 1]) << 16
+        value |= UInt32(data[offset + 2]) << 8
+        value |= UInt32(data[offset + 3])
+        offset += 4
+        return value
+    }
+    
+    // 辅助方法：从Data中解析Int32（大端序）
+    private func parseInt32(from data: Data, at offset: inout Int) -> Int32 {
+        var value: Int32 = 0
+        value |= Int32(data[offset]) << 24
+        value |= Int32(data[offset + 1]) << 16
+        value |= Int32(data[offset + 2]) << 8
+        value |= Int32(data[offset + 3])
+        offset += 4
+        return value
+    }
+    
+    // 辅助方法：从Data中解析UInt16（大端序）
+    private func parseUInt16(from data: Data, at offset: inout Int) -> UInt16 {
+        let value = UInt16(data[offset]) << 8 | UInt16(data[offset + 1])
+        offset += 2
+        return value
+    }
+    
     private func handleDeviceInfoResponse(_ data: Data) {
         guard data.count >= 33 else {
             print("设备信息数据长度错误: \(data.count)")
@@ -20,8 +64,7 @@ extension BluetoothManager {
         var offset = 0
         
         // 安全读取协议版本 (2字节)
-        let protocolVersion = (UInt16(data[offset]) << 8) | UInt16(data[offset + 1])
-        offset += 2
+        let protocolVersion = parseUInt16(from: data, at: &offset)
         
         // 读取BLE MAC地址 (6字节)
         let bleMac = data.subdata(in: offset..<offset + 6)
@@ -32,43 +75,19 @@ extension BluetoothManager {
         offset += 1
         
         // 安全读取蓝牙软件版本 (4字节)
-        let bleSoftwareVersion = (UInt32(data[offset]) << 24) |
-        (UInt32(data[offset + 1]) << 16) |
-        (UInt32(data[offset + 2]) << 8) |
-        UInt32(data[offset + 3])
-        offset += 4
+        let bleSoftwareVersion = parseUInt32(from: data, at: &offset)
         
         // 安全读取蓝牙硬件版本 (4字节)
-        let bleHardwareVersion = (UInt32(data[offset]) << 24) |
-        (UInt32(data[offset + 1]) << 16) |
-        (UInt32(data[offset + 2]) << 8) |
-        UInt32(data[offset + 3])
-        offset += 4
+        let bleHardwareVersion = parseUInt32(from: data, at: &offset)
         
         // 安全读取MCU软件版本 (4字节)
-        let mcuSoftwareVersion = (UInt32(data[offset]) << 24) |
-        (UInt32(data[offset + 1]) << 16) |
-        (UInt32(data[offset + 2]) << 8) |
-        UInt32(data[offset + 3])
-        offset += 4
+        let mcuSoftwareVersion = parseUInt32(from: data, at: &offset)
         
         // 安全读取MCU硬件版本 (4字节)
-        let mcuHardwareVersion = (UInt32(data[offset]) << 24) |
-        (UInt32(data[offset + 1]) << 16) |
-        (UInt32(data[offset + 2]) << 8) |
-        UInt32(data[offset + 3])
-        offset += 4
+        let mcuHardwareVersion = parseUInt32(from: data, at: &offset)
         
         // 安全读取设备ID (8字节)
-        let deviceId = (UInt64(data[offset]) << 56) |
-        (UInt64(data[offset + 1]) << 48) |
-        (UInt64(data[offset + 2]) << 40) |
-        (UInt64(data[offset + 3]) << 32) |
-        (UInt64(data[offset + 4]) << 24) |
-        (UInt64(data[offset + 5]) << 16) |
-        (UInt64(data[offset + 6]) << 8) |
-        UInt64(data[offset + 7])
-        offset += 8
+        let deviceId = parseUInt64(from: data, at: &offset)
         
         let deviceInfo = DeviceInfo(
             protocolVersion: protocolVersion,
@@ -109,25 +128,13 @@ extension BluetoothManager {
         var offset = 0
         
         // 安全读取运行时长 (4字节)
-        let runTime = (UInt32(data[offset]) << 24) |
-        (UInt32(data[offset + 1]) << 16) |
-        (UInt32(data[offset + 2]) << 8) |
-        UInt32(data[offset + 3])
-        offset += 4
+        let runTime = parseUInt32(from: data, at: &offset)
         
         // 安全读取温度 (4字节，*100)
-        let temperature = (Int32(data[offset]) << 24) |
-        (Int32(data[offset + 1]) << 16) |
-        (Int32(data[offset + 2]) << 8) |
-        Int32(data[offset + 3])
-        offset += 4
+        let temperature = parseInt32(from: data, at: &offset)
         
         // 安全读取湿度 (4字节，*100)
-        let humidity = (UInt32(data[offset]) << 24) |
-        (UInt32(data[offset + 1]) << 16) |
-        (UInt32(data[offset + 2]) << 8) |
-        UInt32(data[offset + 3])
-        offset += 4
+        let humidity = parseUInt32(from: data, at: &offset)
         
         // 读取电池电量 (1字节)
         let battery = data[offset]
@@ -146,58 +153,34 @@ extension BluetoothManager {
         offset += 1
         
         // 安全读取纬度 (4字节，*10000)
-        let latitude = (Int32(data[offset]) << 24) |
-        (Int32(data[offset + 1]) << 16) |
-        (Int32(data[offset + 2]) << 8) |
-        Int32(data[offset + 3])
-        offset += 4
+        let latitude = parseInt32(from: data, at: &offset)
         
         // 读取纬度半球 (1字节)
         let latitudeHemisphere = data[offset]
         offset += 1
         
         // 安全读取经度 (4字节，*10000)
-        let longitude = (Int32(data[offset]) << 24) |
-        (Int32(data[offset + 1]) << 16) |
-        (Int32(data[offset + 2]) << 8) |
-        Int32(data[offset + 3])
-        offset += 4
+        let longitude = parseInt32(from: data, at: &offset)
         
         // 读取经度半球 (1字节)
         let longitudeHemisphere = data[offset]
         offset += 1
         
         // 安全读取海拔 (4字节，*10) - 修正为4字节
-        let altitude = (Int32(data[offset]) << 24) |
-        (Int32(data[offset + 1]) << 16) |
-        (Int32(data[offset + 2]) << 8) |
-        Int32(data[offset + 3])
-        offset += 4
+        let altitude = parseInt32(from: data, at: &offset)
         
         // 读取运动状态 (1字节)
         let motionStatus = data[offset]
         offset += 1
         
         // 安全读取定位信息上报间隔 (4字节) - 修正为4字节
-        let positionReport = (UInt32(data[offset]) << 24) |
-        (UInt32(data[offset + 1]) << 16) |
-        (UInt32(data[offset + 2]) << 8) |
-        UInt32(data[offset + 3])
-        offset += 4
+        let positionReport = parseUInt32(from: data, at: &offset)
         
         // 安全读取低功耗唤醒时间 (4字节)
-        let lowPowerTime = (UInt32(data[offset]) << 24) |
-        (UInt32(data[offset + 1]) << 16) |
-        (UInt32(data[offset + 2]) << 8) |
-        UInt32(data[offset + 3])
-        offset += 4
+        let lowPowerTime = parseUInt32(from: data, at: &offset)
         
         // 安全读取定位信息存储周期 (4字节)
-        let positionStoreTime = (UInt32(data[offset]) << 24) |
-        (UInt32(data[offset + 1]) << 16) |
-        (UInt32(data[offset + 2]) << 8) |
-        UInt32(data[offset + 3])
-        offset += 4
+        let positionStoreTime = parseUInt32(from: data, at: &offset)
         
         let statusInfo = StatusInfo(
             runTime: runTime,
@@ -256,51 +239,27 @@ extension BluetoothManager {
         var offset = 0
         
         // 安全读取设备ID (8字节)
-        let deviceId = (UInt64(data[offset]) << 56) |
-        (UInt64(data[offset + 1]) << 48) |
-        (UInt64(data[offset + 2]) << 40) |
-        (UInt64(data[offset + 3]) << 32) |
-        (UInt64(data[offset + 4]) << 24) |
-        (UInt64(data[offset + 5]) << 16) |
-        (UInt64(data[offset + 6]) << 8) |
-        UInt64(data[offset + 7])
-        offset += 8
+        let deviceId = parseUInt64(from: data, at: &offset)
         
         // 安全读取时间戳 (4字节)
-        let timestamp = (UInt32(data[offset]) << 24) |
-        (UInt32(data[offset + 1]) << 16) |
-        (UInt32(data[offset + 2]) << 8) |
-        UInt32(data[offset + 3])
-        offset += 4
+        let timestamp = parseUInt32(from: data, at: &offset)
         
         // 安全读取纬度 (4字节，*10000)
-        let latitude = (Int32(data[offset]) << 24) |
-        (Int32(data[offset + 1]) << 16) |
-        (Int32(data[offset + 2]) << 8) |
-        Int32(data[offset + 3])
-        offset += 4
+        let latitude = parseInt32(from: data, at: &offset)
         
         // 读取纬度半球 (1字节)
         let latitudeHemisphere = data[offset]
         offset += 1
         
         // 安全读取经度 (4字节，*10000)
-        let longitude = (Int32(data[offset]) << 24) |
-        (Int32(data[offset + 1]) << 16) |
-        (Int32(data[offset + 2]) << 8) |
-        Int32(data[offset + 3])
-        offset += 4
+        let longitude = parseInt32(from: data, at: &offset)
         
         // 读取经度半球 (1字节)
         let longitudeHemisphere = data[offset]
         offset += 1
         
         // 安全读取海拔 (4字节，*10) - 修正为4字节
-        let altitude = (Int32(data[offset]) << 24) |
-        (Int32(data[offset + 1]) << 16) |
-        (Int32(data[offset + 2]) << 8) |
-        Int32(data[offset + 3])
-        offset += 4
+        let altitude = parseInt32(from: data, at: &offset)
         
         // 读取运动状态 (1字节)
         let motionStatus = data[offset]
@@ -353,30 +312,17 @@ extension BluetoothManager {
         var offset = 0
         
         // 安全读取设备ID (8字节)
-        let deviceId = (UInt64(data[offset]) << 56) |
-        (UInt64(data[offset + 1]) << 48) |
-        (UInt64(data[offset + 2]) << 40) |
-        (UInt64(data[offset + 3]) << 32) |
-        (UInt64(data[offset + 4]) << 24) |
-        (UInt64(data[offset + 5]) << 16) |
-        (UInt64(data[offset + 6]) << 8) |
-        UInt64(data[offset + 7])
-        offset += 8
+        let deviceId = parseUInt64(from: data, at: &offset)
         
         // 读取定位数据条数 (1字节)
         let numPositions = data[offset]
         offset += 1
         
         // 安全读取定位上报间隔 (2字节)
-        let positionReport = (UInt16(data[offset]) << 8) | UInt16(data[offset + 1])
-        offset += 2
+        let positionReport = parseUInt16(from: data, at: &offset)
         
         // 安全读取首条数据时间戳 (4字节)
-        let firstTimestamp = (UInt32(data[offset]) << 24) |
-        (UInt32(data[offset + 1]) << 16) |
-        (UInt32(data[offset + 2]) << 8) |
-        UInt32(data[offset + 3])
-        offset += 4
+        let firstTimestamp = parseUInt32(from: data, at: &offset)
         
         var positions: [PositionInfo] = []
         var currentOffset = offset
@@ -389,17 +335,22 @@ extension BluetoothManager {
             }
             
             // 安全读取时间戳 (4字节)
-            let timestamp = (UInt32(data[currentOffset]) << 24) |
-            (UInt32(data[currentOffset + 1]) << 16) |
-            (UInt32(data[currentOffset + 2]) << 8) |
-            UInt32(data[currentOffset + 3])
+            // 注意：这里需要使用本地的currentOffset，所以不能直接使用parseUInt32方法
+            var tsValue: UInt32 = 0
+            tsValue |= UInt32(data[currentOffset]) << 24
+            tsValue |= UInt32(data[currentOffset + 1]) << 16
+            tsValue |= UInt32(data[currentOffset + 2]) << 8
+            tsValue |= UInt32(data[currentOffset + 3])
+            let timestamp = tsValue
             currentOffset += 4
             
             // 安全读取纬度 (4字节，*10000)
-            let latitude = (Int32(data[currentOffset]) << 24) |
-            (Int32(data[currentOffset + 1]) << 16) |
-            (Int32(data[currentOffset + 2]) << 8) |
-            Int32(data[currentOffset + 3])
+            var latValue: Int32 = 0
+            latValue |= Int32(data[currentOffset]) << 24
+            latValue |= Int32(data[currentOffset + 1]) << 16
+            latValue |= Int32(data[currentOffset + 2]) << 8
+            latValue |= Int32(data[currentOffset + 3])
+            let latitude = latValue
             currentOffset += 4
             
             // 读取纬度半球 (1字节)
