@@ -9,240 +9,12 @@
 import Foundation
 import Network
 
-// MARK: - 错误枚举
-enum WiFiDeviceError: Error, LocalizedError {
-    case connectionFailed
-    case timeout
-    case invalidResponse
-    case commandFailed(String)
-    case disconnected
-    case networkError(String)
-    case invalidCommand
-    case deviceBusy
-    
-    var errorDescription: String? {
-        switch self {
-        case .connectionFailed:
-            return "连接设备失败"
-        case .timeout:
-            return "操作超时"
-        case .invalidResponse:
-            return "设备返回无效响应"
-        case .commandFailed(let reason):
-            return "命令执行失败: \(reason)"
-        case .disconnected:
-            return "设备未连接"
-        case .networkError(let message):
-            return "网络错误: \(message)"
-        case .invalidCommand:
-            return "无效命令格式"
-        case .deviceBusy:
-            return "设备繁忙，请稍后再试"
-        }
-    }
-}
 
-
-// MARK: - 天线锁定状态
-enum LockStatus: Int {
-    case unlocked = 0
-    case locked = 1
-    
-    var description: String {
-        return self == .locked ? "已锁定" : "未锁定"
-    }
-}
-
-// MARK: - 天线运行状态
-enum AntennaStatus: Int {
-    case stored = 1
-    case waitingGPS = 2
-    case waitingIMU = 4
-    case searching = 8
-    case stableTracking = 10
-    
-    var description: String {
-        switch self {
-        case .stored: return "收藏"
-        case .waitingGPS: return "等待GPS定位"
-        case .waitingIMU: return "等待惯导信息"
-        case .searching: return "搜索寻星"
-        case .stableTracking: return "稳定跟踪"
-        }
-    }
-}
-
-// MARK: - 故障码结构
-struct FaultCodes {
-    let imu: Int
-    let beidou: Int
-    let beacon: Int
-    let lnb: Int
-    let buc: Int
-    
-    init(codes: [Int]) {
-        self.imu = codes.count > 0 ? codes[0] : 0
-        self.beidou = codes.count > 1 ? codes[1] : 0
-        self.beacon = codes.count > 2 ? codes[2] : 0
-        self.lnb = codes.count > 3 ? codes[3] : 0
-        self.buc = codes.count > 4 ? codes[4] : 0
-    }
-    
-    var description: String {
-        var issues: [String] = []
-        if imu == 1 { issues.append("惯导通信异常") }
-        if beidou == 1 { issues.append("北斗通信异常") }
-        if beacon == 1 { issues.append("信标机通信异常") }
-        if lnb == 1 { issues.append("LNB通信异常") }
-        if buc == 1 { issues.append("BUC通信异常") }
-        return issues.isEmpty ? "设备正常" : issues.joined(separator: ", ")
-    }
-    
-    var isNormal: Bool {
-        return imu == 0 && beidou == 0 && beacon == 0 && lnb == 0 && buc == 0
-    }
-}
-
-// MARK: - 设备信息
-public struct ProDeviceInfo {
-    let ACUVersion: String
-    let deviceSN: String
-    let catMAC: String
-    let catSN: String
-    
-    init?(from response: String) {
-        let components = response.components(separatedBy: ",")
-        guard components.count >= 4 else { return nil }
-        
-        self.ACUVersion = components[0]
-        self.deviceSN = components[1]
-        self.catMAC = components[2]
-        self.catSN = components[3]
-    }
-}
-
-// MARK: - 设备状态信息
-// MARK: - 完善设备状态
-struct ProDeviceStatus: CustomStringConvertible {
-    let lockStatus: LockStatus
-    let antennaStatus: AntennaStatus
-    let azimuth: Double
-    let elevation: Double
-    let altitude: Double
-    let longitude: Double
-    let latitude: Double
-    let powerSavingMode: Bool
-    let logStreaming: Bool
-    let mode: Int // 0:地面, 1:车载
-    
-    init?(from response: String) {
-        let components = response.components(separatedBy: ",")
-        
-        // REQLOC格式: 锁定状态,天线状态,方位角,俯仰角,海拔,经度,纬度,低功耗状态,日志状态,模式
-        guard components.count >= 10,
-              let lockStatusValue = Int(components[0]),
-              let antennaStatusValue = Int(components[1]),
-              let azimuth = Double(components[2]),
-              let elevation = Double(components[3]),
-              let altitude = Double(components[4]),
-              let longitude = Double(components[5]),
-              let latitude = Double(components[6]),
-              let powerSaving = Int(components[7]),
-              let logStreaming = Int(components[8]),
-              let mode = Int(components[9]) else {
-            return nil
-        }
-        
-        self.lockStatus = LockStatus(rawValue: lockStatusValue) ?? .unlocked
-        self.antennaStatus = AntennaStatus(rawValue: antennaStatusValue) ?? .stored
-        self.azimuth = azimuth
-        self.elevation = elevation
-        self.altitude = altitude
-        self.longitude = longitude
-        self.latitude = latitude
-        self.powerSavingMode = powerSaving == 1
-        self.logStreaming = logStreaming == 1
-        self.mode = mode
-    }
-    
-    var description: String {
-        return """
-        锁定状态: \(lockStatus.description)
-        天线状态: \(antennaStatus.description)
-        方位角: \(String(format: "%.2f", azimuth))°
-        俯仰角: \(String(format: "%.2f", elevation))°
-        海拔: \(String(format: "%.2f", altitude))m
-        经度: \(String(format: "%.6f", longitude))
-        纬度: \(String(format: "%.6f", latitude))
-        低功耗: \(powerSavingMode ? "开启" : "关闭")
-        日志流: \(logStreaming ? "开启" : "关闭")
-        模式: \(mode == 1 ? "车载" : "地面")
-        """
-    }
-}
-
-// MARK: - 环境信息
-struct EnvironmentInfo {
-    let temperature: Double
-    let humidity: Double
-    
-    init?(from response: String) {
-        let components = response.components(separatedBy: ",")
-        guard components.count >= 2,
-              let temperature = Double(components[0]),
-              let humidity = Double(components[1]) else {
-            return nil
-        }
-        
-        self.temperature = temperature
-        self.humidity = humidity
-    }
-}
-
-// MARK: - 对星结果
-struct SatelliteAlignmentResult {
-    let lockStatus: LockStatus
-    let antennaStatus: AntennaStatus
-    let azimuth: Double
-    let elevation: Double
-    let altitude: Double
-    let longitude: Double
-    let latitude: Double
-    
-    init?(from response: String) {
-        // 支持 AUTOSATALI 和 HAFSATALI 两种格式
-        var responseToParse = response
-        if response.hasPrefix("AUTOSATALI,") {
-            responseToParse = response.replacingOccurrences(of: "AUTOSATALI,", with: "")
-        } else if response.hasPrefix("HAFSATALI,") {
-            responseToParse = response.replacingOccurrences(of: "HAFSATALI,", with: "")
-        }
-        
-        let components = responseToParse.components(separatedBy: ",")
-        guard components.count >= 7,
-              let lockStatusValue = Int(components[0]),
-              let antennaStatusValue = Int(components[1]),
-              let azimuth = Double(components[2]),
-              let elevation = Double(components[3]),
-              let altitude = Double(components[4]),
-              let longitude = Double(components[5]),
-              let latitude = Double(components[6]) else {
-            return nil
-        }
-        
-        self.lockStatus = LockStatus(rawValue: lockStatusValue) ?? .unlocked
-        self.antennaStatus = AntennaStatus(rawValue: antennaStatusValue) ?? .stored
-        self.azimuth = azimuth
-        self.elevation = elevation
-        self.altitude = altitude
-        self.longitude = longitude
-        self.latitude = latitude
-    }
-}
 
 // MARK: - WiFi设备管理器
-class WiFiDeviceManager {
+public class WiFiDeviceManager {
     
+    public static let shared = WiFiDeviceManager()
     // MARK: - 配置
     let host: String = "192.168.0.7"
     let port: UInt16 = 2018
@@ -256,6 +28,9 @@ class WiFiDeviceManager {
     // MARK: - 数据接收
     private var isReceiving = false
     private var receiveBuffer = Data()
+    
+    // MARK: - 线程安全存储（添加串行队列保护）
+    private let storageQueue = DispatchQueue(label: "WiFiDeviceManager.StorageQueue")
     private var pendingResponses: [String: String] = [:] // [command: response]
     private var responseSemaphores: [String: DispatchSemaphore] = [:]
     private var lastCommandId = 0
@@ -265,11 +40,11 @@ class WiFiDeviceManager {
     public private(set) var isLogStreaming = false
     
     // MARK: - 回调
-    var onConnectionStatusChanged: ((Bool) -> Void)?
-    var onLogReceived: ((String) -> Void)?
-    var onError: ((Error) -> Void)?
-    var onDeviceWarning: ((FaultCodes) -> Void)?
-    var onStatusUpdate: ((DeviceStatus) -> Void)?
+    public var onConnectionStatusChanged: ((Bool) -> Void)?
+    public var onLogReceived: ((String) -> Void)?
+    public var onError: ((Error) -> Void)?
+    public var onDeviceWarning: ((FaultCodes) -> Void)?
+    public var onStatusUpdate: ((ProDeviceStatus) -> Void)?
     
     // MARK: - 初始化
     init() {}
@@ -278,8 +53,49 @@ class WiFiDeviceManager {
         disconnect()
     }
     
+    // MARK: - 线程安全的字典操作方法
+    private func setResponse(_ response: String, forKey key: String) {
+        storageQueue.async(flags: .barrier) {
+            self.pendingResponses[key] = response
+        }
+    }
+    
+    private func getResponse(forKey key: String) -> String? {
+        var result: String?
+        storageQueue.sync {
+            result = self.pendingResponses[key]
+        }
+        return result
+    }
+    
+    private func removeResponse(forKey key: String) {
+        storageQueue.async(flags: .barrier) {
+            self.pendingResponses.removeValue(forKey: key)
+        }
+    }
+    
+    private func setSemaphore(_ semaphore: DispatchSemaphore, forKey key: String) {
+        storageQueue.async(flags: .barrier) {
+            self.responseSemaphores[key] = semaphore
+        }
+    }
+    
+    private func getSemaphore(forKey key: String) -> DispatchSemaphore? {
+        var result: DispatchSemaphore?
+        storageQueue.sync {
+            result = self.responseSemaphores[key]
+        }
+        return result
+    }
+    
+    private func removeSemaphore(forKey key: String) {
+        storageQueue.async(flags: .barrier) {
+            self.responseSemaphores.removeValue(forKey: key)
+        }
+    }
+    
     // MARK: - 连接管理
-    func connect(completion: ((Result<Bool, Error>) -> Void)? = nil) {
+    public func connect(completion: ((Result<Bool, Error>) -> Void)? = nil) {
         guard !isConnected else {
             print("设备已连接")
             completion?(.success(true))
@@ -347,7 +163,7 @@ class WiFiDeviceManager {
         connection?.start(queue: queue)
     }
     
-    func disconnect() {
+    public func disconnect() {
         print("断开设备连接")
         cleanupConnection()
     }
@@ -536,7 +352,7 @@ class WiFiDeviceManager {
         }
         
         // 4. 检查是否是状态更新
-        if let status = DeviceStatus(from: extractResponseContent(message)) {
+        if let status = ProDeviceStatus(from: extractResponseContent(message)) {
             print("设备状态更新")
             DispatchQueue.main.async {
                 self.onStatusUpdate?(status)
@@ -549,6 +365,28 @@ class WiFiDeviceManager {
         DispatchQueue.main.async {
             self.onLogReceived?("📨 收到: \(message)")
         }
+    }
+    
+    // MARK: - 日志缓冲区管理
+    private var logBuffer: [String] = []
+    private let logBufferLock = NSLock()
+
+    private func appendToLogBuffer(_ log: String) {
+        logBufferLock.lock()
+        defer { logBufferLock.unlock() }
+        logBuffer.append(log)
+    }
+
+    private func clearLogBuffer() {
+        logBufferLock.lock()
+        defer { logBufferLock.unlock() }
+        logBuffer.removeAll()
+    }
+
+    private func getLogBuffer() -> [String] {
+        logBufferLock.lock()
+        defer { logBufferLock.unlock() }
+        return logBuffer
     }
     
     // MARK: - 命令响应解析
@@ -731,7 +569,7 @@ class WiFiDeviceManager {
     // MARK: - 设备命令接口
     
     /// 一键收藏
-    func autoOff(completion: @escaping (Result<Bool, Error>) -> Void) {
+    public func autoOff(completion: @escaping (Result<Bool, Error>) -> Void) {
         sendCommand("AUTOOFF") { result in
             switch result {
             case .success(let response):
@@ -744,7 +582,7 @@ class WiFiDeviceManager {
     }
     
     /// 一键自动对星
-    func autoSatellite(completion: @escaping (Result<SatelliteAlignmentResult, Error>) -> Void) {
+    public func autoSatellite(completion: @escaping (Result<SatelliteAlignmentResult, Error>) -> Void) {
         sendCommand("AUTOSATALI,1") { result in
             switch result {
             case .success(let response):
@@ -760,7 +598,7 @@ class WiFiDeviceManager {
     }
     
     /// 一键半自动对星
-    func halfSatellite(longitude: Double, latitude: Double, altitude: Double,
+    public func halfSatellite(longitude: Double, latitude: Double, altitude: Double,
                       completion: @escaping (Result<SatelliteAlignmentResult, Error>) -> Void) {
         let command = String(format: "HAFSATALI,%.6f,%.6f,%.2f,0", longitude, latitude, altitude)
         sendCommand(command) { result in
@@ -778,7 +616,7 @@ class WiFiDeviceManager {
     }
     
     /// 低功耗模式开关
-    func deepSleep(enable: Bool, completion: @escaping (Result<Bool, Error>) -> Void) {
+    public func deepSleep(enable: Bool, completion: @escaping (Result<Bool, Error>) -> Void) {
         let command = enable ? "DEEPSLEEP,ON" : "DEEPSLEEP,OFF"
         sendCommand(command) { result in
             switch result {
@@ -793,7 +631,7 @@ class WiFiDeviceManager {
     }
     
     /// 环境查询
-    func queryEnvironment(completion: @escaping (Result<EnvironmentInfo, Error>) -> Void) {
+    public func queryEnvironment(completion: @escaping (Result<EnvironmentInfo, Error>) -> Void) {
         sendCommand("REQENV") { result in
             switch result {
             case .success(let response):
@@ -809,11 +647,11 @@ class WiFiDeviceManager {
     }
     
     /// 终端状态查询
-    func queryLocation(completion: @escaping (Result<DeviceStatus, Error>) -> Void) {
+    public func queryLocation(completion: @escaping (Result<ProDeviceStatus, Error>) -> Void) {
         sendCommand("REQLOC") { result in
             switch result {
             case .success(let response):
-                if let status = DeviceStatus(from: self.extractResponseContent(response)) {
+                if let status = ProDeviceStatus(from: self.extractResponseContent(response)) {
                     completion(.success(status))
                 } else {
                     completion(.failure(WiFiDeviceError.invalidResponse))
@@ -825,7 +663,7 @@ class WiFiDeviceManager {
     }
     
     /// 全局复位重启
-    func reset(completion: @escaping (Result<Bool, Error>) -> Void) {
+    public func reset(completion: @escaping (Result<Bool, Error>) -> Void) {
         sendCommand("RESET") { result in
             switch result {
             case .success(let response):
@@ -838,7 +676,7 @@ class WiFiDeviceManager {
     }
     
     /// 重启ACU
-    func resetACU(completion: @escaping (Result<Bool, Error>) -> Void) {
+    public func resetACU(completion: @escaping (Result<Bool, Error>) -> Void) {
         sendCommand("RESET_ACU") { result in
             switch result {
             case .success(let response):
@@ -851,7 +689,7 @@ class WiFiDeviceManager {
     }
     
     /// 上传手机定位信息
-    func uploadPhoneLoc(longitude: Double, latitude: Double, altitude: Double,
+    public func uploadPhoneLoc(longitude: Double, latitude: Double, altitude: Double,
                       completion: @escaping (Result<SatelliteAlignmentResult, Error>) -> Void) {
         let command = String(format: "REQAPPLOC,%.2f,%.6f,%.6f",altitude, longitude, latitude)
         sendCommand(command) { _ in
@@ -860,7 +698,7 @@ class WiFiDeviceManager {
     }
     
     /// 获取设备告警
-    func queryDeviceWarning(completion: @escaping (Result<FaultCodes, Error>) -> Void) {
+    public func queryDeviceWarning(completion: @escaping (Result<FaultCodes, Error>) -> Void) {
         sendCommand("DEV_WARING") { result in
             switch result {
             case .success(let response):
@@ -876,11 +714,11 @@ class WiFiDeviceManager {
     }
     
     /// 获取设备信息
-    func queryDeviceInfo(completion: @escaping (Result<DeviceInfo, Error>) -> Void) {
+    public func queryDeviceInfo(completion: @escaping (Result<ProDeviceInfo, Error>) -> Void) {
         sendCommand("REQDEV_INFO") { result in
             switch result {
             case .success(let response):
-                if let info = DeviceInfo(from: self.extractResponseContent(response)) {
+                if let info = ProDeviceInfo(from: self.extractResponseContent(response)) {
                     completion(.success(info))
                 } else {
                     completion(.failure(WiFiDeviceError.invalidResponse))
@@ -892,7 +730,7 @@ class WiFiDeviceManager {
     }
     
     /// 获取信标信号强度
-    func queryBeaconSignal(completion: @escaping (Result<Double, Error>) -> Void) {
+    public func queryBeaconSignal(completion: @escaping (Result<Double, Error>) -> Void) {
         sendCommand("REQ_BEACON") { result in
             switch result {
             case .success(let response):
@@ -909,7 +747,7 @@ class WiFiDeviceManager {
     }
     
     /// 获取ACU设备存储日志
-    func queryLog(completion: @escaping (Result<[String], Error>) -> Void) {
+    public func queryLog(completion: @escaping (Result<[String], Error>) -> Void) {
         sendCommand("REQ_LOG") { result in
             switch result {
             case .success(let response):
@@ -918,7 +756,6 @@ class WiFiDeviceManager {
                 
                 for line in lines {
                     if line.hasPrefix("$SHOW") {
-//                        let logContent = line.replacingOccurrences(of: "REQ_LOG,", with: "")
                         logs.append(line)
                     } else if line.contains("REQ_LOG,OVER") {
                         break
@@ -931,9 +768,67 @@ class WiFiDeviceManager {
             }
         }
     }
+    /// 获取ACU设备存储日志
+    /// 命令: REQ_LOG\n
+    /// 响应格式: REQ_LOG,$SHOW,...\n (多条)
+    /// 结束符: REQ_LOG,OVER\n
+    public func queryStoredLogs(completion: @escaping (Result<[String], Error>) -> Void) {
+        // 清空缓冲区
+        clearLogBuffer()
+        
+        // 创建信号量用于等待日志结束
+        let semaphore = DispatchSemaphore(value: 0)
+        self.setSemaphore(semaphore, forKey: "REQ_LOG")
+        
+        // 设置超时（例如60秒后超时）
+        let timeoutWorkItem = DispatchWorkItem { [weak self] in
+            guard let self = self else { return }
+            
+            print("存储日志接收超时")
+            self.removeSemaphore(forKey: "REQ_LOG")
+            
+            let logs = self.getLogBuffer()
+            if logs.isEmpty {
+                completion(.failure(WiFiDeviceError.timeout))
+            } else {
+                print("存储日志接收超时，但已收到 \(logs.count) 条日志")
+                completion(.success(logs))
+            }
+        }
+        
+        DispatchQueue.global().asyncAfter(deadline: .now() + 60.0, execute: timeoutWorkItem)
+        
+        // 保存原始日志回调
+        let originalLogCallback = self.onLogReceived
+        
+        // 临时设置存储日志处理回调
+        self.onLogReceived = { [weak self] message in
+            guard let self = self else { return }
+            
+            if message.hasPrefix("REQ_LOG,$SHOW") {
+                // 提取日志内容（移除REQ_LOG,前缀）
+                let logContent = message.replacingOccurrences(of: "REQ_LOG,", with: "")
+                print("收到存储日志: \(logContent)")
+                self.appendToLogBuffer(logContent)
+            } else if message.hasPrefix("REQ_LOG,OVER") {
+                print("存储日志传输结束")
+                
+                // 取消超时
+                timeoutWorkItem.cancel()
+                
+                // 恢复原始回调
+                self.onLogReceived = originalLogCallback
+                
+                // 通知信号量
+                if let semaphore = self.getSemaphore(forKey: "REQ_LOG") {
+                    semaphore.signal()
+                }
+            }
+        }
+    }
     
     /// ACU设备实时日志传输打开
-    func enableLogStreaming(completion: @escaping (Result<Bool, Error>) -> Void) {
+    public func enableLogStreaming(completion: @escaping (Result<Bool, Error>) -> Void) {
         sendCommand("LOG_SWON") { [weak self] result in
             switch result {
             case .success(let response):
@@ -949,7 +844,7 @@ class WiFiDeviceManager {
     }
     
     /// ACU设备实时日志传输关闭
-    func disableLogStreaming(completion: @escaping (Result<Bool, Error>) -> Void) {
+    public func disableLogStreaming(completion: @escaping (Result<Bool, Error>) -> Void) {
         sendCommand("LOG_SWOFF") { [weak self] result in
             switch result {
             case .success(let response):
@@ -967,7 +862,7 @@ class WiFiDeviceManager {
 }
 
 // MARK: - 响应解析辅助函数
-private func parseSuccessResponse(_ response: String) -> Bool {
+public func parseSuccessResponse(_ response: String) -> Bool {
     let upperResponse = response.uppercased()
     
     // 成功标识

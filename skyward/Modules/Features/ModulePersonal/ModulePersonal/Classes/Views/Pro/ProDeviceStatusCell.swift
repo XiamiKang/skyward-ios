@@ -239,7 +239,7 @@ class ProDeviceStatusCell: UITableViewCell {
         refreshAction?()
     }
     
-    func configon(with data: DeviceStatus) {
+    func configon(with data: ProDeviceStatus) {
         msgLockText.text = data.lockStatus.description
         msgCollectionText.text = data.antennaStatus.description
         msgAzimuthText.text = String(data.azimuth)

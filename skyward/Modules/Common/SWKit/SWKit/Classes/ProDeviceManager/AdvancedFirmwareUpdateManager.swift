@@ -9,6 +9,33 @@
 import Foundation
 import UIKit
 
+// MARK: - 固件升级错误
+enum FirmwareUpdateError: Error {
+    case notConnected
+    case timeout
+    case eraseFailed
+    case infoFailed
+    case dataFailed
+    case endFailed
+    case invalidResponse
+    case invalidData
+    case retryExceeded
+    
+    var errorDescription: String? {
+        switch self {
+        case .notConnected: return "设备未连接"
+        case .timeout: return "操作超时"
+        case .eraseFailed: return "擦除Flash失败"
+        case .infoFailed: return "发送固件信息失败"
+        case .dataFailed: return "发送固件数据失败"
+        case .endFailed: return "升级结束失败"
+        case .invalidResponse: return "无效响应"
+        case .invalidData: return "无效固件数据"
+        case .retryExceeded: return "重试次数超限"
+        }
+    }
+}
+
 enum OTAUpgradeError: Error, LocalizedError {
     case invalidFirmwareFile
     case fileReadError
@@ -656,12 +683,7 @@ extension WiFiDeviceManager {
     }
 }
 
-// MARK: - Data扩展
-extension Data {
-    var hexString: String {
-        return map { String(format: "%02X", $0) }.joined()
-    }
-}
+
 
 
 

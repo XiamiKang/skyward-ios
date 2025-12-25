@@ -12,7 +12,7 @@ class ProDeviceDetailViewController: PersonalBaseViewController {
     
     // 添加WiFi设备管理器
     private let wifiDeviceManager = WiFiDeviceManager.shared
-    private var deviceStatus: DeviceStatus?
+    private var deviceStatus: ProDeviceStatus?
     private var environmentInfo: EnvironmentInfo?
     private var statusUpdateTimer: Timer?
     
@@ -218,20 +218,23 @@ class ProDeviceDetailViewController: PersonalBaseViewController {
         
         guard let location = LocationManager.shared.latestLocation else { return }
         wifiDeviceManager.halfSatellite(longitude: location.coordinate.longitude, latitude: location.coordinate.latitude, altitude: location.altitude) { [weak self] result in
+            guard let self = self else { return }
             DispatchQueue.main.async {
-                guard let self = self else { return }
                 switch result {
                 case .success(let alignmentResult):
                     self.view.sw_showSuccessToast("自动对星成功")
                     // 更新状态显示
-                    self.deviceStatus = DeviceStatus(
+                    self.deviceStatus = ProDeviceStatus(
                         lockStatus: alignmentResult.lockStatus,
                         antennaStatus: alignmentResult.antennaStatus,
                         azimuth: alignmentResult.azimuth,
                         elevation: alignmentResult.elevation,
                         altitude: alignmentResult.altitude,
                         longitude: alignmentResult.longitude,
-                        latitude: alignmentResult.latitude
+                        latitude: alignmentResult.latitude,
+                        powerSavingMode: false,
+                        logStreaming: false,
+                        mode: 1
                     )
                     self.proTableView.reloadRows(at: [IndexPath(row: 1, section: 0)], with: .none)
                     
