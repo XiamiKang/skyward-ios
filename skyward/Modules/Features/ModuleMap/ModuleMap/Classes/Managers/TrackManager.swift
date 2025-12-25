@@ -163,9 +163,15 @@ public class TrackManager: NSObject {
         }
         
         if recordName != record.name {
-            //修改本地文件夹名称
-            currentRecord?.name = recordName
-            dataManager.renameRecord(record)
+            // 创建更新后的record对象
+            var updatedRecord = record
+            updatedRecord.name = recordName
+            
+            // 修改本地文件夹名称和数据库记录
+            if dataManager.renameRecord(updatedRecord) {
+                // 只有当重命名成功后，才更新currentRecord的名称
+                currentRecord?.name = recordName
+            }
         }
         
         guard let data = dataManager.getTrackRecordGPXData(from: record) else {

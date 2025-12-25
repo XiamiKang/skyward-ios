@@ -343,7 +343,7 @@ class TrackDataManager {
     @discardableResult
     func renameRecord(_ record: TrackRecord) -> Bool {
         return DBManager.shared.updateToDb(table: DBTableName.track.rawValue,
-                                           on: [RouteRecord.Properties.name],
+                                           on: [TrackRecord.Properties.name],
                                            with: record,
                                            where: TrackRecord.Properties.id == record.id)
     }
@@ -352,7 +352,7 @@ class TrackDataManager {
     @discardableResult
     func updateUploadStatusRecord(_ record: TrackRecord) -> Bool {
         return DBManager.shared.updateToDb(table: DBTableName.track.rawValue,
-                                           on: [RouteRecord.Properties.uploadStatus],
+                                           on: [TrackRecord.Properties.uploadStatus],
                                            with: record,
                                            where: TrackRecord.Properties.id == record.id)
     }
