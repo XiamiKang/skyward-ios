@@ -1,0 +1,13 @@
+use_frameworks!
+
+platform :ios, '10.0'
+
+target 'TXRouterKit_Example' do
+  pod 'TXRouterKit', :path => '../'
+
+  target 'TXRouterKit_Tests' do
+    inherit! :search_paths
+
+    
+  end
+end

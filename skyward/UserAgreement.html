@@ -1,0 +1,397 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>行者Adventure - 用户协议</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: "Microsoft YaHei", "PingFang SC", "Helvetica Neue", Arial, sans-serif;
+        }
+
+        body {
+            background-color: #f5f7fa;
+            color: #333;
+            line-height: 1.8;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 40px 25px;
+            background-color: #ffffff;
+            box-shadow: 0 3px 18px rgba(0, 0, 0, 0.06);
+            border-radius: 10px;
+            margin-top: 30px;
+            margin-bottom: 60px;
+        }
+
+        /* 头部样式 */
+        .header {
+            text-align: center;
+            margin-bottom: 45px;
+            padding-bottom: 25px;
+            border-bottom: 1px solid #eef0f2;
+        }
+
+        .header h1 {
+            font-size: 2.4rem;
+            color: #212a34;
+            margin-bottom: 20px;
+            font-weight: 700;
+        }
+
+        .date-group {
+            font-size: 1.05rem;
+            color: #666;
+            line-height: 1.8;
+        }
+
+        .date-group p {
+            margin: 5px 0;
+        }
+
+        /* 重要提示样式 */
+        .important-tip {
+            background-color: #fff3e0;
+            border-left: 5px solid #ff9800;
+            padding: 20px 25px;
+            margin: 30px 0;
+            border-radius: 6px;
+            color: #e65100;
+        }
+
+        .important-tip p {
+            margin-bottom: 12px;
+            font-weight: 500;
+        }
+
+        .important-tip p:last-child {
+            margin-bottom: 0;
+            font-weight: 600;
+        }
+
+        /* 章节样式 */
+        .chapter {
+            margin-bottom: 45px;
+            padding: 0 10px;
+        }
+
+        .chapter h2 {
+            font-size: 1.6rem;
+            color: #212a34;
+            margin-bottom: 25px;
+            padding-bottom: 12px;
+            border-bottom: 2px solid #2196f3;
+            font-weight: 600;
+        }
+
+        .chapter h3 {
+            font-size: 1.25rem;
+            color: #34495e;
+            margin: 30px 0 18px;
+            font-weight: 500;
+        }
+
+        .chapter p {
+            font-size: 1rem;
+            color: #555;
+            margin-bottom: 15px;
+            text-align: justify;
+        }
+
+        .chapter ul, .chapter ol {
+            margin-left: 35px;
+            margin-bottom: 20px;
+        }
+
+        .chapter li {
+            font-size: 1rem;
+            color: #555;
+            margin-bottom: 12px;
+            text-align: justify;
+        }
+
+        /* 高亮样式 */
+        .highlight {
+            color: #d32f2f;
+            font-weight: 600;
+        }
+
+        .emphasis {
+            color: #1976d2;
+            font-weight: 500;
+        }
+
+        /* 最终安全警示样式 */
+        .safety-warning {
+            background-color: #e3f2fd;
+            border-radius: 8px;
+            padding: 25px 30px;
+            margin-top: 50px;
+        }
+
+        .safety-warning h3 {
+            font-size: 1.4rem;
+            color: #0d47a1;
+            margin-bottom: 20px;
+            text-align: center;
+            font-weight: 600;
+        }
+
+        .safety-warning p {
+            font-size: 1rem;
+            color: #263238;
+            margin-bottom: 15px;
+            text-align: justify;
+        }
+
+        .safety-warning ol {
+            margin-left: 35px;
+            margin-bottom: 20px;
+        }
+
+        .safety-warning ol li {
+            font-size: 1rem;
+            color: #263238;
+            margin-bottom: 12px;
+        }
+
+        .safety-warning .final-tip {
+            text-align: center;
+            font-size: 1.05rem;
+            color: #0d47a1;
+            font-weight: 500;
+            margin-top: 25px;
+        }
+
+        /* 联系我们样式 */
+        .contact-section {
+            margin-top: 30px;
+            padding: 20px;
+            background-color: #f8f9fa;
+            border-radius: 6px;
+        }
+
+        /* 响应式适配 */
+        @media (max-width: 768px) {
+            .container {
+                margin-top: 15px;
+                margin-bottom: 30px;
+                padding: 25px 15px;
+            }
+
+            .header h1 {
+                font-size: 1.9rem;
+            }
+
+            .chapter h2 {
+                font-size: 1.35rem;
+            }
+
+            .chapter h3 {
+                font-size: 1.15rem;
+            }
+
+            .important-tip, .safety-warning {
+                padding: 15px 20px;
+            }
+
+            .safety-warning h3 {
+                font-size: 1.2rem;
+            }
+
+            .chapter p, .chapter li, .safety-warning p, .safety-warning li {
+                font-size: 0.95rem;
+            }
+        }
+
+        @media (max-width: 480px) {
+            .container {
+                border-radius: 0;
+                box-shadow: none;
+                margin-top: 0;
+                margin-bottom: 0;
+                min-height: 100vh;
+            }
+
+            .header {
+                margin-bottom: 30px;
+                padding-bottom: 15px;
+            }
+
+            .chapter {
+                margin-bottom: 35px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <!-- 头部标题区域 -->
+        <div class="header">
+            <h1>行者Adventure用户协议</h1>
+            <div class="date-group">
+                <p><strong>最后更新日期：</strong>2025年12月23日</p>
+                <p><strong>生效日期：</strong>2025年12月23日</p>
+            </div>
+        </div>
+
+        <!-- 重要提示区域 -->
+        <div class="important-tip">
+            <p>请您在注册、登录、使用行者Adventure（以下简称“本应用”）服务之前，务必审慎阅读、充分理解本协议的全部条款内容，特别是以<span class="highlight">加粗、下划线</span>等形式提示的、关于<span class="highlight">您的重要权利、义务、责任限制与风险提示</span>的条款。</p>
+            <p>您的注册、登录、使用等行为即视为您已阅读、理解并同意接受本协议及与本协议相关的《行者Adventure隐私协议》的全部内容的约束。如果您不同意本协议的任何内容，或者无法准确理解条款的含义，请立即停止访问及使用本应用。如果您未满18周岁，请在法定监护人的陪同下阅读本协议。</p>
+        </div>
+
+        <!-- 第一章 总则与定义 -->
+        <div class="chapter">
+            <h2>第一章 总则与定义</h2>
+
+            <h3>1.1 协议主体与范围</h3>
+            <p>本协议是您（用户）与我们（行者Adventure服务提供者）之间关于下载、安装、注册、登录、使用本应用及相关服务所订立的具有法律约束力的协议。本应用服务包括但不限于：提供户外地图、组队位置共享、紧急消息通信等核心功能。</p>
+
+            <h3>1.2 功能定义</h3>
+            <ul>
+                <li><span class="emphasis">地图服务：</span>指本应用提供的基础地理信息展示、路线规划、导航辅助等功能。</li>
+                <li><span class="emphasis">组队位置共享：</span>指用户在创建或加入一个队伍后，可自愿选择向该队伍内的其他队员实时共享自身地理位置信息的功能。</li>
+                <li><span class="emphasis">紧急消息：</span>指用户在遭遇紧急情况时，可一键向当前所在队伍的所有队员发送包含其精确位置、时间等信息的求助警报的功能。</li>
+            </ul>
+
+            <h3>1.3 协议组成部分</h3>
+            <p>本协议内容除正文外，还包括<span class="highlight">《行者Adventure隐私协议》</span>以及我们已发布或将来可能发布的与本服务相关的各项规则、公告、声明、政策。所有组成部分均为本协议不可分割的一部分，与本协议正文具有同等法律效力。</p>
+        </div>
+
+        <!-- 第二章 账户注册与管理 -->
+        <div class="chapter">
+            <h2>第二章 账户注册与管理</h2>
+
+            <h3>2.1 注册资格</h3>
+            <p>您确认，在您开始注册程序使用本应用服务前，您已具备中华人民共和国法律规定的与您行为相适应的民事行为能力。</p>
+
+            <h3>2.2 信息真实</h3>
+            <p>您理解并承诺，您所提供的注册信息（特别是手机号码）是<span class="highlight">真实、准确、完整、有效</span>的，并有义务在相关资料发生变更时及时更新。因您提供的信息不实、过时或不完整而导致的任何法律责任或损失，由您自行承担。</p>
+
+            <h3>2.3 账户安全</h3>
+            <p>您的账户（包括用户名、密码及验证码）由您自行设置并妥善保管。<span class="highlight">您应对您账户项下的所有行为、活动及事件负完全责任。</span>未经我们书面同意，您不得将账户出借、转让、赠与或授权给任何第三方使用。如您发现任何未经授权的登录或使用，应立即通知我们。</p>
+        </div>
+
+        <!-- 第三章 服务内容与使用规范 -->
+        <div class="chapter">
+            <h2>第三章 服务内容与使用规范</h2>
+
+            <h3>3.1 服务的提供</h3>
+            <p>我们根据现有技术和条件提供本应用服务。我们将尽力确保服务的连贯性和安全性，但<span class="highlight">无法对数据传输的即时性、精确性、完整性和可靠性作出任何担保</span>，尤其是受限于户外复杂环境和设备性能时。</p>
+
+            <h3>3.2 地图功能使用与风险自担</h3>
+            <ul>
+                <li>本应用的地图底图、地理信息等数据，全部或部分来源于国家地理信息公共服务平台“天地图” 及吉林长光卫星技术股份有限公司等官方或授权的第三方数据服务提供商。</li>
+                <li>您明确知悉，本应用的地图及导航功能仅为户外活动提供辅助性参考，绝不能替代您的个人判断、专业户外技能、经验以及官方发布的权威地理信息。</li>
+                <li>您必须将地图信息与实地环境进行谨慎核对。在任何情况下，因<span class="highlight">依赖地图信息</span>（包括但不限于路线规划、兴趣点查找）所做的决策而导致的人身伤害、财产损失或任何其他不利后果，风险均由<span class="highlight">您自行承担</span>。</li>
+            </ul>
+
+            <h3>3.3 组队与位置共享规范</h3>
+            <ul>
+                <li>您仅可为<span class="emphasis">合法的、非商业的户外结伴活动</span>目的创建或加入队伍。</li>
+                <li>在开启位置共享功能前，<span class="highlight">您必须确保已获得队伍内所有其他成员的明确知情与同意</span>。</li>
+                <li>您完全理解位置信息属于个人敏感信息，并自行评估和承担向队友共享位置可能带来的一切风险（包括隐私泄露风险）。我们强烈建议您仅与值得信赖的伙伴共享位置。</li>
+                <li>您有权随时在应用内关闭位置共享或退出队伍，相关共享将立即停止。</li>
+            </ul>
+
+            <h3>3.4 紧急消息功能使用规范</h3>
+            <ul>
+                <li>紧急消息功能专为处理真实的、危及人身或财产安全的紧急情况而设计。</li>
+                <li><span class="highlight">严禁出于测试、玩笑、恶作剧、骚扰等任何非紧急目的触发此功能。</span></li>
+                <li>您确认，当您触发紧急消息时，我们有权将您当时的精确位置、设备状态等关键信息发送给您的队友。</li>
+                <li>您对您发送的任何紧急消息的真实性、合法性承担全部法律责任。因误报、谎报紧急情况而产生的一切后果（包括但不限于队友的误判、不必要的紧张、乃至公共救援资源的误动用及相关费用）均由您自行承担。</li>
+            </ul>
+
+            <h3>3.5 禁止行为</h3>
+            <p>您承诺不得利用本应用从事任何违反法律法规、损害公共利益或他人合法权益的行为，包括但不限于：</p>
+            <ul>
+                <li>利用位置共享功能进行跟踪、窥探、骚扰等侵犯他人隐私的行为。</li>
+                <li>发布虚假紧急消息，扰乱队伍秩序或浪费应急关注力。</li>
+                <li>对本应用进行反向工程、破解、干扰其正常运行或窃取数据。</li>
+                <li>传播任何违法、有害、诽谤、污辱性的信息。</li>
+            </ul>
+        </div>
+
+        <!-- 第四章 免责声明与责任限制 -->
+        <div class="chapter">
+            <h2>第四章 免责声明与责任限制</h2>
+
+            <h3>4.1 性质声明</h3>
+            <p><span class="highlight">本应用是一款辅助性安全工具，而非专业的、有约束力的导航服务或应急救援承诺。</span>我们提供的是技术能力，不参与您的具体户外活动决策，也无法控制您队友的行为。</p>
+
+            <h3>4.2 第三方风险</h3>
+            <p>您通过本应用与队友建立的信任关系及信息共享，是基于您个人的判断。对于因<span class="highlight">队友的不当行为、信息泄露或您对队友的错误信任</span>所导致的任何纠纷或损失，我们概不负责。</p>
+
+            <h3>4.3 不可抗力与意外情况</h3>
+            <p>对于因<span class="emphasis">不可抗力</span>（如自然灾害、战争、动乱）、<span class="emphasis">政府行为</span>、<span class="emphasis">基础电信服务中断</span>、<span class="emphasis">黑客攻击</span>、<span class="emphasis">计算机病毒</span>、<span class="emphasis">您设备的硬件或软件故障</span>、<span class="emphasis">GPS信号丢失</span>、<span class="emphasis">电力中断</span>等原因导致的服务中断、数据丢失、定位不准、信息延迟或任何其他损失，我们在法律允许的范围内予以免责。</p>
+
+            <h3>4.4 责任上限</h3>
+            <p>在法律允许的最大范围内，我们对您因使用本应用服务而产生的任何间接、附带、特殊、衍生性或惩罚性损害赔偿不承担责任。我们的全部责任，无论因何原因产生，均不超过您为使用本应用服务而向我们支付的费用（如适用）。</p>
+        </div>
+
+        <!-- 第五章 知识产权与隐私保护 -->
+        <div class="chapter">
+            <h2>第五章 知识产权与隐私保护</h2>
+
+            <h3>5.1 知识产权</h3>
+            <p>我们拥有本应用及其服务中所有内容（包括但不限于软件、代码、界面、设计、logo、商标、地图数据汇编）的知识产权和合法权利。未经我们书面许可，您不得进行任何形式的复制、修改、传播或商业性使用。</p>
+
+            <h3>5.2 隐私保护</h3>
+            <p>我们将严格按照另行公布的 <span class="highlight">《行者Adventure隐私协议》</span> 收集、使用、存储和保护您的个人信息。该协议详细说明了我们如何处理您的位置信息等敏感数据，请您务必一并仔细阅读。</p>
+        </div>
+
+        <!-- 第六章 协议变更、终止与争议解决 -->
+        <div class="chapter">
+            <h2>第六章 协议变更、终止与争议解决</h2>
+
+            <h3>6.1 协议变更</h3>
+            <p>我们有权根据法律法规变化、业务发展及优化服务的需要，随时修订本协议。修订后的协议将通过应用内公告、推送通知或网站公示等方式公布，<span class="highlight">并于公布之日起生效</span>。如您不同意相关变更，您有权停止使用本应用服务；<span class="highlight">您的继续使用行为将被视为对新版协议的接受。</span></p>
+
+            <h3>6.2 服务终止</h3>
+            <p>您有权随时通过注销账户的方式终止使用本应用服务。我们也有权依据法律、本协议约定或自行判断，在认为您已违反本协议时，暂停或终止向您提供服务，且无需承担任何责任。</p>
+
+            <h3>6.3 法律适用与争议解决</h3>
+            <p>本协议的订立、执行、解释及争议的解决均适用中华人民共和国大陆地区法律。因本协议引起的或与本协议有关的任何争议，双方应首先友好协商解决；协商不成的，任何一方均有权将争议提交至<span class="highlight">我们住所地有管辖权的人民法院</span>通过诉讼解决。</p>
+        </div>
+
+        <!-- 第七章 其他 -->
+        <div class="chapter">
+            <h2>第七章 其他</h2>
+
+            <h3>7.1 通知</h3>
+            <p>我们向您发出的通知，可采用应用内公告、推送消息、电子邮件或短信等方式。该等通知于发送之日视为已送达。</p>
+
+            <h3>7.2 可分割性</h3>
+            <p>如本协议的任何条款被认定为无效或不可执行，该条款应被改写成尽可能接近原意的可执行条款，且不影响本协议其余条款的有效性和可执行性。</p>
+
+            <h3>7.3 联系我们</h3>
+            <div class="contact-section">
+                <p>如您对本协议或本应用服务有任何疑问、意见或建议，可通过以下方式联系我们：</p>
+                <ul>
+                    <li><strong>反馈邮箱：</strong>develop@bjtxts.com</li>
+                </ul>
+            </div>
+        </div>
+
+        <!-- 最终安全警示 -->
+        <div class="safety-warning">
+            <h3>最终安全警示</h3>
+            <p>户外活动本质具有风险，包括但不限于迷路、坠落、自然灾害、失温、野生动植物威胁等。行者Adventure旨在通过技术手段提升团队间的信息透明度和应急响应能力，以辅助您管理风险，但绝不可能消除所有风险。</p>
+            <p>您，作为具备完全行为能力的个人，是自身安全的第一责任人。请务必：</p>
+            <ol>
+                <li><span class="emphasis">行前充分规划</span>，了解目的地情况，评估自身及团队能力。</li>
+                <li><span class="emphasis">携带必要装备</span>，包括但不限于备用电源、纸质地图、指南针、急救包。</li>
+                <li><span class="emphasis">保持环境警觉</span>，永远将实地观察置于电子设备显示之上。</li>
+                <li><span class="emphasis">量力而行，安全第一</span>，永远不要将自己和队友置于不必要的危险之中。</li>
+            </ol>
+            <p class="final-tip">祝您每一次出行都安全、愉快！</p>
+        </div>
+    </div>
+</body>
+</html>

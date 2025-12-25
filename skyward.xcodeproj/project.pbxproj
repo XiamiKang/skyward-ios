@@ -1,0 +1,485 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 77;
+	objects = {
+
+/* Begin PBXBuildFile section */
+		B4886CCD2EFA95D60013C412 /* Citys.plist in Resources */ = {isa = PBXBuildFile; fileRef = B4886CCC2EFA95D60013C412 /* Citys.plist */; };
+		B4886CDA2EFB950F0013C412 /* PrivacyPolicy.html in Resources */ = {isa = PBXBuildFile; fileRef = B4886CD82EFB950F0013C412 /* PrivacyPolicy.html */; };
+		B4886CDB2EFB950F0013C412 /* UserAgreement.html in Resources */ = {isa = PBXBuildFile; fileRef = B4886CD92EFB950F0013C412 /* UserAgreement.html */; };
+		B4A323782EE18AF400A5EEEF /* DroidSansFallback.ttf in Resources */ = {isa = PBXBuildFile; fileRef = B4A323772EE18AF400A5EEEF /* DroidSansFallback.ttf */; };
+		B4B702822EE82DB5006C618B /* scene3d.yaml in Resources */ = {isa = PBXBuildFile; fileRef = B4B702812EE82DB5006C618B /* scene3d.yaml */; };
+		B4D3CBE72ED3EAD7006D0305 /* scanning.json in Resources */ = {isa = PBXBuildFile; fileRef = B4D3CBE62ED3EAD7006D0305 /* scanning.json */; };
+		B4F6F9AD2EEAEB150057FD79 /* Pods_skyward.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 889022F314AC7D1EDC63439F /* Pods_skyward.framework */; };
+		F26143632EC30FFB0018F242 /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = F26143622EC30FFB0018F242 /* PrivacyInfo.xcprivacy */; };
+		F26143B32EC31A020018F242 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = F26143AE2EC31A020018F242 /* Assets.xcassets */; };
+		F26143BA2EC31A020018F242 /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = F26143AD2EC31A020018F242 /* AppDelegate.swift */; };
+		F26144902EC6BBEE0018F242 /* Launch Screen.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = F261448F2EC6BBEE0018F242 /* Launch Screen.storyboard */; };
+/* End PBXBuildFile section */
+
+/* Begin PBXFileReference section */
+		1CD17FB7FB8F7D90131AB7D9 /* Pods-skyward.debug.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-skyward.debug.xcconfig"; path = "Target Support Files/Pods-skyward/Pods-skyward.debug.xcconfig"; sourceTree = "<group>"; };
+		889022F314AC7D1EDC63439F /* Pods_skyward.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; includeInIndex = 0; path = Pods_skyward.framework; sourceTree = BUILT_PRODUCTS_DIR; };
+		88EBD98ADA6305CAAD57F062 /* Pods-skyward.release.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-skyward.release.xcconfig"; path = "Target Support Files/Pods-skyward/Pods-skyward.release.xcconfig"; sourceTree = "<group>"; };
+		B4886CCC2EFA95D60013C412 /* Citys.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Citys.plist; sourceTree = "<group>"; };
+		B4886CD82EFB950F0013C412 /* PrivacyPolicy.html */ = {isa = PBXFileReference; lastKnownFileType = text.html; path = PrivacyPolicy.html; sourceTree = "<group>"; };
+		B4886CD92EFB950F0013C412 /* UserAgreement.html */ = {isa = PBXFileReference; lastKnownFileType = text.html; path = UserAgreement.html; sourceTree = "<group>"; };
+		B4A323772EE18AF400A5EEEF /* DroidSansFallback.ttf */ = {isa = PBXFileReference; lastKnownFileType = file; path = DroidSansFallback.ttf; sourceTree = "<group>"; };
+		B4B702812EE82DB5006C618B /* scene3d.yaml */ = {isa = PBXFileReference; lastKnownFileType = text.yaml; path = scene3d.yaml; sourceTree = "<group>"; };
+		B4D3CBE62ED3EAD7006D0305 /* scanning.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = scanning.json; sourceTree = "<group>"; };
+		F261434C2EC303EA0018F242 /* skyward.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = skyward.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		F26143622EC30FFB0018F242 /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; lastKnownFileType = text.xml; path = PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
+		F26143AD2EC31A020018F242 /* AppDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppDelegate.swift; sourceTree = "<group>"; };
+		F26143AE2EC31A020018F242 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
+		F26143B02EC31A020018F242 /* skyward.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = skyward.entitlements; sourceTree = "<group>"; };
+		F261448F2EC6BBEE0018F242 /* Launch Screen.storyboard */ = {isa = PBXFileReference; lastKnownFileType = file.storyboard; path = "Launch Screen.storyboard"; sourceTree = "<group>"; };
+		F261450A2ECB19510018F242 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
+/* End PBXFileReference section */
+
+/* Begin PBXFrameworksBuildPhase section */
+		F26143492EC303EA0018F242 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				B4F6F9AD2EEAEB150057FD79 /* Pods_skyward.framework in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXFrameworksBuildPhase section */
+
+/* Begin PBXGroup section */
+		53E814ABE492BFA96D58FBBF /* Frameworks */ = {
+			isa = PBXGroup;
+			children = (
+				889022F314AC7D1EDC63439F /* Pods_skyward.framework */,
+			);
+			name = Frameworks;
+			sourceTree = "<group>";
+		};
+		A569E1EB4399669BCAF8D83A /* Pods */ = {
+			isa = PBXGroup;
+			children = (
+				1CD17FB7FB8F7D90131AB7D9 /* Pods-skyward.debug.xcconfig */,
+				88EBD98ADA6305CAAD57F062 /* Pods-skyward.release.xcconfig */,
+			);
+			path = Pods;
+			sourceTree = "<group>";
+		};
+		F26143432EC303EA0018F242 = {
+			isa = PBXGroup;
+			children = (
+				F26143622EC30FFB0018F242 /* PrivacyInfo.xcprivacy */,
+				F26143B22EC31A020018F242 /* skyward */,
+				F261434D2EC303EA0018F242 /* Products */,
+				A569E1EB4399669BCAF8D83A /* Pods */,
+				53E814ABE492BFA96D58FBBF /* Frameworks */,
+			);
+			sourceTree = "<group>";
+		};
+		F261434D2EC303EA0018F242 /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				F261434C2EC303EA0018F242 /* skyward.app */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+		F26143B22EC31A020018F242 /* skyward */ = {
+			isa = PBXGroup;
+			children = (
+				F261450A2ECB19510018F242 /* Info.plist */,
+				F26143AD2EC31A020018F242 /* AppDelegate.swift */,
+				B4D3CBE62ED3EAD7006D0305 /* scanning.json */,
+				B4A323772EE18AF400A5EEEF /* DroidSansFallback.ttf */,
+				B4B702812EE82DB5006C618B /* scene3d.yaml */,
+				B4886CCC2EFA95D60013C412 /* Citys.plist */,
+				B4886CD82EFB950F0013C412 /* PrivacyPolicy.html */,
+				B4886CD92EFB950F0013C412 /* UserAgreement.html */,
+				F26143AE2EC31A020018F242 /* Assets.xcassets */,
+				F26143B02EC31A020018F242 /* skyward.entitlements */,
+				F261448F2EC6BBEE0018F242 /* Launch Screen.storyboard */,
+			);
+			path = skyward;
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXNativeTarget section */
+		F261434B2EC303EA0018F242 /* skyward */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = F26143582EC303EC0018F242 /* Build configuration list for PBXNativeTarget "skyward" */;
+			buildPhases = (
+				0C7C8F7F67C58749F32AB786 /* [CP] Check Pods Manifest.lock */,
+				F26143482EC303EA0018F242 /* Sources */,
+				F26143492EC303EA0018F242 /* Frameworks */,
+				F261434A2EC303EA0018F242 /* Resources */,
+				7501F80B5F2A562432D9916D /* [CP] Embed Pods Frameworks */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = skyward;
+			productName = skyward;
+			productReference = F261434C2EC303EA0018F242 /* skyward.app */;
+			productType = "com.apple.product-type.application";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		F26143442EC303EA0018F242 /* Project object */ = {
+			isa = PBXProject;
+			attributes = {
+				BuildIndependentTargetsInParallel = 1;
+				LastSwiftUpdateCheck = 1640;
+				LastUpgradeCheck = 1640;
+				TargetAttributes = {
+					F261434B2EC303EA0018F242 = {
+						CreatedOnToolsVersion = 16.4;
+					};
+				};
+			};
+			buildConfigurationList = F26143472EC303EA0018F242 /* Build configuration list for PBXProject "skyward" */;
+			developmentRegion = en;
+			hasScannedForEncodings = 0;
+			knownRegions = (
+				en,
+				Base,
+			);
+			mainGroup = F26143432EC303EA0018F242;
+			minimizedProjectReferenceProxies = 1;
+			preferredProjectObjectVersion = 77;
+			productRefGroup = F261434D2EC303EA0018F242 /* Products */;
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (
+				F261434B2EC303EA0018F242 /* skyward */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXResourcesBuildPhase section */
+		F261434A2EC303EA0018F242 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				F26144902EC6BBEE0018F242 /* Launch Screen.storyboard in Resources */,
+				B4886CCD2EFA95D60013C412 /* Citys.plist in Resources */,
+				B4A323782EE18AF400A5EEEF /* DroidSansFallback.ttf in Resources */,
+				F26143B32EC31A020018F242 /* Assets.xcassets in Resources */,
+				B4D3CBE72ED3EAD7006D0305 /* scanning.json in Resources */,
+				B4B702822EE82DB5006C618B /* scene3d.yaml in Resources */,
+				F26143632EC30FFB0018F242 /* PrivacyInfo.xcprivacy in Resources */,
+				B4886CDA2EFB950F0013C412 /* PrivacyPolicy.html in Resources */,
+				B4886CDB2EFB950F0013C412 /* UserAgreement.html in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXResourcesBuildPhase section */
+
+/* Begin PBXShellScriptBuildPhase section */
+		0C7C8F7F67C58749F32AB786 /* [CP] Check Pods Manifest.lock */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputFileListPaths = (
+			);
+			inputPaths = (
+				"${PODS_PODFILE_DIR_PATH}/Podfile.lock",
+				"${PODS_ROOT}/Manifest.lock",
+			);
+			name = "[CP] Check Pods Manifest.lock";
+			outputFileListPaths = (
+			);
+			outputPaths = (
+				"$(DERIVED_FILE_DIR)/Pods-skyward-checkManifestLockResult.txt",
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "diff \"${PODS_PODFILE_DIR_PATH}/Podfile.lock\" \"${PODS_ROOT}/Manifest.lock\" > /dev/null\nif [ $? != 0 ] ; then\n    # print error to STDERR\n    echo \"error: The sandbox is not in sync with the Podfile.lock. Run 'pod install' or update your CocoaPods installation.\" >&2\n    exit 1\nfi\n# This output is used by Xcode 'outputs' to avoid re-running this script phase.\necho \"SUCCESS\" > \"${SCRIPT_OUTPUT_FILE_0}\"\n";
+			showEnvVarsInLog = 0;
+		};
+		7501F80B5F2A562432D9916D /* [CP] Embed Pods Frameworks */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputFileListPaths = (
+				"${PODS_ROOT}/Target Support Files/Pods-skyward/Pods-skyward-frameworks-${CONFIGURATION}-input-files.xcfilelist",
+			);
+			name = "[CP] Embed Pods Frameworks";
+			outputFileListPaths = (
+				"${PODS_ROOT}/Target Support Files/Pods-skyward/Pods-skyward-frameworks-${CONFIGURATION}-output-files.xcfilelist",
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "\"${PODS_ROOT}/Target Support Files/Pods-skyward/Pods-skyward-frameworks.sh\"\n";
+			showEnvVarsInLog = 0;
+		};
+/* End PBXShellScriptBuildPhase section */
+
+/* Begin PBXSourcesBuildPhase section */
+		F26143482EC303EA0018F242 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				F26143BA2EC31A020018F242 /* AppDelegate.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin XCBuildConfiguration section */
+		F26143562EC303EC0018F242 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				ASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS = YES;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++20";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_TESTABILITY = YES;
+				ENABLE_USER_SCRIPT_SANDBOXING = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu17;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"DEBUG=1",
+					"$(inherited)",
+				);
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				LOCALIZATION_PREFERS_STRING_CATALOGS = YES;
+				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
+				MTL_FAST_MATH = YES;
+				ONLY_ACTIVE_ARCH = YES;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "DEBUG $(inherited)";
+				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
+			};
+			name = Debug;
+		};
+		F26143572EC303EC0018F242 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				ASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS = YES;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++20";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				ENABLE_NS_ASSERTIONS = NO;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_USER_SCRIPT_SANDBOXING = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu17;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				LOCALIZATION_PREFERS_STRING_CATALOGS = YES;
+				MTL_ENABLE_DEBUG_INFO = NO;
+				MTL_FAST_MATH = YES;
+				SWIFT_COMPILATION_MODE = wholemodule;
+			};
+			name = Release;
+		};
+		F26143592EC303EC0018F242 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = 1CD17FB7FB8F7D90131AB7D9 /* Pods-skyward.debug.xcconfig */;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_ENTITLEMENTS = skyward/skyward.entitlements;
+				CODE_SIGN_IDENTITY = "Apple Development";
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = 7S86Y9Q83J;
+				ENABLE_PREVIEWS = YES;
+				ENABLE_USER_SCRIPT_SANDBOXING = NO;
+				FRAMEWORK_SEARCH_PATHS = (
+					"$(inherited)",
+					"$(PROJECT_DIR)/skyward",
+				);
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = skyward/Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = skyward;
+				INFOPLIST_KEY_NSBluetoothAlwaysUsageDescription = "需要蓝牙权限来连接您的设备";
+				INFOPLIST_KEY_NSBluetoothPeripheralUsageDescription = "需要蓝牙权限来连接您的设备";
+				INFOPLIST_KEY_NSCameraUsageDescription = "需要使用您的相机获取图片用于头像更新";
+				INFOPLIST_KEY_NSLocalNetworkUsageDescription = "需要访问本地网络以连接到设备";
+				INFOPLIST_KEY_NSLocationAlwaysAndWhenInUseUsageDescription = "需要在后台获取您的位置信息，以便提供实时位置跟踪和紧急求助功能";
+				INFOPLIST_KEY_NSLocationAlwaysUsageDescription = "需要获取您的位置信息，以便提供位置服务和紧急求助功能";
+				INFOPLIST_KEY_NSLocationWhenInUseUsageDescription = "需要获取您的位置信息，以便提供位置服务和紧急求助功能";
+				INFOPLIST_KEY_NSPhotoLibraryAddUsageDescription = "需要使用您的相册获取图片用于兴趣点记录，头像更新";
+				INFOPLIST_KEY_NSPhotoLibraryUsageDescription = "需要使用您的相册获取图片用于兴趣点记录，头像更新";
+				"INFOPLIST_KEY_UIApplicationSceneManifest_Generation[sdk=iphoneos*]" = YES;
+				"INFOPLIST_KEY_UIApplicationSceneManifest_Generation[sdk=iphonesimulator*]" = YES;
+				"INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents[sdk=iphoneos*]" = YES;
+				"INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents[sdk=iphonesimulator*]" = YES;
+				"INFOPLIST_KEY_UILaunchScreen_Generation[sdk=iphoneos*]" = YES;
+				"INFOPLIST_KEY_UILaunchScreen_Generation[sdk=iphonesimulator*]" = YES;
+				"INFOPLIST_KEY_UIStatusBarStyle[sdk=iphoneos*]" = UIStatusBarStyleDefault;
+				"INFOPLIST_KEY_UIStatusBarStyle[sdk=iphonesimulator*]" = UIStatusBarStyleDefault;
+				INFOPLIST_KEY_UISupportedInterfaceOrientations = UIInterfaceOrientationPortrait;
+				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown";
+				IPHONEOS_DEPLOYMENT_TARGET = 15.6;
+				LD_RUNPATH_SEARCH_PATHS = "@executable_path/Frameworks\"";
+				"LD_RUNPATH_SEARCH_PATHS[sdk=macosx*]" = "@executable_path/../Frameworks";
+				MARKETING_VERSION = 1.0.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.txts.skyward;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				PROVISIONING_PROFILE_SPECIFIER = "";
+				REGISTER_APP_GROUPS = YES;
+				SDKROOT = auto;
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Debug;
+		};
+		F261435A2EC303EC0018F242 /* Release */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = 88EBD98ADA6305CAAD57F062 /* Pods-skyward.release.xcconfig */;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_ENTITLEMENTS = skyward/skyward.entitlements;
+				CODE_SIGN_IDENTITY = "Apple Development";
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = 7S86Y9Q83J;
+				ENABLE_PREVIEWS = YES;
+				ENABLE_USER_SCRIPT_SANDBOXING = NO;
+				FRAMEWORK_SEARCH_PATHS = (
+					"$(inherited)",
+					"$(PROJECT_DIR)/skyward",
+				);
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = skyward/Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = skyward;
+				INFOPLIST_KEY_NSBluetoothAlwaysUsageDescription = "需要蓝牙权限来连接您的设备";
+				INFOPLIST_KEY_NSBluetoothPeripheralUsageDescription = "需要蓝牙权限来连接您的设备";
+				INFOPLIST_KEY_NSCameraUsageDescription = "需要使用您的相机获取图片用于头像更新";
+				INFOPLIST_KEY_NSLocalNetworkUsageDescription = "需要访问本地网络以连接到设备";
+				INFOPLIST_KEY_NSLocationAlwaysAndWhenInUseUsageDescription = "需要在后台获取您的位置信息，以便提供实时位置跟踪和紧急求助功能";
+				INFOPLIST_KEY_NSLocationAlwaysUsageDescription = "需要获取您的位置信息，以便提供位置服务和紧急求助功能";
+				INFOPLIST_KEY_NSLocationWhenInUseUsageDescription = "需要获取您的位置信息，以便提供位置服务和紧急求助功能";
+				INFOPLIST_KEY_NSPhotoLibraryAddUsageDescription = "需要使用您的相册获取图片用于兴趣点记录，头像更新";
+				INFOPLIST_KEY_NSPhotoLibraryUsageDescription = "需要使用您的相册获取图片用于兴趣点记录，头像更新";
+				"INFOPLIST_KEY_UIApplicationSceneManifest_Generation[sdk=iphoneos*]" = YES;
+				"INFOPLIST_KEY_UIApplicationSceneManifest_Generation[sdk=iphonesimulator*]" = YES;
+				"INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents[sdk=iphoneos*]" = YES;
+				"INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents[sdk=iphonesimulator*]" = YES;
+				"INFOPLIST_KEY_UILaunchScreen_Generation[sdk=iphoneos*]" = YES;
+				"INFOPLIST_KEY_UILaunchScreen_Generation[sdk=iphonesimulator*]" = YES;
+				"INFOPLIST_KEY_UIStatusBarStyle[sdk=iphoneos*]" = UIStatusBarStyleDefault;
+				"INFOPLIST_KEY_UIStatusBarStyle[sdk=iphonesimulator*]" = UIStatusBarStyleDefault;
+				INFOPLIST_KEY_UISupportedInterfaceOrientations = UIInterfaceOrientationPortrait;
+				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown";
+				IPHONEOS_DEPLOYMENT_TARGET = 15.6;
+				LD_RUNPATH_SEARCH_PATHS = "@executable_path/Frameworks\"";
+				"LD_RUNPATH_SEARCH_PATHS[sdk=macosx*]" = "@executable_path/../Frameworks";
+				MARKETING_VERSION = 1.0.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.txts.skyward;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				PROVISIONING_PROFILE_SPECIFIER = "";
+				REGISTER_APP_GROUPS = YES;
+				SDKROOT = auto;
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Release;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		F26143472EC303EA0018F242 /* Build configuration list for PBXProject "skyward" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				F26143562EC303EC0018F242 /* Debug */,
+				F26143572EC303EC0018F242 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		F26143582EC303EC0018F242 /* Build configuration list for PBXNativeTarget "skyward" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				F26143592EC303EC0018F242 /* Debug */,
+				F261435A2EC303EC0018F242 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+/* End XCConfigurationList section */
+	};
+	rootObject = F26143442EC303EA0018F242 /* Project object */;
+}

@@ -1,0 +1,431 @@
+//
+//  File.swift
+//  txtsPersonal
+//
+//  Created by TXTS on 2025/11/18.
+//
+
+import Foundation
+import CoreBluetooth
+import CryptoKit
+import CommonCrypto
+
+
+// MARK: - 协议命令实现扩展
+public extension BluetoothManager {
+    
+    // MARK: - 5.0 获取设备信息 (0x0000)
+    func requestDeviceInfo() {
+        // 获取BLE MTU并计算最大数据长度
+        let mtu = MTU
+        let maxDataLength = UInt16(mtu - 3)
+        
+        var messageContent = Data()
+        messageContent.append(maxDataLength.bigEndianData)
+        
+        sendCommand(.deviceInfo, messageContent: messageContent)
+        
+        print("请求设备信息，MTU: \(mtu), 最大数据长度: \(maxDataLength)")
+    }
+    
+    // MARK: - 5.1 设备绑定状态设置 (0x0001)
+    func setBindStatus(_ bonded: Bool) {
+        let status: UInt8 = bonded ? 0x01 : 0x00
+        var messageContent = Data()
+        messageContent.append(status)
+        
+        sendCommand(.setBindStatus, messageContent: messageContent)
+    }
+    
+    // MARK: - 5.2 状态信息上报 (0x0002)
+    func requestStatusInfo() {
+        var messageContent = Data()
+        messageContent.append(0x00)
+        
+        sendCommand(.statusInfo, messageContent: messageContent)
+    }
+    
+    // MARK: - 5.3 设置工作模式 (0x0003)
+    func setWorkMode(_ mode: UInt8) {
+        var messageContent = Data()
+        messageContent.append(mode)
+        
+        sendCommand(.setWorkMode, messageContent: messageContent)
+    }
+    
+    // MARK: - 5.4 设置设备状态上报时间 (0x0004)
+    func setStatusReportFrequency(_ frequency: UInt8) {
+        var messageContent = Data()
+        messageContent.append(frequency)
+        
+        sendCommand(.setStatusReportTime, messageContent: messageContent)
+    }
+    
+    // MARK: - 5.5 平台自定义内容信息下发 (0x0005)
+    func sendPlatformCustomData(_ data: Data) {
+        sendCommand(.platformCustomData, messageContent: data)
+    }
+    
+    // MARK: - 5.6 APP自定义内容信息上报 (0x0006)
+    func sendAppCustomData(_ data: Data) {
+        sendCommand(.appCustomData, messageContent: data)
+    }
+    
+    // MARK: - 5.8 APP触发报警报平安 (0x0008)
+    func triggerAlarm(_ type: UInt8) {
+        var messageContent = Data()
+        messageContent.append(type)
+        
+        sendCommand(.appTriggerAlarm, messageContent: messageContent)
+    }
+    
+    
+    // MARK: - 5.9 设置设备定位信息上报后台时间间隔 (0x0009)
+    func setPositionReportInterval(_ interval: UInt16) {
+        var messageContent = Data()
+        messageContent.append(interval.bigEndianData)
+        
+        sendCommand(.setPositionReport, messageContent: messageContent)
+    }
+    
+    // MARK: - 5.11 获取手机定位及时间信息 (0x000B)
+    func sendPhoneLocation(_ position: PositionInfo) {
+        var messageContent = Data()
+        messageContent.append(position.timestamp.bigEndianData)
+        messageContent.append(position.latitude.bigEndianData)
+        messageContent.append(position.latitudeHemisphere)
+        messageContent.append(position.longitude.bigEndianData)
+        messageContent.append(position.longitudeHemisphere)
+        messageContent.append(position.altitude.bigEndianData)
+        
+        sendCommand(.getPhoneLocation, messageContent: messageContent)
+    }
+    
+    // MARK: - 5.13 低功耗唤醒时间设置 (0x000D)
+    func setLowPowerWakeTime(_ time: UInt32) {
+        var messageContent = Data()
+        messageContent.append(time.bigEndianData)
+        
+        sendCommand(.setLowPowerWakeTime, messageContent: messageContent)
+    }
+    
+    // MARK: - 5.14 定位信息存储时间间隔设置 (0x000E)
+    func setPositionStoreInterval(_ interval: UInt32) {
+        var messageContent = Data()
+        messageContent.append(interval.bigEndianData)
+        
+        sendCommand(.setPositionStoreInterval, messageContent: messageContent)
+    }
+    
+    // MARK: - 5.15 APP读取存储的定位信息 (0x000F)
+    func requestStoredPositions() {
+        var messageContent = Data()
+        messageContent.append(0x00)
+        
+        sendCommand(.readStoredPositions, messageContent: messageContent)
+    }
+    
+    // MARK: - 5.16 开始固件升级 (0x0010)
+    func startFirmwareUpgrade(version: String, firmwareData: Data) {
+        // 解析版本号
+        let versionBytes = parseVersionString(version)
+//        print("固件数据--\(firmwareData.hexString)")
+        // 计算MD5
+        let md5 = md5Hash(from: firmwareData.hexString)
+        print("MD5 字符串--\(md5)")
+        guard let md5Data = md5.data(using: .ascii) else {
+            print("MD5 字符串转换失败")
+            return
+        }
+        
+        var messageContent = Data()
+        
+        // 固件版本号 (4字节)
+        messageContent.append(versionBytes)
+        
+        // 固件长度 (4字节)
+        let length = UInt32(firmwareData.count)
+        messageContent.append(UInt8((length >> 24) & 0xFF))
+        messageContent.append(UInt8((length >> 16) & 0xFF))
+        messageContent.append(UInt8((length >> 8) & 0xFF))
+        messageContent.append(UInt8(length & 0xFF))
+        
+        // MD5值 (32字节)
+        messageContent.append(md5Data)
+        
+        sendCommand(.startFirmwareUpgrade, messageContent: messageContent)
+        
+        print("发送固件升级开始命令:")
+        print("  版本: \(version)")
+        print("  长度: \(length) 字节")
+        print("  MD5: \(md5)")
+    }
+    
+    // MARK: - 5.17 发送固件数据 (0x0011)
+    func sendFirmwareData(packetIndex: UInt32, packetData: Data) {
+        var messageContent = Data()
+        
+        // 数据包索引 (4字节)
+        messageContent.append(UInt8((packetIndex >> 24) & 0xFF))
+        messageContent.append(UInt8((packetIndex >> 16) & 0xFF))
+        messageContent.append(UInt8((packetIndex >> 8) & 0xFF))
+        messageContent.append(UInt8(packetIndex & 0xFF))
+        
+        // 当前数据包长度 (2字节)
+        let length = UInt16(packetData.count)
+        messageContent.append(UInt8((length >> 8) & 0xFF))
+        messageContent.append(UInt8(length & 0xFF))
+        
+        // 固件数据
+        messageContent.append(packetData)
+        
+        sendCommand(.firmwareData, messageContent: messageContent)
+        
+        print("发送固件数据包 \(packetIndex): \(length) 字节")
+    }
+    
+    // MARK: - 5.18 固件升级结束 (0x0012)
+    func endFirmwareUpgrade(success: Bool) {
+        let result: UInt8 = success ? 0x00 : 0x01
+        var messageContent = Data()
+        messageContent.append(result)
+        
+        sendCommand(.endFirmwareUpgrade, messageContent: messageContent)
+        
+        print("发送固件升级结束命令: \(success ? "成功" : "失败")")
+    }
+    
+    // MARK: - 5.19 获取卫星信号质量 (0x0014)
+    func getSatelliteSignal() {
+        let result: UInt8 = 0x00
+        var messageContent = Data()
+        messageContent.append(result)
+        
+        sendCommand(.getSatelliteSignal, messageContent: messageContent)
+        
+        print("发送获取卫星信号质量命令")
+    }
+    
+    // MARK: - 5.20 获取卫星收发记录 (0x0015)
+    func getSatelliteRecords() {
+        let result: UInt8 = 0x00
+        var messageContent = Data()
+        messageContent.append(result)
+        
+        sendCommand(.getSatelliteRecords, messageContent: messageContent)
+        
+        print("发送获取卫星收发记录命令")
+    }
+    
+    func resetDevice() {
+        let result: UInt8 = 0x00
+        var messageContent = Data()
+        messageContent.append(result)
+        
+        sendCommand(.resetDevice, messageContent: messageContent)
+        
+        print("发送复位命令")
+    }
+    
+    // MARK: - 完整的固件升级流程
+    func startCompleteFirmwareUpgrade(version: String, firmwarePath: String) {
+        do {
+            // 读取固件文件
+            let firmwareURL = URL(fileURLWithPath: firmwarePath)
+            let firmwareData = try Data(contentsOf: firmwareURL)
+            
+            // 动态计算包大小（考虑MTU限制）
+            let mtu = MTU
+            let packetOverhead = 14 // 通信帧开销
+            let actualPacketSize = min(512, mtu - packetOverhead - 10) // 留余量
+            
+            print("MTU: \(mtu), 推荐包大小: \(actualPacketSize)")
+            
+            // 准备升级
+            firmwareManager.startUpgrade(firmwareData: firmwareData, packetSize: actualPacketSize)
+            
+            // 发送开始升级命令
+            startFirmwareUpgrade(version: version, firmwareData: firmwareData)
+            
+        } catch {
+            print("读取固件文件失败: \(error)")
+            NotificationCenter.default.post(
+                name: .firmwareUpgradeCompleted,
+                object: nil,
+                userInfo: ["success": false, "error": error.localizedDescription]
+            )
+        }
+    }
+    
+    // 发送下一个固件数据包
+    // MARK: - 固件升级流程优化（2KB应答）
+    func sendNextFirmwarePacket() {
+        guard let packet = firmwareManager.currentPacketInfo() else {
+            print("固件升级完成或没有更多数据包")
+            // 发送升级结束命令
+            endFirmwareUpgrade(success: true)
+            
+            NotificationCenter.default.post(
+                name: .firmwareUpgradeCompleted,
+                object: nil,
+                userInfo: ["success": true]
+            )
+            return
+        }
+        
+        // 发送数据包
+        sendFirmwareData(packetIndex: packet.index, packetData: packet.data)
+        
+        // 更新进度
+        let progress = firmwareManager.progress
+        print("📦 发送固件数据包 \(packet.index + 1)/\(firmwareManager.totalPackets) - \(firmwareManager.ackStatus())")
+        
+        NotificationCenter.default.post(
+            name: .firmwareUpgradeProgress,
+            object: nil,
+            userInfo: [
+                "progress": progress,
+                "currentPacket": packet.index,
+                "totalPackets": firmwareManager.totalPackets,
+                "ackStatus": firmwareManager.ackStatus()
+            ]
+        )
+        
+        // 移动到下一个包但不立即发送，等待设备应答
+        firmwareManager.moveToNextPacket()
+        
+        // 如果已经发送了2KB数据，等待设备应答
+        if firmwareManager.shouldWaitForAck() {
+            print("⏳ 已发送2KB数据，等待设备应答...")
+            // 这里不自动发送下一个包，等待设备应答后再继续
+        } else {
+            // 继续发送下一个数据包（在2KB范围内）
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) {
+                self.sendNextFirmwarePacket()
+            }
+        }
+    }
+
+    // 处理固件数据应答
+    func handleFirmwareDataResponse(_ response: Data, command: CommandCode) {
+        if response.count >= 5 {
+            let index = (UInt32(response[0]) << 24) | (UInt32(response[1]) << 16) |
+            (UInt32(response[2]) << 8) | UInt32(response[3])
+            let result = response[4]
+            
+            print("📨 收到固件数据包应答 - 包索引: \(index), 结果: \(result == 0x00 ? "成功" : "失败")")
+            
+            if result == 0x00 {
+                // 重置ACK计数器
+                firmwareManager.resetAckCounter()
+                
+                // 继续发送下一个2KB数据块
+                print("✅ 设备确认收到2KB数据，继续发送下一批...")
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+                    self.sendNextFirmwarePacket()
+                }
+            } else {
+                print("❌ 2KB数据块发送失败，错误码: \(result)")
+                // 可以在这里实现重试逻辑
+                DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
+                    print("🔄 重试当前2KB数据块...")
+                    self.firmwareManager.resetAckCounter()
+                    self.sendNextFirmwarePacket()
+                }
+            }
+        }
+    }
+    
+    // 处理固件升级响应
+    func handleFirmwareUpgradeResponse(_ response: Data, command: CommandCode) {
+        print("🔧 处理固件升级响应 - 命令: \(command), 数据: \(response.hexString)")
+        switch command {
+        case .startFirmwareUpgrade:
+            // 设备确认开始升级，开始发送数据包
+            if response.count >= 1 {
+                let result = response[0]
+                if result == 0x00 {
+                    print("设备确认开始固件升级，开始发送数据包")
+                    sendNextFirmwarePacket()
+                } else {
+                    print("设备拒绝固件升级，错误码: \(result)")
+                    NotificationCenter.default.post(
+                        name: .firmwareUpgradeCompleted,
+                        object: nil,
+                        userInfo: ["success": false, "error": "设备拒绝升级"]
+                    )
+                }
+            }
+            
+        case .firmwareData:
+            // 设备确认收到数据包
+            if response.count >= 5 {
+                let index = (UInt32(response[0]) << 24) | (UInt32(response[1]) << 16) |
+                (UInt32(response[2]) << 8) | UInt32(response[3])
+                let result = response[4]
+                
+                if result == 0x00 {
+                    print("设备确认收到数据包 \(index)")
+                    // 移动到下一个包
+                    firmwareManager.moveToNextPacket()
+                    // 发送下一个包
+                    sendNextFirmwarePacket()
+                } else {
+                    print("数据包 \(index) 发送失败，错误码: \(result)")
+                    // 可以在这里实现重试逻辑
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
+                        self.sendNextFirmwarePacket() // 重试当前包
+                    }
+                }
+            }
+            
+        case .endFirmwareUpgrade:
+            // 设备确认升级完成
+            if response.count >= 1 {
+                let result = response[0]
+                if result == 0x00 {
+                    print("设备确认固件升级完成")
+                    firmwareManager.reset()
+                } else {
+                    print("固件升级完成确认失败，错误码: \(result)")
+                }
+            }
+            
+        default:
+            break
+        }
+    }
+    
+    // MARK: - 工具方法
+    private func parseVersionString(_ version: String) -> Data {
+        let components = version.split(separator: ".").map { String($0) }
+        var versionBytes = Data()
+        
+        for i in 0..<4 {
+            if i < components.count, let number = UInt8(components[i]) {
+                versionBytes.append(number)
+            } else {
+                versionBytes.append(0) // 补零
+            }
+        }
+        
+        return versionBytes
+    }
+    
+    func md5Hash(from string: String) -> String {
+        // 2. 将输入字符串转换为 Data，使用 UTF-8 编码
+        guard let data = string.data(using: .utf8) else {
+            return "" // 转换失败返回空字符串
+        }
+        
+        // 3. 使用 Insecure.MD5 计算哈希摘要
+        let digest = Insecure.MD5.hash(data: data)
+        
+        // 4. 将摘要（digest）转换为 32 字符的十六进制字符串
+        let hashString = digest.map {
+            String(format: "%02hhx", $0) // %02hhx 确保每个字节都格式化为两位十六进制数
+        }.joined()
+        
+        return hashString
+    }
+}

@@ -1,0 +1,425 @@
+global:
+    terrain_3d_mixin: terrain-3d  # 3D地形mixin（通过terrain-3d.yaml导入）
+    terrain_3d_scale: 1.0         # 3D地形缩放比例
+    elevation_sources: [elevation] # 高程数据源
+    font_sans: "NotoSansCJK"
+    fog_color: '#FFFFFF'
+fonts:
+    "NotoSansCJK":
+        #- url: "asset:///NotoSansCJKsc-VF.ttf"
+        - weight: 400
+          url: "DroidSansFallback.ttf"
+
+sources:
+    elevation:
+        type: Raster
+        filtering: nearest
+        url: https://elevation3d.arcgis.com/arcgis/rest/services/WorldElevation3D/Terrain3D/ImageServer/tile/{z}/{y}/{x}?f=image&format=lerc&compression=LERC
+        max_zoom: 16
+        cache: elevation
+        # 2 years
+        max_age: 63072000
+
+    satellite:
+        type: Raster
+        url: https://api.jl1mall.com/getMap/{z}/{x}/{y}?mk=3ddec00f5f435270285ffc7ad1a60ce5&tk=c4e73a6b0428f65a94fb6fbe677d2375
+        # url_subdomains: [0, 1, 2, 3]、
+        headers:
+            User-Agent: "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36"
+        tms: true
+        max_zoom: 18
+        rasters: [ elevation ]
+    road:
+        type: Raster
+        url: http://t1.tianditu.com/DataServer?T=cia_w&x={x}&y={y}&l={z}&tk=88e2f1d5ab64a7477a7361edd6b5f68a
+        max_zoom: 18
+        headers:
+            User-Agent: "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36"
+        rasters: [ elevation ]
+    tianqi:
+        type: Raster
+        url: http://test.bjtxts.com:8081/qixiangpng/temp/{z}/{x}/{y}.png
+        max_zoom: 6
+        rasters: [ elevation ]
+        
+scene:
+    terrain_3d: false
+    elevation_source: elevation
+textures:
+    loc-marker:
+        density: 2
+        url: |
+            data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="24pt" height="24pt" viewBox="-12 -12 24 24">
+              <path d="M0 -11 L-4.5 -6.5 A9 9 0 0 1 4.5 -6.5 L0 -11" fill="#FF0000"/>
+              <circle cx="0" cy="0" r="7" fill="#00FF00"/>
+              <circle cx="0" cy="0" r="5.5" fill="#FF0000"/>
+            </svg>
+styles:
+    fog:
+        shaders:
+            uniforms:
+                u_fog_color: global.fog_color
+                u_fog_density: 0.1
+            blocks:
+                filter: |
+                    #ifdef TANGRAM_TERRAIN_3D
+                    // note v_position.z < 0
+                    float cospitch = u_view[2][2];
+                    float eyeh = -u_view[3][2];  // distance from eye to map center
+                    float fog = exp(u_fog_density * v_position.z/eyeh/(cospitch + 0.5));
+                    color.rgb = mix(u_fog_color.rgb, color.rgb, clamp(fog, 0.0, 1.0));
+                    #endif
+    get-elevation:
+        raster: custom
+        shaders:
+            defines:
+                ELEVATION_INDEX: 0
+                # this doesn't work because TANGRAM_NUM_RASTER_SOURCES is fixed (at the max possible value) for all styles
+                #ELEVATION_INDEX: '(TANGRAM_NUM_RASTER_SOURCES - 1)'
+                ELEVATION_FLOAT_TEX: true
+                # sampler2D default is lowp!
+                TANGRAM_RASTER_PRECISION: 'highp'
+            blocks:
+                global: |
+                    #if defined(TANGRAM_FRAGMENT_SHADER) || defined(TANGRAM_VERTEX_RASTERS)
+                    float getElevationAt(vec2 uv) {  // in meters  //TANGRAM_RASTER_PRECISION sampler2D tex,
+                        vec4 h = texture2D(u_rasters[ELEVATION_INDEX], uv);
+                    #ifdef ELEVATION_FLOAT_TEX
+                        return h.r;
+                    #else
+                        return (h.r*256. + h.g + h.b/256.)*255. - 32768.;  // mapzen terrarium
+                        //return (h.r*256.*256. + h.g*256. + h.b)*0.1 - 10000.;  // mapbox
+                    #endif
+                    }
+                    float getElevation() { return getElevationAt(currentRasterUV(ELEVATION_INDEX)); }
+                    #endif
+    terrain-3d:
+        mix: [ get-elevation, fog ]
+        # tile_edges == false is the default except for lines
+        draw: { tile_edges: false }
+        shaders:
+            defines:
+                TANGRAM_VERTEX_RASTERS: true
+                TANGRAM_MIN_ELEVATION: 0.0
+                TANGRAM_TERRAIN_SCALE: global.terrain_3d_scale
+            blocks:
+                position: |
+                    #ifdef TANGRAM_TERRAIN_3D
+                    // use larger depth delta near camera to prevent terrain from covering geometry
+                    depth_shift = -0.02*u_proj[2][3];
+                    #ifdef TANGRAM_RASTER_STYLE
+                    // need sufficient offset for proxy levels to prevent terrain poking through level above
+                    proxy *= 48.0;
+                    #endif
+                    float elev3d = max(getElevation(), TANGRAM_MIN_ELEVATION);
+                    position.z += float(TANGRAM_TERRAIN_SCALE) * elev3d;
+                    v_world_position.z += elev3d;
+                    #endif
+    transparent-overlay:
+        base: polygons
+        blend: overlay                  # 关键！Photoshop 叠加模式
+        blend_order: 100                # 越高越在上层
+        shaders:
+            blocks:
+                global: |
+                    void tangramFragment(inout vec4 color) {
+                        #ifdef TANGRAM_DEPTH_WRITE
+                        TANGRAM_DEPTH_WRITE = false;
+                        #endif
+                    }
+                color: |
+                    // 手动做 alpha 混合
+                    color.a *= 0.4;   
+    loc-points:
+        mix: poi-points
+        blend_order: 1000
+    poi-points:
+        base: points
+        # make sure this is drawn over search dots
+        blend_order: 1
+        draw:
+            outline:
+                color: white
+    unlit-lines:
+        base: lines
+        mix: terrain-3d
+        # blend_order: 10000
+        lighting: false
+    # unlit-lines:
+    #     base: lines
+    #     mix: global.terrain_3d_mixin
+    #     lighting: false
+
+    track-direction:
+        mix: unlit-lines
+        texture: |
+            data:image/svg+xml;utf8,<svg width="10pt" height="80pt" viewBox="-5 -40 10 80">
+              <!-- path fill="#fff" d="M-5 -40 L-5 40 L5 40 L5 -40Z"/ -->
+              <!-- path fill="#000" d="M-5 -6 L-5 0 L0 -4 L5 0 L5 -6 L0 -10Z"/ -->
+              <path fill="#fff" d="M-5 -40 L-5 0 L0 -4 L5 0 L5 -40Z M-5 40 L-5 6 L0 2 L5 6 L5 40Z"/>
+            </svg>
+    always-on-top-text:
+        base: text
+        blend_order: 10000
+        shaders:
+            blocks:
+                global: |
+                    #ifdef TANGRAM_DEPTH_TEST
+                    TANGRAM_DEPTH_TEST = false;
+                    #endif
+    raster-opacity:
+        blend: nonopaque
+        shaders:
+            uniforms: { u_opacity: 1.0 }
+            blocks:
+                color: "color.a *= u_opacity;"
+    raster-common:
+        base: raster
+        mix: terrain-3d
+        raster: color
+        lighting: false
+        shaders:
+            defines: { ELEVATION_INDEX: 1 }
+
+    raster-0:  # 对于第一个栅格
+        mix: [raster-common]
+    raster-1:  # 对于第一个栅格
+        mix: [raster-common,raster-opacity]
+    tianqi_overlay:
+        base: polygons
+        texture: tianqi_tex
+        blend: overlay
+        shaders:
+            blocks:
+                color: "color.a *= 0.4;"  # 透明度
+#lights:
+#    light1: { type: directional, direction: [0, 0, -1], diffuse: 0.30, ambient: 0.25 }
+#    light2: { type: directional, direction: [1, -1, -1], diffuse: 0.30, ambient: 0.25 }
+
+cameras:
+    perspective-camera:
+        position: [102.434, 37.777, 10.9]
+        type: perspective
+        fov: 45
+        max_tilt: [[2, 0], [16, 90]]
+
+layers:
+    road-overlay:
+        data: { source: road }
+        visible: true
+        draw:
+            raster-02:
+                style: raster-1
+                order: 2
+    tianqi-overlay:
+        data: { source: tianqi }
+        visible: true
+        draw:
+            raster-03:
+                style: raster-0
+                order: 1
+    # tianqi-overlay:
+    #     data: { source: tianqi_bounds }
+    #     draw:
+    #         polygons:
+    #             style: tianqi_overlay
+    #             order: 2
+    earth:
+        data: { source: satellite }
+        visible: true
+        draw:
+            raster-01:
+                style: raster-0
+                order: 0
+
+    transparent_park:
+        data: { source: my_polygon }
+        visible: true
+        draw:
+            polygons:
+                style: transparent-overlay
+                color: '#ff0088'
+                order: 500
+    lyr_line:
+        data: { source: my_line }
+        visible: true
+        # blend_order: 2000
+        draw:
+            marker:
+                style: loc-points
+                texture: loc-marker
+                flat: true
+                interactive: true
+                collide: false
+                size: 32px
+                #angle: 'function() { return feature.orientation + feature.map_rotation; }'  -- for flat: false
+                # angle: 'function() { return feature.orientation; }'
+                color: |
+                    function() { return feature.selected ? '#CF513D' : (feature.hasfix ? '#0000FF' : '#909090'); }
+                outline:
+                    width: 2px
+                    color: "#FFFFFF"
+            text:
+                text_source: name
+                style: always-on-top-text
+                #                priority: 2001
+                offset: [0px, 20px]
+                #collide: false
+                #                blend_order: 2000
+                font:
+                    family: global.font_sans
+                    size: 22px
+                    fill: rgba(0, 0, 0, 0.8)
+                    stroke: { color: white, width: 4 }
+                    # style: italic
+                    #size: [[16, 12px], [17, 14px]]
+    map-marker:
+        draw:
+            marker:
+                style: loc-points
+                texture: loc-marker
+                flat: true
+                interactive: true
+                collide: false
+                size: 32px
+                #angle: 'function() { return feature.orientation + feature.map_rotation; }'  -- for flat: false
+                # angle: 'function() { return feature.orientation; }'
+                color: |
+                    function() { return feature.selected ? '#CF513D' : (feature.hasfix ? '#0000FF' : '#909090'); }
+                priority: -1000
+                outline:
+                    width: 2px
+                    color: "#FFFFFF"
+            text:
+                text_source: ['id']
+    loc-marker:
+        draw:
+            marker:
+                style: loc-points
+#                style: points
+                texture: loc-marker
+                flat: true
+                interactive: true
+                collide: false
+                size: 32px
+                # angle: |
+                #     function() { return feature.orientation + feature.map_rotation; }
+                # angle: 'function() { return feature.orientation; }'
+                color: |
+                    function() { return feature.selected ? '#CF513D' : (feature.hasfix ? '#0000FF' : '#909090'); }
+                priority: 1000
+                # blend_order: 2000
+                outline:
+                    width: 2px
+                    color: |
+                        function() { return feature.color; }
+            text:
+                text_source: name
+                style: always-on-top-text
+                #                priority: 2001
+                offset: [0px, 20px]
+                #collide: false
+                #                blend_order: 2000
+                font:
+                    family: Open Sans
+                    size: 22px
+                    fill: rgba(0, 0, 0, 0.8)
+                    stroke: { color: white, width: 4 }
+                    style: italic
+    track:
+        data: { source: tracks }
+        filter: { visible: 1 }
+        draw:
+            track:
+                style: unlit-lines
+                interactive: true
+                color: function() { return feature.color || '#0000FF'; }
+                width: [[16, 2px], [17, 4px], [18, 6px]]
+                #join: round
+                order: 2000
+    pick-marker:
+        draw:
+            pick-marker:
+                style: text
+                text_source: "function() { return 'MARKER'; }"
+                font:
+                    family: global.font_sans
+                    size: 12px
+                    fill: red
+                    stroke: { color: white, width: 4 }
+    distance_text_layer:
+        visible: true
+        data: { source: distance_text_layer }
+        draw:
+            text:
+                text_source: name
+                # blend_order: 2000
+                style: always-on-top-text
+                font:
+                    family: global.font_sans
+                    size: 14px
+                    fill: green
+                    stroke: { color: "#FFFFFF", width: 10 }
+                priority: 100
+                interactive: true
+                collide: false
+                order: 2001
+                repeat_distance: 1000km
+            # lines:
+            #     extrude: true
+                # elevation: elevation
+            lines:
+                style: unlit-lines
+                color: [0.65882, 0.65882, 0.50196]
+                width: [[13, 0px], [14, 3px], [16, 5px], [18, 10m]]
+                order: 2001
+                # extrude: true
+                blend: overlay
+                outline:
+                    color: [.3, .3, .3]
+                    width: [[13, 0px], [14, 1px], [18, 1.5px]]
+    track:
+        data: { source: my_line }
+        visible: false
+        # filter: { visible: 1 }
+        draw:
+            track:
+                style: unlit-lines
+                interactive: true
+                color: function() { return feature.color || '#0000FF'; }
+                width: [[16, 2px], [17, 4px], [18, 6px]]
+                #join: round
+                order: 2000
+        direction:
+            filter: { $zoom: { min: 16 } }
+            draw: { track: { style: track-direction } }
+        recording:
+            filter: { recording: 1 }
+            draw: { track: { width: [[16, 3px], [17, 6px]] } }
+        selected:
+            # filter: { selected: 1 }
+            draw:
+                track:
+                    outline:
+                        style: unlit-lines
+                        order: 1990
+                        width: 2px
+                        color: white
+                        miter_limit: 1.5
+#            marker:
+#                style: loc-points
+##                style: points
+#                texture: loc-marker
+##                flat: true
+#                interactive: true
+#                collide: false
+#                size: 32px
+#                #angle: 'function() { return feature.orientation + feature.map_rotation; }'  -- for flat: false
+#                # angle: 'function() { return feature.orientation; }'
+#                color: |
+#                    function() {  return '#FF0000'; }
+#                priority: 1000
+#                blend_order: 2000
+#                outline:
+#                    width: 2px
+#                    color: '#CF513D'
