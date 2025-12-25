@@ -15,6 +15,8 @@ class ProDeviceDetailViewController: PersonalBaseViewController {
     private var deviceStatus: ProDeviceStatus?
     private var environmentInfo: EnvironmentInfo?
     private var statusUpdateTimer: Timer?
+    private var isNewVersionDevice: Bool = true
+    private var mode: Int = 1
     
     private lazy var proTableView: UITableView = {
         let tableView = UITableView(frame: .zero, style: .plain)
@@ -41,8 +43,8 @@ class ProDeviceDetailViewController: PersonalBaseViewController {
         setupWiFiDeviceManager()
     }
     
-    override func viewWillAppear(_ animated: Bool) {
-        super.viewWillAppear(animated)
+    override func viewDidLayoutSubviews() {
+        super.viewDidLayoutSubviews()
         startStatusUpdates()
     }
     
@@ -91,6 +93,17 @@ class ProDeviceDetailViewController: PersonalBaseViewController {
         
         wifiDeviceManager.onLogReceived = { [weak self] log in
             print("WiFi设备日志: \(log)")
+            if log.contains("设备告警") {
+                if let cell = self?.proTableView.cellForRow(at: IndexPath(row: 4, section: 0)) as? ProDeviceBaseMsgCell {
+                    cell.changeStatus(isConnect: true)
+                }
+            }
+        }
+        
+        wifiDeviceManager.onNewVersionDevice = { [weak self] isNewVersion in
+            DispatchQueue.main.async {
+                self?.isNewVersionDevice = isNewVersion
+            }
         }
         
         wifiDeviceManager.onError = { [weak self] error in
@@ -108,7 +121,10 @@ class ProDeviceDetailViewController: PersonalBaseViewController {
             if let cell = self.proTableView.cellForRow(at: IndexPath(row: 0, section: 0)) as? ProDeviceBaseMsgCell {
                 cell.changeStatus(isConnect: true)
             }
-            statusUpdateTimer = Timer.scheduledTimer(withTimeInterval: 300.0, repeats: true) { [weak self] _ in
+            wifiDeviceManager.queryDeviceInfo { _ in
+                
+            }
+            statusUpdateTimer = Timer.scheduledTimer(withTimeInterval: 3.0, repeats: true) { [weak self] _ in
                 self?.updateDeviceStatus()
             }
         }else {
@@ -122,16 +138,31 @@ class ProDeviceDetailViewController: PersonalBaseViewController {
     }
     
     private func updateDeviceStatus() {
-        wifiDeviceManager.queryLocation { [weak self] result in
-            switch result {
-            case .success(let status):
-                DispatchQueue.main.async {
-                    self?.deviceStatus = status
-                    self?.proTableView.reloadRows(at: [IndexPath(row: 1, section: 0)], with: .none)
-                    
+        if isNewVersionDevice {
+            wifiDeviceManager.queryLocation { [weak self] result in
+                switch result {
+                case .success(let status):
+                    DispatchQueue.main.async {
+                        self?.deviceStatus = status
+                        self?.proTableView.reloadRows(at: [IndexPath(row: 1, section: 0)], with: .none)
+                        
+                    }
+                case .failure(let error):
+                    print("状态更新失败: \(error)")
                 }
-            case .failure(let error):
-                print("状态更新失败: \(error)")
+            }
+        }else {
+            wifiDeviceManager.queryLocation { [weak self] result in
+                switch result {
+                case .success(let status):
+                    DispatchQueue.main.async {
+                        self?.deviceStatus = ProDeviceStatus(from: status)
+                        self?.proTableView.reloadRows(at: [IndexPath(row: 1, section: 0)], with: .none)
+                        
+                    }
+                case .failure(let error):
+                    print("状态更新失败: \(error)")
+                }
             }
         }
     }
@@ -171,6 +202,7 @@ class ProDeviceDetailViewController: PersonalBaseViewController {
                         cell.changeStatus(isConnect: true)
                     }
                     self?.updateConnectionStatus(true)
+                    
                 }
             case .failure(let error):
                 DispatchQueue.main.async {
@@ -217,7 +249,7 @@ class ProDeviceDetailViewController: PersonalBaseViewController {
         }
         
         guard let location = LocationManager.shared.latestLocation else { return }
-        wifiDeviceManager.halfSatellite(longitude: location.coordinate.longitude, latitude: location.coordinate.latitude, altitude: location.altitude) { [weak self] result in
+        wifiDeviceManager.halfSatellite(longitude: location.coordinate.longitude, latitude: location.coordinate.latitude, altitude: location.altitude, mode: self.mode) { [weak self] result in
             guard let self = self else { return }
             DispatchQueue.main.async {
                 switch result {
@@ -297,6 +329,10 @@ extension ProDeviceDetailViewController: UITableViewDelegate, UITableViewDataSou
                 guard let self = self else {return}
                 self.pushToDebugVC()
             }
+            cell.resendModlAction = { [weak self] mode in
+                guard let self = self else {return}
+                self.mode = mode
+            }
             return cell
         case 1:
             let cell = tableView.dequeueReusableCell(withIdentifier: "ProDeviceStatusCell") as! ProDeviceStatusCell
@@ -359,13 +395,13 @@ extension ProDeviceDetailViewController: UITableViewDelegate, UITableViewDataSou
     func tableView(_ tableView: UITableView, heightForRowAt indexPath: IndexPath) -> CGFloat {
         switch indexPath.row {
         case 0:
-            return 150
+            return 200
         case 1:
             return 240
         case 2:
             return 120
         case 3:
-            return 60
+            return 80
         case 4:
             return 220
         default:
@@ -377,8 +413,12 @@ extension ProDeviceDetailViewController: UITableViewDelegate, UITableViewDataSou
 extension ProDeviceDetailViewController {
     
     private func pushToAlarmVC() {
-        let vc = ProDeviceAlarmViewController()
-        self.navigationController?.pushViewController(vc, animated: true)
+        if self.isNewVersionDevice {
+            let vc = ProDeviceAlarmViewController()
+            self.navigationController?.pushViewController(vc, animated: true)
+        }else {
+            self.view.sw_showWarningToast("该设备不是新版本，请更换设备")
+        }
     }
     
     private func showResetAlertView() {
@@ -391,7 +431,7 @@ extension ProDeviceDetailViewController {
             print("用户点击了确定")
             self.wifiDeviceManager.reset { [weak self] result in
                 switch result {
-                case .success(let status):
+                case .success(_):
                     DispatchQueue.main.async {
                         self?.view.sw_showSuccessToast("重启成功")
                     }
@@ -406,21 +446,34 @@ extension ProDeviceDetailViewController {
     }
     
     private func pushToMsgVC() {
-        let vc = ProDeviceMsgViewController()
-        self.navigationController?.pushViewController(vc, animated: true)
+        if self.isNewVersionDevice {
+            let vc = ProDeviceMsgViewController()
+            self.navigationController?.pushViewController(vc, animated: true)
+        }else {
+            self.view.sw_showWarningToast("该设备不是新版本，请更换设备")
+        }
     }
     
     private func pushToUpdateVC() {
-        let vc = ProDeviceUpdateViewController()
-        self.navigationController?.pushViewController(vc, animated: true)
+        if self.isNewVersionDevice {
+            let vc = ProDeviceUpdateViewController()
+            self.navigationController?.pushViewController(vc, animated: true)
+        }else {
+            self.view.sw_showWarningToast("该设备不是新版本，请更换设备")
+        }
     }
     
     private func pushToWebVC() {
         print("跳转web")
+        view.sw_showWarningToast("正在开发")
     }
     
     private func pushToDebugVC() {
-        let vc = ProDeviceDebugViewController()
-        self.navigationController?.pushViewController(vc, animated: true)
+        if self.isNewVersionDevice {
+            let vc = ProDeviceDebugViewController()
+            self.navigationController?.pushViewController(vc, animated: true)
+        }else {
+            self.view.sw_showWarningToast("该设备不是新版本，请更换设备")
+        }
     }
 }

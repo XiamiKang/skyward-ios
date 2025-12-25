@@ -14,8 +14,8 @@ public struct WiFiDevice: Codable {
     public var isConnected: Bool           // 是否在连接
     public var isTrackingSatellite: Bool   // 是否对星成功
     public var lastUpdateTime: Date        // 最后更新时间
-    public var host: String               // IP地址（可选，用于重连）
-    public var port: UInt16               // 端口（可选，用于重连）
+    public var host: String                // IP地址（可选，用于重连）
+    public var port: UInt16                // 端口（可选，用于重连）
     
     // 自动生成昵称
     static func generateNickname(for identifier: String) -> String {

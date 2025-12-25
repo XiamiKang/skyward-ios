@@ -15,6 +15,12 @@ class ProDeviceBaseMsgCell: UITableViewCell {
     private let deviceNameLabel = UILabel()
     private let connectionStatusLabel = UILabel()
     private let wifiStatusImageView = UIImageView()
+    private let modeCatImageView = UIImageView()
+    private let modeGroundImageView = UIImageView()
+    private let modeCatLabel = UILabel()
+    private let modeGroundLabel = UILabel()
+    private let modeCatButton = UIButton(type: .custom)
+    private let modeGroundButton = UIButton(type: .custom)
     private let satelliteStatusImageView = UIImageView()
     private let collectButton = UIButton(type: .custom)
     private let lineStarButton = UIButton(type: .custom)
@@ -31,6 +37,7 @@ class ProDeviceBaseMsgCell: UITableViewCell {
     var collectionAction: (() -> Void)?
     var lineStarAction: (() -> Void)?
     var quintupleTapAction: (() -> Void)? // 新增：连续点击5次的回调
+    var resendModlAction: ((Int) -> Void)?
     
     // 按钮状态
     private var isCollecting = false {
@@ -101,6 +108,35 @@ class ProDeviceBaseMsgCell: UITableViewCell {
         satelliteStatusImageView.image = PersonalModule.image(named: "device_mini_noLine_satellite")
         satelliteStatusImageView.contentMode = .scaleAspectFit
         bgView.addSubview(satelliteStatusImageView)
+        
+        
+        // 车载状态
+        modeCatImageView.translatesAutoresizingMaskIntoConstraints = false
+        modeCatImageView.image = PersonalModule.image(named: "device_pro_mode_sel")
+        bgView.addSubview(modeCatImageView)
+        modeCatLabel.translatesAutoresizingMaskIntoConstraints = false
+        modeCatLabel.text = "车载模式"
+        modeCatLabel.textColor = .black
+        modeCatLabel.font = .systemFont(ofSize: 12, weight: .regular)
+        bgView.addSubview(modeCatLabel)
+        modeCatButton.translatesAutoresizingMaskIntoConstraints = false
+        modeCatButton.backgroundColor = .clear
+        collectButton.addTarget(self, action: #selector(modeCatTapped), for: .touchUpInside)
+        bgView.addSubview(modeCatButton)
+        
+        // 地面状态
+        modeGroundImageView.translatesAutoresizingMaskIntoConstraints = false
+        modeGroundImageView.image = PersonalModule.image(named: "device_pro_mode")
+        bgView.addSubview(modeGroundImageView)
+        modeGroundLabel.translatesAutoresizingMaskIntoConstraints = false
+        modeGroundLabel.text = "地面模式"
+        modeGroundLabel.textColor = .black
+        modeGroundLabel.font = .systemFont(ofSize: 12, weight: .regular)
+        bgView.addSubview(modeGroundLabel)
+        modeGroundButton.translatesAutoresizingMaskIntoConstraints = false
+        modeGroundButton.backgroundColor = .clear
+        collectButton.addTarget(self, action: #selector(modeGroundTapped), for: .touchUpInside)
+        bgView.addSubview(modeGroundButton)
         
         // 收藏按钮
         collectButton.translatesAutoresizingMaskIntoConstraints = false
@@ -175,8 +211,32 @@ class ProDeviceBaseMsgCell: UITableViewCell {
             satelliteStatusImageView.widthAnchor.constraint(equalToConstant: 16),
             satelliteStatusImageView.heightAnchor.constraint(equalToConstant: 16),
             
+            // 车载模式
+            modeCatImageView.topAnchor.constraint(equalTo: wifiStatusImageView.bottomAnchor, constant: 16),
+            modeCatImageView.leadingAnchor.constraint(equalTo: deviceImageView.trailingAnchor, constant: 16),
+            modeCatImageView.widthAnchor.constraint(equalToConstant: 12),
+            modeCatImageView.heightAnchor.constraint(equalToConstant: 12),
+            modeCatLabel.centerYAnchor.constraint(equalTo: modeCatImageView.centerYAnchor),
+            modeCatLabel.leadingAnchor.constraint(equalTo: modeCatImageView.trailingAnchor, constant: 5),
+            modeCatButton.centerYAnchor.constraint(equalTo: modeCatImageView.centerYAnchor),
+            modeCatButton.leadingAnchor.constraint(equalTo: deviceImageView.trailingAnchor, constant: 15),
+            modeCatButton.widthAnchor.constraint(equalToConstant: 80),
+            modeCatButton.heightAnchor.constraint(equalToConstant: 22),
+            
+            // 地面模式
+            modeGroundImageView.topAnchor.constraint(equalTo: wifiStatusImageView.bottomAnchor, constant: 16),
+            modeGroundImageView.leadingAnchor.constraint(equalTo: modeCatButton.trailingAnchor, constant: 16),
+            modeGroundImageView.widthAnchor.constraint(equalToConstant: 12),
+            modeGroundImageView.heightAnchor.constraint(equalToConstant: 12),
+            modeGroundLabel.centerYAnchor.constraint(equalTo: modeGroundImageView.centerYAnchor),
+            modeGroundLabel.leadingAnchor.constraint(equalTo: modeGroundImageView.trailingAnchor, constant: 5),
+            modeGroundButton.centerYAnchor.constraint(equalTo: modeGroundImageView.centerYAnchor),
+            modeGroundButton.leadingAnchor.constraint(equalTo: modeCatButton.trailingAnchor, constant: 15),
+            modeGroundButton.widthAnchor.constraint(equalToConstant: 80),
+            modeGroundButton.heightAnchor.constraint(equalToConstant: 22),
+            
             // 收藏按钮
-            collectButton.topAnchor.constraint(equalTo: wifiStatusImageView.bottomAnchor, constant: 15),
+            collectButton.topAnchor.constraint(equalTo: modeCatButton.bottomAnchor, constant: 15),
             collectButton.leadingAnchor.constraint(equalTo: deviceImageView.trailingAnchor, constant: 16),
             collectButton.widthAnchor.constraint(equalToConstant: 90), // 增加宽度容纳指示器
             collectButton.heightAnchor.constraint(equalToConstant: 32),
@@ -290,6 +350,16 @@ class ProDeviceBaseMsgCell: UITableViewCell {
     }
     
     // MARK: - Actions
+    @objc private func modeCatTapped() {
+        print("车载按钮点击")
+        resendModlAction?(1)
+    }
+    
+    @objc private func modeGroundTapped() {
+        print("地面按钮点击")
+        resendModlAction?(0)
+    }
+    
     @objc private func collectionButtonTapped() {
         print("收藏按钮点击")
         

@@ -82,11 +82,11 @@ public enum AntennaStatus: Int {
 
 // MARK: - 故障码结构
 public struct FaultCodes {
-    let imu: Int
-    let beidou: Int
-    let beacon: Int
-    let lnb: Int
-    let buc: Int
+    public let imu: Int
+    public let beidou: Int
+    public let beacon: Int
+    public let lnb: Int
+    public let buc: Int
     
     public init(codes: [Int]) {
         self.imu = codes.count > 0 ? codes[0] : 0
@@ -156,7 +156,7 @@ public struct ProDeviceStatus: CustomStringConvertible {
         self.mode = mode
     }
     
-    init?(from response: String) {
+    public init?(from response: String) {
         let components = response.components(separatedBy: ",")
         
         // REQLOC格式: 锁定状态,天线状态,方位角,俯仰角,海拔,经度,纬度,低功耗状态,日志状态,模式
@@ -186,6 +186,19 @@ public struct ProDeviceStatus: CustomStringConvertible {
         self.mode = mode
     }
     
+    public init?(from oldStatus: OldProDeviceStatus) {
+        self.lockStatus = oldStatus.lockStatus
+        self.antennaStatus = oldStatus.antennaStatus
+        self.azimuth = oldStatus.azimuth
+        self.elevation = oldStatus.elevation
+        self.altitude = oldStatus.altitude
+        self.longitude = oldStatus.longitude
+        self.latitude = oldStatus.latitude
+        self.powerSavingMode = false
+        self.logStreaming = false
+        self.mode = 1
+    }
+    
     public var description: String {
         return """
         锁定状态: \(lockStatus.description)
@@ -198,6 +211,63 @@ public struct ProDeviceStatus: CustomStringConvertible {
         低功耗: \(powerSavingMode ? "开启" : "关闭")
         日志流: \(logStreaming ? "开启" : "关闭")
         模式: \(mode == 1 ? "车载" : "地面")
+        """
+    }
+}
+
+public struct OldProDeviceStatus: CustomStringConvertible {
+    public let lockStatus: LockStatus
+    public let antennaStatus: AntennaStatus
+    public let azimuth: Double
+    public let elevation: Double
+    public let altitude: Double
+    public let longitude: Double
+    public let latitude: Double
+    
+    public init(lockStatus: LockStatus, antennaStatus: AntennaStatus, azimuth: Double,
+                elevation: Double, altitude: Double, longitude: Double, latitude: Double) {
+        self.lockStatus = lockStatus
+        self.antennaStatus = antennaStatus
+        self.azimuth = azimuth
+        self.elevation = elevation
+        self.altitude = altitude
+        self.longitude = longitude
+        self.latitude = latitude
+    }
+    
+    init?(from response: String) {
+        let components = response.components(separatedBy: ",")
+        
+        // REQLOC格式: 锁定状态,天线状态,方位角,俯仰角,海拔,经度,纬度,低功耗状态,日志状态,模式
+        guard components.count >= 10,
+              let lockStatusValue = Int(components[0]),
+              let antennaStatusValue = Int(components[1]),
+              let azimuth = Double(components[2]),
+              let elevation = Double(components[3]),
+              let altitude = Double(components[4]),
+              let longitude = Double(components[5]),
+              let latitude = Double(components[6]) else {
+            return nil
+        }
+        
+        self.lockStatus = LockStatus(rawValue: lockStatusValue) ?? .unlocked
+        self.antennaStatus = AntennaStatus(rawValue: antennaStatusValue) ?? .stored
+        self.azimuth = azimuth
+        self.elevation = elevation
+        self.altitude = altitude
+        self.longitude = longitude
+        self.latitude = latitude
+    }
+    
+    public var description: String {
+        return """
+        锁定状态: \(lockStatus.description)
+        天线状态: \(antennaStatus.description)
+        方位角: \(String(format: "%.2f", azimuth))°
+        俯仰角: \(String(format: "%.2f", elevation))°
+        海拔: \(String(format: "%.2f", altitude))m
+        经度: \(String(format: "%.6f", longitude))
+        纬度: \(String(format: "%.6f", latitude))
         """
     }
 }

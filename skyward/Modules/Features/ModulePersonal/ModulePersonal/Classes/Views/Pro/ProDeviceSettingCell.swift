@@ -14,6 +14,8 @@ class ProDeviceSettingCell: UITableViewCell {
     
     var selectedCallback: ((Int) -> Void)?
     
+    var warningNum: Int = 0
+    
     private let bgView = UIView()
     private let settingTitle = UILabel()
     private lazy var collectionView: UICollectionView = {
@@ -42,6 +44,7 @@ class ProDeviceSettingCell: UITableViewCell {
     override init(style: UITableViewCell.CellStyle, reuseIdentifier: String?) {
         super.init(style: style, reuseIdentifier: reuseIdentifier)
         setupUI()
+        setupNotifications()
     }
     
     required init?(coder: NSCoder) {
@@ -88,6 +91,42 @@ class ProDeviceSettingCell: UITableViewCell {
             
         ])
     }
+    
+    private func setupNotifications() {
+        NotificationCenter.default.addObserver(
+            self,
+            selector: #selector(dealDeviceWarningData(_:)),
+            name: .proDeviceWarningData,
+            object: nil
+        )
+    }
+    
+    @objc private func dealDeviceWarningData(_ notification: Notification) {
+        guard let userInfo = notification.userInfo,
+              let result = userInfo["warning"] as? FaultCodes else {
+            return
+        }
+        warningNum = 0
+        if result.imu == 1 {
+            warningNum += 1
+        }
+        if result.beidou == 1 {
+            warningNum += 1
+        }
+        if result.beacon == 1 {
+            warningNum += 1
+        }
+        if result.lnb == 1 {
+            warningNum += 1
+        }
+        if result.buc == 1 {
+            warningNum += 1
+        }
+        DispatchQueue.main.async {
+            self.collectionView.reloadData()
+        }
+        
+    }
 }
 
 extension ProDeviceSettingCell: UICollectionViewDelegate, UICollectionViewDataSource {
@@ -99,6 +138,14 @@ extension ProDeviceSettingCell: UICollectionViewDelegate, UICollectionViewDataSo
     func collectionView(_ collectionView: UICollectionView, cellForItemAt indexPath: IndexPath) -> UICollectionViewCell {
         let cell = collectionView.dequeueReusableCell(withReuseIdentifier: "ProDeviceSettingManageCell", for: indexPath) as! ProDeviceSettingManageCell
         cell.confign(with: dataSource[indexPath.row])
+        if indexPath.row == 0 {
+            cell.tipLabe.isHidden = warningNum == 0
+            cell.tipLabe.text = String(warningNum)
+        } else if indexPath.row == 3 {
+            
+        } else {
+            cell.tipLabe.isHidden = true
+        }
         return cell
     }
     

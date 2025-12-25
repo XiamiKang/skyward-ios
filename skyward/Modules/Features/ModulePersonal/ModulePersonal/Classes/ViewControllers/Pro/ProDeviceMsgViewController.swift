@@ -15,10 +15,12 @@ struct ProDeviceMsgInfo {
 
 class ProDeviceMsgViewController: PersonalBaseViewController {
     
-    var dataSource: [ProDeviceMsgInfo] = [
-        ProDeviceMsgInfo(title: "设备SN", value: "正在获取..."),
-        ProDeviceMsgInfo(title: "基带MAC", value: "正在获取..."),
-        ProDeviceMsgInfo(title: "基带SN", value: "正在获取...")
+    var dataSource: [[ProDeviceMsgInfo]] = [
+        [ProDeviceMsgInfo(title: "设备SN", value: "正在获取..."),
+         ProDeviceMsgInfo(title: "设备型号", value: "正在获取..."),
+         ProDeviceMsgInfo(title: "固件版本号", value: "正在获取...")],
+        [ProDeviceMsgInfo(title: "基带MAC", value: "正在获取..."),
+        ProDeviceMsgInfo(title: "基带SN", value: "正在获取...")]
     ]
     
     private lazy var tableView: UITableView = {
@@ -68,18 +70,18 @@ class ProDeviceMsgViewController: PersonalBaseViewController {
         customTitle.text = "设备信息"
         
         view.addSubview(tableView)
-        view.addSubview(unBindButton)
+//        view.addSubview(unBindButton)
         
         NSLayoutConstraint.activate([
-            tableView.topAnchor.constraint(equalTo: customNavView.bottomAnchor, constant: 16),
+            tableView.topAnchor.constraint(equalTo: customNavView.bottomAnchor, constant: 0),
             tableView.leadingAnchor.constraint(equalTo: view.leadingAnchor),
             tableView.trailingAnchor.constraint(equalTo: view.trailingAnchor),
             tableView.bottomAnchor.constraint(equalTo: view.bottomAnchor),
             
-            unBindButton.bottomAnchor.constraint(equalTo: view.bottomAnchor, constant: -50),
-            unBindButton.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 16),
-            unBindButton.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -16),
-            unBindButton.heightAnchor.constraint(equalToConstant: 48),
+//            unBindButton.bottomAnchor.constraint(equalTo: view.bottomAnchor, constant: -50),
+//            unBindButton.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 16),
+//            unBindButton.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -16),
+//            unBindButton.heightAnchor.constraint(equalToConstant: 48),
         ])
         
     }
@@ -115,9 +117,11 @@ class ProDeviceMsgViewController: PersonalBaseViewController {
     
     private func updateDeviceInfo(_ deviceInfo: ProDeviceInfo) {
         dataSource = [
-            ProDeviceMsgInfo(title: "设备SN", value: deviceInfo.deviceSN),
-            ProDeviceMsgInfo(title: "基带MAC", value: deviceInfo.catMAC),
-            ProDeviceMsgInfo(title: "基带SN", value: deviceInfo.catSN)
+            [ProDeviceMsgInfo(title: "设备SN", value: deviceInfo.deviceSN),
+             ProDeviceMsgInfo(title: "设备型号", value: "TXTS-WB-01"),
+             ProDeviceMsgInfo(title: "固件版本号", value: deviceInfo.ACUVersion)],
+            [ProDeviceMsgInfo(title: "基带MAC", value: deviceInfo.catMAC),
+            ProDeviceMsgInfo(title: "基带SN", value: deviceInfo.catSN)]
         ]
         self.tableView.reloadData()
         
@@ -128,6 +132,7 @@ class ProDeviceMsgViewController: PersonalBaseViewController {
         // 使用UserDefaults缓存设备信息
         let userDefaults = UserDefaults.standard
         userDefaults.set(deviceInfo.deviceSN, forKey: "LastDeviceSN")
+        userDefaults.set(deviceInfo.ACUVersion, forKey: "LastACUVersion")
         userDefaults.set(deviceInfo.catMAC, forKey: "LastCatMAC")
         userDefaults.set(deviceInfo.catSN, forKey: "LastCatSN")
         userDefaults.synchronize()
@@ -136,28 +141,51 @@ class ProDeviceMsgViewController: PersonalBaseViewController {
     private func loadDeviceInfoFromCache() {
         let userDefaults = UserDefaults.standard
         let deviceSN = userDefaults.string(forKey: "LastDeviceSN") ?? "无缓存数据"
+        let acuVersion = userDefaults.string(forKey: "LastACUVersion") ?? "无缓存数据"
         let catMAC = userDefaults.string(forKey: "LastCatMAC") ?? "无缓存数据"
         let catSN = userDefaults.string(forKey: "LastCatSN") ?? "无缓存数据"
         
         dataSource = [
-            ProDeviceMsgInfo(title: "设备SN", value: deviceSN),
-            ProDeviceMsgInfo(title: "基带MAC", value: catMAC),
-            ProDeviceMsgInfo(title: "基带SN", value: catSN)
+            [ProDeviceMsgInfo(title: "设备SN", value: deviceSN),
+             ProDeviceMsgInfo(title: "设备型号", value: "TXTS-WB-01"),
+             ProDeviceMsgInfo(title: "固件版本号", value: acuVersion)],
+            [ProDeviceMsgInfo(title: "基带MAC", value: catMAC),
+            ProDeviceMsgInfo(title: "基带SN", value: catSN)]
         ]
     }
 }
 
 extension ProDeviceMsgViewController: UITableViewDelegate, UITableViewDataSource {
-    func tableView(_ tableView: UITableView, numberOfRowsInSection section: Int) -> Int {
+    func numberOfSections(in tableView: UITableView) -> Int {
         return dataSource.count
+    }
+    
+    func tableView(_ tableView: UITableView, numberOfRowsInSection section: Int) -> Int {
+        let rowData = dataSource[section]
+        return rowData.count
     }
     
     func tableView(_ tableView: UITableView, cellForRowAt indexPath: IndexPath) -> UITableViewCell {
         let cell = tableView.dequeueReusableCell(withIdentifier: "ProDeviceMsgCell") as! ProDeviceMsgCell
-        cell.configure(with: dataSource[indexPath.row])
+        cell.configure(with: dataSource[indexPath.section][indexPath.row])
         return cell
     }
     
+    func tableView(_ tableView: UITableView, viewForHeaderInSection section: Int) -> UIView? {
+        let view = UIView()
+        view.backgroundColor = .white
+        let lineLabel = UILabel(frame: CGRect(x: 16, y: 0, width: UIScreen.main.bounds.width-32, height: 1))
+        lineLabel.backgroundColor = .systemGray5
+        view.addSubview(lineLabel)
+        return view
+    }
+    
+    func tableView(_ tableView: UITableView, heightForHeaderInSection section: Int) -> CGFloat {
+        if section == 1 {
+            return 30
+        }
+        return 0
+    }
     
 }
 
