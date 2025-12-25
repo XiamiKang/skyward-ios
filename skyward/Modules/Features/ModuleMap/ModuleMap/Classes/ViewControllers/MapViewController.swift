@@ -55,6 +55,7 @@ public class MapViewController: UIViewController {
             routeBottomView.isHidden = !isAddRoute
             if isAddRoute == false {
                 distanceManager.clear()
+                routeManager.closeRecord()
             }
         }
     }
