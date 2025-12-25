@@ -81,6 +81,10 @@ class RouteManager {
         DBManager.shared.createTable(table: DBTableName.routePoint.rawValue, of: RoutePoint.self)
     }
     
+    func closeRecord() {
+        currentRouteId = nil
+    }
+    
     func writePoint(_ point: CLLocationCoordinate2D) {
 
         if currentRouteId == nil {

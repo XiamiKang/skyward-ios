@@ -211,9 +211,13 @@
 			inputFileListPaths = (
 				"${PODS_ROOT}/Target Support Files/Pods-skyward/Pods-skyward-frameworks-${CONFIGURATION}-input-files.xcfilelist",
 			);
+			inputPaths = (
+			);
 			name = "[CP] Embed Pods Frameworks";
 			outputFileListPaths = (
 				"${PODS_ROOT}/Target Support Files/Pods-skyward/Pods-skyward-frameworks-${CONFIGURATION}-output-files.xcfilelist",
+			);
+			outputPaths = (
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
@@ -358,7 +362,7 @@
 				CODE_SIGN_IDENTITY = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
-				DEVELOPMENT_TEAM = 7S86Y9Q83J;
+				DEVELOPMENT_TEAM = 2N2M8NL7AJ;
 				ENABLE_PREVIEWS = YES;
 				ENABLE_USER_SCRIPT_SANDBOXING = NO;
 				FRAMEWORK_SEARCH_PATHS = (
@@ -371,7 +375,7 @@
 				INFOPLIST_KEY_NSBluetoothAlwaysUsageDescription = "需要蓝牙权限来连接您的设备";
 				INFOPLIST_KEY_NSBluetoothPeripheralUsageDescription = "需要蓝牙权限来连接您的设备";
 				INFOPLIST_KEY_NSCameraUsageDescription = "需要使用您的相机获取图片用于头像更新";
-				INFOPLIST_KEY_NSLocalNetworkUsageDescription = "需要访问本地网络以连接到设备";
+				INFOPLIST_KEY_NSLocalNetworkUsageDescription = "需要访问WiFi信息以获取网络状态";
 				INFOPLIST_KEY_NSLocationAlwaysAndWhenInUseUsageDescription = "需要在后台获取您的位置信息，以便提供实时位置跟踪和紧急求助功能";
 				INFOPLIST_KEY_NSLocationAlwaysUsageDescription = "需要获取您的位置信息，以便提供位置服务和紧急求助功能";
 				INFOPLIST_KEY_NSLocationWhenInUseUsageDescription = "需要获取您的位置信息，以便提供位置服务和紧急求助功能";
@@ -391,7 +395,7 @@
 				LD_RUNPATH_SEARCH_PATHS = "@executable_path/Frameworks\"";
 				"LD_RUNPATH_SEARCH_PATHS[sdk=macosx*]" = "@executable_path/../Frameworks";
 				MARKETING_VERSION = 1.0.0;
-				PRODUCT_BUNDLE_IDENTIFIER = com.txts.skyward;
+				PRODUCT_BUNDLE_IDENTIFIER = com.bjtxts.skyward;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				PROVISIONING_PROFILE_SPECIFIER = "";
 				REGISTER_APP_GROUPS = YES;
@@ -413,7 +417,7 @@
 				CODE_SIGN_IDENTITY = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
-				DEVELOPMENT_TEAM = 7S86Y9Q83J;
+				DEVELOPMENT_TEAM = 2N2M8NL7AJ;
 				ENABLE_PREVIEWS = YES;
 				ENABLE_USER_SCRIPT_SANDBOXING = NO;
 				FRAMEWORK_SEARCH_PATHS = (
@@ -426,7 +430,7 @@
 				INFOPLIST_KEY_NSBluetoothAlwaysUsageDescription = "需要蓝牙权限来连接您的设备";
 				INFOPLIST_KEY_NSBluetoothPeripheralUsageDescription = "需要蓝牙权限来连接您的设备";
 				INFOPLIST_KEY_NSCameraUsageDescription = "需要使用您的相机获取图片用于头像更新";
-				INFOPLIST_KEY_NSLocalNetworkUsageDescription = "需要访问本地网络以连接到设备";
+				INFOPLIST_KEY_NSLocalNetworkUsageDescription = "需要访问WiFi信息以获取网络状态";
 				INFOPLIST_KEY_NSLocationAlwaysAndWhenInUseUsageDescription = "需要在后台获取您的位置信息，以便提供实时位置跟踪和紧急求助功能";
 				INFOPLIST_KEY_NSLocationAlwaysUsageDescription = "需要获取您的位置信息，以便提供位置服务和紧急求助功能";
 				INFOPLIST_KEY_NSLocationWhenInUseUsageDescription = "需要获取您的位置信息，以便提供位置服务和紧急求助功能";
@@ -446,7 +450,7 @@
 				LD_RUNPATH_SEARCH_PATHS = "@executable_path/Frameworks\"";
 				"LD_RUNPATH_SEARCH_PATHS[sdk=macosx*]" = "@executable_path/../Frameworks";
 				MARKETING_VERSION = 1.0.0;
-				PRODUCT_BUNDLE_IDENTIFIER = com.txts.skyward;
+				PRODUCT_BUNDLE_IDENTIFIER = com.bjtxts.skyward;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				PROVISIONING_PROFILE_SPECIFIER = "";
 				REGISTER_APP_GROUPS = YES;
