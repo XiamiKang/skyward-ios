@@ -15,6 +15,8 @@ class ProDeviceSettingCell: UITableViewCell {
     var selectedCallback: ((Int) -> Void)?
     
     var warningNum: Int = 0
+    var newVersion: Bool = false
+    let viewModel = PersonalViewModel()
     
     private let bgView = UIView()
     private let settingTitle = UILabel()
@@ -99,6 +101,12 @@ class ProDeviceSettingCell: UITableViewCell {
             name: .proDeviceWarningData,
             object: nil
         )
+        NotificationCenter.default.addObserver(
+            self,
+            selector: #selector(dealDeviceInfoData(_:)),
+            name: .proDeviceInfoData,
+            object: nil
+        )
     }
     
     @objc private func dealDeviceWarningData(_ notification: Notification) {
@@ -125,6 +133,29 @@ class ProDeviceSettingCell: UITableViewCell {
         DispatchQueue.main.async {
             self.collectionView.reloadData()
         }
+    }
+    
+    @objc private func dealDeviceInfoData(_ notification: Notification) {
+        guard let userInfo = notification.userInfo,
+              let result = userInfo["info"] as? ProDeviceInfo else {
+            return
+        }
+        newVersion = false
+        let currentVersion = String(result.ACUVersion.dropFirst())
+        let hardwareModel = "4.0.0"
+        let model = DeviceFirmwareModel(deviceType: 2, versionCode: currentVersion, hardwareModel: hardwareModel)
+        viewModel.fetchDeviceFirmware(model: model)
+            .receive(on: DispatchQueue.main)
+            .sink { _ in
+                
+            } receiveValue: { [weak self] firmwareData in
+                guard let self = self, let url = firmwareData.firmwareUrl else { return }
+                self.newVersion = true
+                DispatchQueue.main.async {
+                    self.collectionView.reloadData()
+                }
+            }
+            .store(in: &self.viewModel.cancellables)
         
     }
 }
@@ -142,7 +173,8 @@ extension ProDeviceSettingCell: UICollectionViewDelegate, UICollectionViewDataSo
             cell.tipLabe.isHidden = warningNum == 0
             cell.tipLabe.text = String(warningNum)
         } else if indexPath.row == 3 {
-            
+            cell.tipLabe.isHidden = !newVersion
+            cell.tipLabe.text = "新版本"
         } else {
             cell.tipLabe.isHidden = true
         }

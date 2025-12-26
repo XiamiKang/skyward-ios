@@ -18,14 +18,6 @@ public struct MiniDeviceData: Codable {
     public let model: String?                     // 设备型号   窄带：TXTS-NB-01
 }
 
-public struct FirmwareData: Codable {
-    public let versionCode: Int?                  // 设备版本号
-    public let versionName: String?               // 设备版本名称
-    public let firmwareUrl: String?               // 设备固件地址
-    public let forceUpdate: Bool?                 // 是否强制更新
-    public let hardwareModel: String?             // 设备型号
-}
-
 public struct EmergencyInfoData: Codable {
     public let name: String?                      // 名称
     public let phone: String?                     // 手机号

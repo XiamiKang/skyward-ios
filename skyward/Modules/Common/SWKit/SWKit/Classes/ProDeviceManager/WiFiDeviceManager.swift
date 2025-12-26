@@ -9,14 +9,12 @@
 import Foundation
 import Network
 
-
-
 // MARK: - WiFi设备管理器
 public class WiFiDeviceManager {
     
     public static let shared = WiFiDeviceManager()
     // MARK: - 配置
-    var host: String = "192.168.0.147"
+    var host: String = "192.168.0.7"
     var port: UInt16 = 2018
     private let maxRetryCount = 5
     private let timeoutInterval: TimeInterval = 10.0
@@ -768,6 +766,13 @@ public class WiFiDeviceManager {
                 if let info = ProDeviceInfo(from: self.extractResponseContent(response)) {
                     self.isNewVersionDeviece = true
                     self.onNewVersionDevice?(true)
+                    NotificationCenter.default.post(
+                        name: .proDeviceInfoData,
+                        object: nil,
+                        userInfo: [
+                            "info": info
+                        ]
+                    )
                     completion(.success(info))
                 } else {
                     self.isNewVersionDeviece = false
@@ -1139,4 +1144,5 @@ extension WiFiDeviceManager {
 
 public extension Notification.Name {
     static let proDeviceWarningData = Notification.Name("proDeviceWarningData")
+    static let proDeviceInfoData = Notification.Name("proDeviceInfoData")
 }

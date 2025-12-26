@@ -19,7 +19,7 @@ public struct WiFiDevice: Codable {
     
     // 自动生成昵称
     static func generateNickname(for identifier: String) -> String {
-        let suffix = identifier.suffix(5)  // 取后5位
+        let suffix = identifier.suffix(3)  // 取后5位
         return "行者Pro_\(suffix)"
     }
     

@@ -57,7 +57,7 @@ public enum AntennaStatus: Int {
     case waitingGPS = 2
     case waitingIMU = 4
     case searching = 8
-    case stableTracking = 10
+    case stableTracking = 16
     
     public var description: String {
         switch self {

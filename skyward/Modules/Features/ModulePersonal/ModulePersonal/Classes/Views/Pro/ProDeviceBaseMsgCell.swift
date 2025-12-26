@@ -121,7 +121,7 @@ class ProDeviceBaseMsgCell: UITableViewCell {
         bgView.addSubview(modeCatLabel)
         modeCatButton.translatesAutoresizingMaskIntoConstraints = false
         modeCatButton.backgroundColor = .clear
-        collectButton.addTarget(self, action: #selector(modeCatTapped), for: .touchUpInside)
+        modeCatButton.addTarget(self, action: #selector(modeCatTapped), for: .touchUpInside)
         bgView.addSubview(modeCatButton)
         
         // 地面状态
@@ -135,7 +135,7 @@ class ProDeviceBaseMsgCell: UITableViewCell {
         bgView.addSubview(modeGroundLabel)
         modeGroundButton.translatesAutoresizingMaskIntoConstraints = false
         modeGroundButton.backgroundColor = .clear
-        collectButton.addTarget(self, action: #selector(modeGroundTapped), for: .touchUpInside)
+        modeGroundButton.addTarget(self, action: #selector(modeGroundTapped), for: .touchUpInside)
         bgView.addSubview(modeGroundButton)
         
         // 收藏按钮
@@ -353,11 +353,15 @@ class ProDeviceBaseMsgCell: UITableViewCell {
     @objc private func modeCatTapped() {
         print("车载按钮点击")
         resendModlAction?(1)
+        modeCatImageView.image = PersonalModule.image(named: "device_pro_mode_sel")
+        modeGroundImageView.image = PersonalModule.image(named: "device_pro_mode")
     }
     
     @objc private func modeGroundTapped() {
         print("地面按钮点击")
         resendModlAction?(0)
+        modeCatImageView.image = PersonalModule.image(named: "device_pro_mode")
+        modeGroundImageView.image = PersonalModule.image(named: "device_pro_mode_sel")
     }
     
     @objc private func collectionButtonTapped() {

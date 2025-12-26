@@ -60,7 +60,7 @@ class ProDeviceSettingManageCell: UICollectionViewCell {
             tipLabe.topAnchor.constraint(equalTo: topAnchor, constant: 0),
             tipLabe.trailingAnchor.constraint(equalTo: trailingAnchor),
             tipLabe.heightAnchor.constraint(equalToConstant: 16),
-            tipLabe.widthAnchor.constraint(greaterThanOrEqualToConstant: 30),
+            tipLabe.widthAnchor.constraint(greaterThanOrEqualToConstant: 40),
         ])
         
     }

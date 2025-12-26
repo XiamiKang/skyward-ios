@@ -642,4 +642,66 @@ extension PersonalViewModel {
         .eraseToAnyPublisher()
     }
     
+    /// 下载设备固件
+    public func downloadFirmware(for firmwareData: FirmwareData) -> AnyPublisher<URL, FirmwareDownloadError> {
+        return Future<URL, FirmwareDownloadError> { promise in
+            let downloadManager = FirmwareDownloadManager.shared
+            
+            // 监听下载状态
+            downloadManager.$downloadStatus
+                .sink { status in
+                    switch status {
+                    case .completed(let fileURL):
+                        promise(.success(fileURL))
+                    case .failed(let error):
+                        if let firmwareError = error as? FirmwareDownloadError {
+                            promise(.failure(firmwareError))
+                        } else {
+                            promise(.failure(.networkError(error)))
+                        }
+                    default:
+                        break
+                    }
+                }
+                .store(in: &self.cancellables)
+            
+            // 开始下载
+            downloadManager.downloadFirmware(firmwareData)
+        }
+        .eraseToAnyPublisher()
+    }
+    
+    /// 检查并下载最新固件
+    public func checkAndDownloadLatestFirmware(deviceType: Int, currentVersion: String, hardwareModel: String) -> AnyPublisher<URL, PersonalError> {
+        
+        let model = DeviceFirmwareModel(
+            deviceType: deviceType,
+            versionCode: currentVersion,
+            hardwareModel: hardwareModel
+        )
+        
+        return Future<URL, PersonalError> { promise in
+            // 1. 获取固件信息
+            self.fetchDeviceFirmware(model: model)
+                .flatMap { firmwareData -> AnyPublisher<URL, PersonalError> in
+                    // 2. 下载固件
+                    self.downloadFirmware(for: firmwareData)
+                        .mapError { downloadError -> PersonalError in
+                            // 转换错误类型
+                            return .networkError(downloadError.localizedDescription)
+                        }
+                        .eraseToAnyPublisher()
+                }
+                .sink { completion in
+                    if case .failure(let error) = completion {
+                        promise(.failure(error))
+                    }
+                } receiveValue: { fileURL in
+                    promise(.success(fileURL))
+                }
+                .store(in: &self.cancellables)
+        }
+        .eraseToAnyPublisher()
+    }
+    
 }

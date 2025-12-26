@@ -16,6 +16,9 @@ class ProDeviceDetailViewController: PersonalBaseViewController {
     private var environmentInfo: EnvironmentInfo?
     private var statusUpdateTimer: Timer?
     
+    private let viewModel = PersonalViewModel()
+    private var mode: Int = 1
+    
     private lazy var proTableView: UITableView = {
         let tableView = UITableView(frame: .zero, style: .plain)
         tableView.backgroundColor = UIColor(str: "#F2F3F4")
@@ -79,6 +82,10 @@ class ProDeviceDetailViewController: PersonalBaseViewController {
             DispatchQueue.main.async {
                 self?.updateConnectionStatus(isConnected)
                 self?.proTableView.reloadRows(at: [IndexPath(row: 0, section: 0)], with: .none)
+                
+                if !isConnected {
+                    self?.stopStatusUpdates()
+                }
             }
         }
         
@@ -108,7 +115,8 @@ class ProDeviceDetailViewController: PersonalBaseViewController {
             if let cell = self.proTableView.cellForRow(at: IndexPath(row: 0, section: 0)) as? ProDeviceBaseMsgCell {
                 cell.changeStatus(isConnect: true)
             }
-            statusUpdateTimer = Timer.scheduledTimer(withTimeInterval: 300.0, repeats: true) { [weak self] _ in
+
+            statusUpdateTimer = Timer.scheduledTimer(withTimeInterval: 30.0, repeats: true) { [weak self] _ in
                 self?.updateDeviceStatus()
             }
         }else {
@@ -120,6 +128,8 @@ class ProDeviceDetailViewController: PersonalBaseViewController {
         statusUpdateTimer?.invalidate()
         statusUpdateTimer = nil
     }
+    
+    
     
     private func updateDeviceStatus() {
         wifiDeviceManager.queryLocation { [weak self] result in
@@ -217,7 +227,7 @@ class ProDeviceDetailViewController: PersonalBaseViewController {
         }
         
         guard let location = LocationManager.lastLocation() else { return }
-        wifiDeviceManager.halfSatellite(longitude: location.coordinate.longitude, latitude: location.coordinate.latitude, altitude: location.altitude) { [weak self] result in
+        wifiDeviceManager.halfSatellite(longitude: location.coordinate.longitude, latitude: location.coordinate.latitude, altitude: location.altitude, mode: mode) { [weak self] result in
             guard let self = self else { return }
             DispatchQueue.main.async {
                 switch result {
@@ -297,6 +307,10 @@ extension ProDeviceDetailViewController: UITableViewDelegate, UITableViewDataSou
                 guard let self = self else {return}
                 self.pushToDebugVC()
             }
+            cell.resendModlAction = { [weak self] mode in
+                guard let self = self else {return}
+                self.mode = mode
+            }
             return cell
         case 1:
             let cell = tableView.dequeueReusableCell(withIdentifier: "ProDeviceStatusCell") as! ProDeviceStatusCell
@@ -359,7 +373,7 @@ extension ProDeviceDetailViewController: UITableViewDelegate, UITableViewDataSou
     func tableView(_ tableView: UITableView, heightForRowAt indexPath: IndexPath) -> CGFloat {
         switch indexPath.row {
         case 0:
-            return 150
+            return 180
         case 1:
             return 240
         case 2:

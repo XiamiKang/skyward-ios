@@ -10,7 +10,7 @@ import Foundation
 import UIKit
 
 // MARK: - 固件升级错误
-enum FirmwareUpdateError: Error {
+public enum FirmwareUpdateError: Error {
     case notConnected
     case timeout
     case eraseFailed
@@ -21,7 +21,7 @@ enum FirmwareUpdateError: Error {
     case invalidData
     case retryExceeded
     
-    var errorDescription: String? {
+    public var errorDescription: String? {
         switch self {
         case .notConnected: return "设备未连接"
         case .timeout: return "操作超时"
@@ -36,7 +36,7 @@ enum FirmwareUpdateError: Error {
     }
 }
 
-enum OTAUpgradeError: Error, LocalizedError {
+public enum OTAUpgradeError: Error, LocalizedError {
     case invalidFirmwareFile
     case fileReadError
     case invalidChecksum
@@ -49,7 +49,7 @@ enum OTAUpgradeError: Error, LocalizedError {
     case canceled
     case deviceDisconnected
     
-    var errorDescription: String? {
+    public var errorDescription: String? {
         switch self {
         case .invalidFirmwareFile:
             return "无效的固件文件"
@@ -77,7 +77,7 @@ enum OTAUpgradeError: Error, LocalizedError {
     }
 }
 // MARK: - 改进的固件升级管理器
-class AdvancedFirmwareUpdateManager {
+public class AdvancedFirmwareUpdateManager {
     
     // MARK: - 配置
     private let packetSize = 256 // 每包数据大小
@@ -103,17 +103,17 @@ class AdvancedFirmwareUpdateManager {
     private var firmwareData: Data?
     
     // MARK: - 回调
-    var onProgressUpdate: ((Double, String) -> Void)?
-    var onUpgradeComplete: ((Result<Bool, Error>) -> Void)?
-    var onLogReceived: ((String) -> Void)?
+    public var onProgressUpdate: ((Double, String) -> Void)?
+    public var onUpgradeComplete: ((Result<Bool, Error>) -> Void)?
+    public var onLogReceived: ((String) -> Void)?
     
     // MARK: - 初始化
-    init(deviceManager: WiFiDeviceManager) {
+    public init(deviceManager: WiFiDeviceManager) {
         self.deviceManager = deviceManager
     }
     
     // MARK: - 公共方法
-    func startUpgrade(firmwarePath: String, completion: @escaping (Result<Bool, Error>) -> Void) {
+    public func startUpgrade(firmwarePath: String, completion: @escaping (Result<Bool, Error>) -> Void) {
         guard let deviceManager = deviceManager, deviceManager.isConnected else {
             completion(.failure(WiFiDeviceError.disconnected))
             return
@@ -138,7 +138,7 @@ class AdvancedFirmwareUpdateManager {
         }
     }
     
-    func cancelUpgrade() {
+    public func cancelUpgrade() {
         isUpgrading = false
         addLog("升级已取消")
     }
@@ -670,7 +670,7 @@ class AdvancedFirmwareUpdateManager {
 }
 
 // MARK: - 固件文件信息
-struct FirmwareFileInfo {
+public struct FirmwareFileInfo {
     let fileName: String
     let version: String
 }
