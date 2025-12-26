@@ -273,7 +273,7 @@ struct Team: TableCodable {
     let name: String?
     let ownerId: String?
     let createdTime: Int64?
-    let members: [Member]?
+    var members: [Member]?
     let conversationId: String?
     let isDisband: Bool?
     

@@ -119,11 +119,24 @@ class TeamSettingViewController: BaseViewController {
     
     var teamId: String?
     /// 团队数据
-    private var team: Team?
-    /// 成员列表
-    private var members: [Member] = []
-    /// 群号
-    private var groupId: String?
+    private var team: Team? {
+        didSet {
+            DispatchQueue.main.async {[weak self] in
+                let team = self?.team
+                if let teamName = team?.name {
+                    let memberCount = team?.members?.count ?? 0
+                    self?.teamNameLabel.text = teamName + "(\(memberCount))"
+                }
+                if let teamId = team?.id {
+                    self?.teamGroupIdLabel.text = "群号：" + teamId
+                }
+                if let teamAvatar = team?.teamAvatar {
+                    self?.teamAvatarImageView.sd_setImage(with: URL(string: teamAvatar), placeholderImage: TeamModule.image(named: "team_group_avatar"))
+                }
+                self?.membersCollectionView.reloadData()
+            }
+        }
+    }
     
     // MARK: - Initialization
     
@@ -281,6 +294,7 @@ class TeamSettingViewController: BaseViewController {
     
     /// 移除成员
     private func removeMembers() {
+        guard var members = team?.members else { return }
         let filterMembers = members.filter({$0.userId != UserManager.shared.userInfo?.id})
         guard let teamId = self.teamId, filterMembers.count > 0 else {
             if filterMembers.count == 0 {
@@ -292,17 +306,20 @@ class TeamSettingViewController: BaseViewController {
         let vc = TeamRemoveMemberViewController(teamId: teamId, members: filterMembers)
         vc.removeCompletion = { [weak self] membersToRemove in
             let ids = Set(membersToRemove.map(\.userId))
-            self?.members.removeAll { ids.contains($0.userId) }
+            members.removeAll { ids.contains($0.userId) }
+            self?.team?.members = members
             self?.membersCollectionView.reloadData()
         }
         navigationController?.pushViewController(vc, animated: true)
     }
     
     private func getTeamInfo() {
-        var params = [String : Any]()
-        params["requestId"] = Int(Date().timeIntervalSince1970)
-        params["id"] = teamId
+//        if let teamId = teamId, let team = DBManager.shared.queryFromDb(fromTable: DBTableName.team.rawValue, cls: Team.self)?.first(where: { $0.id == teamId }) {
+//            self.team = team
+//        }
         
+        var params = [String : Any]()
+        params["id"] = teamId
         if let jsonStr = params.dataValue?.jsonString {
             MQTTManager.shared.publish(message: jsonStr, to: TeamAPI.teamInfo_pub, qos:.qos1)
         }
@@ -312,6 +329,9 @@ class TeamSettingViewController: BaseViewController {
 // MARK: - UICollectionViewDelegate, UICollectionViewDataSource, UICollectionViewDelegateFlowLayout
 extension TeamSettingViewController: UICollectionViewDelegate, UICollectionViewDataSource, UICollectionViewDelegateFlowLayout {
     func collectionView(_ collectionView: UICollectionView, numberOfItemsInSection section: Int) -> Int {
+        guard let members = team?.members else {
+            return 0
+        }
         if members.count == 0 {
             return 0
         }
@@ -320,6 +340,10 @@ extension TeamSettingViewController: UICollectionViewDelegate, UICollectionViewD
     
     func collectionView(_ collectionView: UICollectionView, cellForItemAt indexPath: IndexPath) -> UICollectionViewCell {
         let cell = collectionView.dequeueReusableCell(withReuseIdentifier: "TeamMemberCollectionCell", for: indexPath) as! TeamMemberCollectionCell
+        
+        guard let members = team?.members else {
+            return cell
+        }
         
         if indexPath.item < members.count {
             // 普通成员
@@ -337,6 +361,10 @@ extension TeamSettingViewController: UICollectionViewDelegate, UICollectionViewD
     }
     
     func collectionView(_ collectionView: UICollectionView, didSelectItemAt indexPath: IndexPath) {
+        guard let members = team?.members else {
+            return
+        }
+        
         if indexPath.item < members.count {
             // 点击了普通成员
         } else if indexPath.item == members.count {
@@ -378,28 +406,16 @@ extension TeamSettingViewController: MQTTManagerDelegate {
                     
                     if let team = rsp.data {
                         if team.isDisband == true {
-                            if let conversationId = team.conversationId {
-//                                let condition = Conversation.Properties.id.rawValue == conversationId
-//                                DBManager.shared.deleteFromDb(fromTable: DBTableName.conversation.rawValue, where: condition)
-//                                if let conversations = DBManager.shared.queryFromDb(fromTable: DBTableName.conversation.rawValue, cls: Conversation.self)?.filter({$0.id != conversationId}) {
-//                                    DBManager.shared.updateToDb(objects: conversations, intoTable: DBTableName.conversation.rawValue)
-//                                }
-                                DBManager.shared.updateToDb(table: DBTableName.conversation.rawValue, on: Conversation.Properties.all, with: team, where: Conversation.Properties.id.rawValue == conversationId )
-                                
+                            if let teamId = team.id, let conversations = DBManager.shared.queryFromDb(fromTable: DBTableName.conversation.rawValue, cls: Conversation.self)?.filter({$0.teamId != teamId}) {
+                                DBManager.shared.deleteFromDb(fromTable: DBTableName.conversation.rawValue)
+                                DBManager.shared.insertToDb(objects: conversations, intoTable: DBTableName.conversation.rawValue)
                             }
                             self?.navigationController?.popToRootViewController(animated: false)
                             SWRouter.handle(RouteTable.teamPageUrl)
                             return
                         }
-                        
+
                         self?.team = team
-                        self?.teamNameLabel.text = (team.name ?? "") + "(\(team.members?.count ?? 0))"
-                        self?.teamGroupIdLabel.text = "群号：" + (team.id ?? "")
-                        if let members = team.members {
-                            self?.members = members
-                            self?.membersCollectionView.reloadData()
-                        }
-                    
                         if UIWindow.topViewController() is TeamSettingEditViewController ||
                             UIWindow.topViewController() is TeamInviteMemberViewController ||
                             UIWindow.topViewController() is TeamRemoveMemberViewController{

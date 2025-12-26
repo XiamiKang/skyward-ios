@@ -120,7 +120,7 @@ class TeamInviteMemberViewController: BaseViewController {
     private lazy var bottomButton: UIButton = {
         let bottomButton = UIButton(type: .system)
         bottomButton.setTitle("邀请", for: .normal)
-        bottomButton.backgroundColor = UIColor(str: "#FFE0B9")
+        bottomButton.backgroundColor = ThemeManager.current.mainColor
         bottomButton.setTitleColor(.white, for: .normal)
         bottomButton.titleLabel?.font = UIFont.systemFont(ofSize: 16, weight: .semibold)
         bottomButton.layer.cornerRadius = 8
@@ -133,7 +133,12 @@ class TeamInviteMemberViewController: BaseViewController {
     
     @objc private func inviteButtonTapped() {
         // 获取所有有效的手机号
+        
         let validPhoneNumbers = phoneNumbers.filter { !$0.isEmpty }
+        if validPhoneNumbers.count == 0 {
+            view.sw_showWarningToast("请输入手机号")
+            return
+        }
         
         var params = [String : Any]()
         params["requestId"] = Int(Date().timeIntervalSince1970)
@@ -253,14 +258,14 @@ extension TeamInviteMemberViewController: PhoneInputCellDelegate {
             phoneNumbers[indexPath.row] = text
         }
         
-        let validPhoneNumbers = phoneNumbers.filter { !$0.isEmpty }
-        if validPhoneNumbers.count > 0 {
-            bottomButton.isEnabled = true
-            bottomButton.backgroundColor = ThemeManager.current.mainColor
-        } else {
-            bottomButton.isEnabled = false
-            bottomButton.backgroundColor = UIColor(str: "#FFE0B9")
-        }
+//        let validPhoneNumbers = phoneNumbers.filter { !$0.isEmpty }
+//        if validPhoneNumbers.count > 0 {
+//            bottomButton.isEnabled = true
+//            bottomButton.backgroundColor = ThemeManager.current.mainColor
+//        } else {
+//            bottomButton.isEnabled = false
+//            bottomButton.backgroundColor = UIColor(str: "#FFE0B9")
+//        }
     }
     
     func phoneInputCellDidBeginEditing(_ cell: PhoneInputCell, at indexPath: IndexPath) {

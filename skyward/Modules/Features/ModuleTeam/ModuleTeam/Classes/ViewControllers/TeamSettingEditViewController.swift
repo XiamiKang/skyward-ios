@@ -198,4 +198,8 @@ class TeamModifyNameView: UIView, SWAlertCustomView {
             textField.layer.borderWidth = 0
         }
     }
+    
+    func alertDidShow() {
+        textField.becomeFirstResponder()
+    }
 }

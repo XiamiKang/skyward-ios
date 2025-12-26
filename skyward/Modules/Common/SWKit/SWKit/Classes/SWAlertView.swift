@@ -51,6 +51,7 @@ public struct SWAlertConfiguration {
 // MARK: - 自定义视图协议
 public protocol SWAlertCustomView: UIView {
     func shouldClickConfirmButton() -> Bool
+    func alertDidShow()
 }
 
 // MARK: - 默认实现
@@ -58,6 +59,7 @@ public extension SWAlertCustomView {
     func shouldClickConfirmButton() -> Bool {
         return true
     }
+    func alertDidShow() {}
 }
 
 // MARK: - AlertView类
@@ -269,7 +271,9 @@ public final class SWAlertView: UIView, SWPopupContentView {
     
     public func popupWillShow() {}
     
-    public func popupDidShow() {}
+    public func popupDidShow() {
+        self.customView?.alertDidShow()
+    }
     
     public func popupWillDismiss() {}
     

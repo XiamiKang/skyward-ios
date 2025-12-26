@@ -210,6 +210,9 @@ extension TeamMapViewModel: MQTTManagerDelegate {
     }
     
     public func mqttManager(_ manager: MQTTManager, didReceiveMessage message: String, fromTopic topic: String) {
+        guard topic == TeamAPI.messagePage_sub || topic == TeamAPI.teamInfo_sub || topic == TeamAPI.memberLoaction_sub else {
+            return
+        }
         DispatchQueue.main.async {[weak self] in
             do {
                 guard let jsonData = message.data(using: .utf8) else {

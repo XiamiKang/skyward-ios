@@ -74,6 +74,7 @@ public class DBManager: NSObject {
     }
     
     /// 删除
+    @discardableResult
     public func deleteFromDb(fromTable: String, where condition: Condition? = nil) -> Bool {
         do {
             try dataBase?.delete(fromTable: fromTable, where:condition)

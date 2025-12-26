@@ -191,7 +191,7 @@ extension TeamListViewController: MQTTManagerDelegate {
                     }
                     return updatedConversation
                 }
-                
+                DBManager.shared.deleteFromDb(fromTable: DBTableName.conversation.rawValue)
                 DBManager.shared.insertToDb(objects: updatedConversations, intoTable: DBTableName.conversation.rawValue)
                 self.conversations = updatedConversations
                 DispatchQueue.main.async {[weak self] in
