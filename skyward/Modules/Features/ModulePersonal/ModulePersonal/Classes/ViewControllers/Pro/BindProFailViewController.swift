@@ -6,6 +6,7 @@
 //
 
 import UIKit
+import SWKit
 
 class BindProFailViewController: PersonalBaseViewController {
     
@@ -33,7 +34,7 @@ class BindProFailViewController: PersonalBaseViewController {
         
         setupUI()
         setupConstraints()
-        
+        WiFiDeviceManager.shared.disconnect()
     }
     
     private func setupUI() {

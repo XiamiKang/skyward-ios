@@ -16,8 +16,8 @@ public class WiFiDeviceManager {
     
     public static let shared = WiFiDeviceManager()
     // MARK: - 配置
-    let host: String = "192.168.0.7"
-    let port: UInt16 = 2018
+    var host: String = "192.168.0.147"
+    var port: UInt16 = 2018
     private let maxRetryCount = 5
     private let timeoutInterval: TimeInterval = 10.0
     
@@ -38,10 +38,12 @@ public class WiFiDeviceManager {
     // MARK: - 状态
     public private(set) var isConnected = false
     public private(set) var isLogStreaming = false
+    public private(set) var isNewVersionDeviece = true
     
     // MARK: - 回调
     public var onConnectionStatusChanged: ((Bool) -> Void)?
     public var onLogReceived: ((String) -> Void)?
+    public var onNewVersionDevice: ((Bool) -> Void)?
     public var onError: ((Error) -> Void)?
     public var onDeviceWarning: ((FaultCodes) -> Void)?
     public var onStatusUpdate: ((ProDeviceStatus) -> Void)?
@@ -123,6 +125,7 @@ public class WiFiDeviceManager {
                 self.isConnected = true
                 self.startReceiving()
                 self.onConnectionStatusChanged?(true)
+                self.saveCurrentDeviceAfterConnection()
                 DispatchQueue.main.async {
                     completion?(.success(true))
                 }
@@ -323,6 +326,13 @@ public class WiFiDeviceManager {
             DispatchQueue.main.async {
                 self.onDeviceWarning?(warning)
                 self.onLogReceived?("⚠️ 设备告警: \(warning.description)")
+                NotificationCenter.default.post(
+                    name: .proDeviceWarningData,
+                    object: nil,
+                    userInfo: [
+                        "warning": warning
+                    ]
+                )
             }
             return
         }
@@ -582,8 +592,12 @@ public class WiFiDeviceManager {
     }
     
     /// 一键自动对星
-    public func autoSatellite(completion: @escaping (Result<SatelliteAlignmentResult, Error>) -> Void) {
-        sendCommand("AUTOSATALI,1") { result in
+    public func autoSatellite(mode: Int, completion: @escaping (Result<SatelliteAlignmentResult, Error>) -> Void) {
+        var command = "AUTOSATALI,\(mode)"
+        if !isNewVersionDeviece {
+            command = "AUTOSATALI"
+        }
+        sendCommand(command) { result in
             switch result {
             case .success(let response):
                 if let result = SatelliteAlignmentResult(from: response) {
@@ -598,9 +612,12 @@ public class WiFiDeviceManager {
     }
     
     /// 一键半自动对星
-    public func halfSatellite(longitude: Double, latitude: Double, altitude: Double,
+    public func halfSatellite(longitude: Double, latitude: Double, altitude: Double, mode: Int,
                       completion: @escaping (Result<SatelliteAlignmentResult, Error>) -> Void) {
-        let command = String(format: "HAFSATALI,%.6f,%.6f,%.2f,0", longitude, latitude, altitude)
+        var command = String(format: "HAFSATALI,%.6f,%.6f,%.2f,%d", longitude, latitude, altitude, mode)
+        if !isNewVersionDeviece {
+            command = String(format: "HAFSATALI,%.6f,%.6f,%.2f", longitude, latitude, altitude)
+        }
         sendCommand(command) { result in
             switch result {
             case .success(let response):
@@ -617,15 +634,29 @@ public class WiFiDeviceManager {
     
     /// 低功耗模式开关
     public func deepSleep(enable: Bool, completion: @escaping (Result<Bool, Error>) -> Void) {
-        let command = enable ? "DEEPSLEEP,ON" : "DEEPSLEEP,OFF"
-        sendCommand(command) { result in
-            switch result {
-            case .success(let response):
-                let expectedPrefix = enable ? "DEEPSLEEP,ON" : "DEEPSLEEP,OFF"
-                let success = response.hasPrefix(expectedPrefix) && parseSuccessResponse(response)
-                completion(.success(success))
-            case .failure(let error):
-                completion(.failure(error))
+        if isNewVersionDeviece {
+            let command = enable ? "DEEPSLEEP,ON" : "DEEPSLEEP,OFF"
+            sendCommand(command) { result in
+                switch result {
+                case .success(let response):
+                    let expectedPrefix = enable ? "DEEPSLEEP,ON" : "DEEPSLEEP,OFF"
+                    let success = response.hasPrefix(expectedPrefix) && parseSuccessResponse(response)
+                    completion(.success(success))
+                case .failure(let error):
+                    completion(.failure(error))
+                }
+            }
+        }else {
+            let command = enable ? "DEEPSLEEP_ON" : "DEEPSLEEP_OFF"
+            sendCommand(command) { result in
+                switch result {
+                case .success(let response):
+                    let expectedPrefix = enable ? "DEEPSLEEP_ON" : "DEEPSLEEP_OFF"
+                    let success = response.hasPrefix(expectedPrefix) && parseSuccessResponse(response)
+                    completion(.success(success))
+                case .failure(let error):
+                    completion(.failure(error))
+                }
             }
         }
     }
@@ -652,6 +683,22 @@ public class WiFiDeviceManager {
             switch result {
             case .success(let response):
                 if let status = ProDeviceStatus(from: self.extractResponseContent(response)) {
+                    completion(.success(status))
+                } else {
+                    completion(.failure(WiFiDeviceError.invalidResponse))
+                }
+            case .failure(let error):
+                completion(.failure(error))
+            }
+        }
+    }
+    
+    /// 老版终端状态查询
+    public func queryLocation(completion: @escaping (Result<OldProDeviceStatus, Error>) -> Void) {
+        sendCommand("REQLOC") { result in
+            switch result {
+            case .success(let response):
+                if let status = OldProDeviceStatus(from: self.extractResponseContent(response)) {
                     completion(.success(status))
                 } else {
                     completion(.failure(WiFiDeviceError.invalidResponse))
@@ -719,11 +766,17 @@ public class WiFiDeviceManager {
             switch result {
             case .success(let response):
                 if let info = ProDeviceInfo(from: self.extractResponseContent(response)) {
+                    self.isNewVersionDeviece = true
+                    self.onNewVersionDevice?(true)
                     completion(.success(info))
                 } else {
+                    self.isNewVersionDeviece = false
+                    self.onNewVersionDevice?(false)
                     completion(.failure(WiFiDeviceError.invalidResponse))
                 }
             case .failure(let error):
+                self.isNewVersionDeviece = false
+                self.onNewVersionDevice?(false)
                 completion(.failure(error))
             }
         }
@@ -978,4 +1031,112 @@ extension WiFiDeviceManager {
     }
     
 
+}
+
+extension WiFiDeviceManager {
+    
+    /// 获取当前Wi-Fi的BSSID（伪代码，实际需要获取真实BSSID）
+    private func getCurrentBSSID() -> String? {
+        // 注意：在iOS上获取BSSID需要特殊权限
+        // 这里提供一个模拟实现
+        
+        // 实际项目中可以使用：
+        // 1. NetworkExtension框架
+        // 2. 使用设备的唯一标识（如序列号）
+        // 3. 或者让用户手动输入/选择
+        
+        // 模拟返回一个基于IP地址的标识
+        return "MAC_\(host.replacingOccurrences(of: ".", with: "_"))"
+    }
+    
+    /// 连接成功后保存设备信息
+    public func saveCurrentDeviceAfterConnection() {
+        guard isConnected else {
+            print("设备未连接，无法保存")
+            return
+        }
+        
+        // 获取设备标识（这里可以根据实际情况调整）
+        guard let identifier = getCurrentBSSID() else {
+            print("无法获取设备标识")
+            return
+        }
+        
+        // 更新或创建设备记录
+        WiFiDeviceStorageManager.shared.updateConnectionInfo(
+            identifier: identifier,
+            host: host,
+            port: port
+        )
+        
+        // 更新连接状态
+        WiFiDeviceStorageManager.shared.updateDeviceStatus(
+            identifier: identifier,
+            isConnected: true
+        )
+        
+        print("设备连接信息已保存: \(identifier)")
+    }
+    
+    /// 设备断开时更新状态
+    public func updateDeviceOnDisconnect() {
+        guard let identifier = getCurrentBSSID() else { return }
+        
+        WiFiDeviceStorageManager.shared.updateDeviceStatus(
+            identifier: identifier,
+            isConnected: false
+        )
+        
+        print("设备断开状态已更新: \(identifier)")
+    }
+    
+    /// 对星状态变化时更新
+    public func updateSatelliteTrackingStatus(_ isTracking: Bool) {
+        guard let identifier = getCurrentBSSID() else { return }
+        
+        WiFiDeviceStorageManager.shared.updateDeviceStatus(
+            identifier: identifier,
+            isTrackingSatellite: isTracking
+        )
+        
+        let statusText = isTracking ? "对星成功" : "对星失败"
+        print("设备对星状态已更新: \(statusText)")
+    }
+    
+    /// 获取最近连接的设备（用于快速重连）
+    public func getRecentDevice() -> (host: String, port: UInt16)? {
+        let devices = WiFiDeviceStorageManager.shared.getAllDevices()
+        
+        // 优先返回最近连接过的已连接设备
+        if let connectedDevice = devices.first(where: { $0.isConnected && !$0.host.isEmpty }) {
+            return (connectedDevice.host, connectedDevice.port)
+        }
+        
+        // 返回最近更新过的设备
+        if let recentDevice = devices.first(where: { !$0.host.isEmpty }) {
+            return (recentDevice.host, recentDevice.port)
+        }
+        
+        return nil
+    }
+    
+    /// 重连最近设备
+    public func reconnectToRecentDevice(completion: @escaping (Result<Bool, Error>) -> Void) {
+        guard let recentDevice = getRecentDevice() else {
+            completion(.failure(WiFiDeviceError.disconnected))
+            return
+        }
+        
+        // 更新连接信息
+        host = recentDevice.host
+        port = recentDevice.port
+        
+        // 重新连接
+        connect(completion: completion)
+    }
+}
+
+
+public extension Notification.Name {
+    static let proDeviceWarningData = Notification.Name("proDeviceWarningData")
 }

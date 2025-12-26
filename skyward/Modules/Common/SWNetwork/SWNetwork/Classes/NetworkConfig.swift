@@ -52,7 +52,7 @@ public struct NetworkConfig: NetworkConfigProtocol {
     public let commonHeaders: [String: String]
     
     private init() {
-        self.baseURL = NetworkEnvironment.development.baseURL
+        self.baseURL = NetworkEnvironment.production.baseURL
         self.timeoutInterval = 30.0
         self.maxRetryCount = 3
         self.enableLogging = true

@@ -36,7 +36,7 @@ class ProDeviceLowPowerCell: UITableViewCell {
         lowPowerTitle.font = UIFont.systemFont(ofSize: 16, weight: .medium)
         bgView.addSubview(lowPowerTitle)
         
-        lowPowerswitch.onTintColor = UIColor.green
+        lowPowerswitch.onTintColor = UIColor(str: "#16C282")
         lowPowerswitch.addTarget(self, action: #selector(logSwitchChanged), for: .valueChanged)
         bgView.addSubview(lowPowerswitch)
         

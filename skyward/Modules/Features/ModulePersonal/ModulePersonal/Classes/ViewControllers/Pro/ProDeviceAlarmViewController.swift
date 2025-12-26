@@ -6,6 +6,7 @@
 //
 
 import UIKit
+import SWKit
 
 struct ProDeviceAlarmInfo {
     let statu: Int  // 0：正常；1：异常
@@ -93,8 +94,8 @@ class ProDeviceAlarmViewController: PersonalBaseViewController {
         super.viewDidLoad()
         
         setupUI()
-        // 初始状态为正在获取中
-        showLoading()
+        getDeviceAlarmClick()
+        setupNotifications()
     }
     
     override func viewDidLayoutSubviews() {
@@ -148,6 +149,35 @@ class ProDeviceAlarmViewController: PersonalBaseViewController {
         ])
     }
     
+    private func setupNotifications() {
+        NotificationCenter.default.addObserver(
+            self,
+            selector: #selector(dealDeviceWarningData(_:)),
+            name: .proDeviceWarningData,
+            object: nil
+        )
+    }
+    
+    @objc private func dealDeviceWarningData(_ notification: Notification) {
+        guard let userInfo = notification.userInfo,
+              let result = userInfo["warning"] as? FaultCodes else {
+            return
+        }
+        dataSource = [
+            ProDeviceAlarmInfo(statu: result.imu, value: "姿态故障"),
+            ProDeviceAlarmInfo(statu: result.beidou, value: "定位故障"),
+            ProDeviceAlarmInfo(statu: result.beacon, value: "信标信号故障"),
+            ProDeviceAlarmInfo(statu: result.lnb, value: "接收链路故障"),
+            ProDeviceAlarmInfo(statu: result.buc, value: "发射链路故障")
+        ]
+        DispatchQueue.main.async {
+            self.showNormal()
+            self.tableView.reloadData()
+        }
+        
+    }
+
+    
     // MARK: - 更新视图状态
     private func updateViewState() {
         switch currentState {
@@ -184,7 +214,7 @@ class ProDeviceAlarmViewController: PersonalBaseViewController {
         showLoading()
         
         // 模拟获取数据
-        simulateFetchingData()
+        WiFiDeviceManager.shared.queryDeviceWarning { _ in }
     }
     
     // MARK: - 模拟数据获取

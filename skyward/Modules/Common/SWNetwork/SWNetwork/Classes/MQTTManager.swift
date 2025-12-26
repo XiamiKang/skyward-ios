@@ -68,17 +68,17 @@ public struct MQTTConfiguration {
 
     public static let defaultConfig: MQTTConfiguration = {
         // 测试
-        let config = MQTTConfiguration(host: "39.102.202.212",
-                                       port: 1883,
-                                       clientID: "ios-app-\(UUID().uuidString)",
-                                       username: "txts_client",
-                                       password: "txts123456")
-        // 生产
-//        let config = MQTTConfiguration(host: "39.102.203.24",
+//        let config = MQTTConfiguration(host: "39.102.202.212",
 //                                       port: 1883,
 //                                       clientID: "ios-app-\(UUID().uuidString)",
-//                                       username: "txts-ios",
-//                                       password: "ios@txtsqaz.")
+//                                       username: "txts_client",
+//                                       password: "txts123456")
+        // 生产
+        let config = MQTTConfiguration(host: "39.102.203.24",
+                                       port: 1883,
+                                       clientID: "ios-app-\(UUID().uuidString)",
+                                       username: "txts-ios",
+                                       password: "ios@txtsqaz.")
         return config
     }()
 }

@@ -109,5 +109,11 @@ class ProfileFunctionTwoCell: UITableViewCell {
         }else {
             miniImageView.image = PersonalModule.image(named: "device_mini_noLine")
         }
+        
+        if WiFiDeviceManager.shared.isConnected {
+            proImageView.image = PersonalModule.image(named: "device_pro")
+        }else {
+            proImageView.image = PersonalModule.image(named: "device_pro_noLine")
+        }
     }
 }
