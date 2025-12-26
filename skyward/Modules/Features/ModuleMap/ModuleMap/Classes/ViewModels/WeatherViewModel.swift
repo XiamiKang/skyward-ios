@@ -15,7 +15,6 @@ public class WeatherViewModel: ObservableObject {
     
     // MARK: - 依赖
     private let mapService = MapService()
-    private let locationManager = LocationManager.shared
     
     @Published public var pointWeatherData: WeatherData?
     @Published public var hoursWeatherData: [EveryHoursWeatherData]?

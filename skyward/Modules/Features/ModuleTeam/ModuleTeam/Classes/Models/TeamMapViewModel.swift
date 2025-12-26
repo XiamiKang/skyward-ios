@@ -25,6 +25,11 @@ public class TeamMapViewModel: ObservableObject {
     var getMemberListHandler: MemberListBlock?
     var getMemberLocationHandler: MemberLoactionBlock?
     
+    lazy var locationManager: LocationManager = {
+        let locationManager = LocationManager()
+        return locationManager
+    }()
+    
     public init(conversation: Conversation) {
         self.conversation = conversation
         
@@ -301,13 +306,13 @@ extension TeamMapViewModel {
     }
     
     func sendMemberLocation() {
-        
-        LocationManager.shared.getCurrentLocation { location, error in
+        let convId = conversation.id
+        locationManager.getCurrentLocation { location, error in
             var params = [String : Any]()
             params["requestId"] = Int(Date().timeIntervalSince1970)
             params["userId"] = UserManager.shared.userId
             params["mode"] = "1"
-            params["conversationId"] = self.conversation.id
+            params["conversationId"] = convId
             params["reportTime"] = params["requestId"]
             params["coordinate"] = ["longitude": location?.coordinate.longitude ?? 0.0, "latitude": location?.coordinate.latitude ?? 0.0]
             if let jsonStr = params.dataValue?.jsonString {

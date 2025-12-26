@@ -65,7 +65,7 @@ public struct ReportManager {
         
         if hasNetwork {
             UIWindow.topWindow?.sw_showLoading()
-            LocationManager.shared.getCurrentLocation { location, error in
+            LocationManager().getCurrentLocation { location, error in
                 guard let latitude = location?.coordinate.latitude, let longitude = location?.coordinate.longitude else {
                     UIWindow.topWindow?.sw_hideLoading()
                     UIWindow.topWindow?.sw_showWarningToast("获取定位失败: 定位信息无效")

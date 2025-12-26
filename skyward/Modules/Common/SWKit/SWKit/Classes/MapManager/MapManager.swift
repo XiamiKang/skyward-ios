@@ -21,7 +21,7 @@ public class MapManager: NSObject {
     }
     
     // 定位相关 - 替换为统一的LocationManager
-    private let locationManager = LocationManager.shared
+    private let locationManager = LocationManager()
     private var userLocationMarker: TGMarker?
     private var pointLocationMarker: TGMarker?
     private var isFollowingUserLocation = true

@@ -43,6 +43,8 @@ public class HomeViewModel: ObservableObject {
                                                         NoticeTypeItem(noticeType: .service, selected: false, count: 0)]
     private var didPublish: Bool = false
     
+    private let locationManager = LocationManager()
+    
     // MARK: - Initialization
     public init() {
         // 通知
@@ -199,7 +201,7 @@ public class HomeViewModel: ObservableObject {
     }
 
     func getWeatherInfo() {
-        LocationManager.shared.getCurrentLocation { location, error in
+        locationManager.getCurrentLocation {[weak self] location, error in
             guard let location = location else {
                 return
             }
@@ -208,7 +210,7 @@ public class HomeViewModel: ObservableObject {
                     do {
                         let networkResponse = try rsp.map(NetworkResponse<WeatherInfo>.self)
                         if let weatherInfo = networkResponse.data {
-                            self.weatherInfo = weatherInfo
+                            self?.weatherInfo = weatherInfo
                         }
                     } catch {
                         

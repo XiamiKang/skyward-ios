@@ -20,7 +20,7 @@ public class MapViewModel: ObservableObject {
     
     // MARK: - 依赖
     private let mapService = MapService()
-    private let locationManager = LocationManager.shared
+    private let locationManager = LocationManager()
     
     // MARK: - 输出属性（使用 @Published 直接定义）
     @Published public var routeListData: RouteListData?

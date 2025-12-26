@@ -216,7 +216,7 @@ class ProDeviceDetailViewController: PersonalBaseViewController {
             return
         }
         
-        guard let location = LocationManager.shared.latestLocation else { return }
+        guard let location = LocationManager.lastLocation() else { return }
         wifiDeviceManager.halfSatellite(longitude: location.coordinate.longitude, latitude: location.coordinate.latitude, altitude: location.altitude) { [weak self] result in
             guard let self = self else { return }
             DispatchQueue.main.async {

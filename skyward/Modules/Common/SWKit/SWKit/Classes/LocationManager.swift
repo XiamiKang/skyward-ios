@@ -13,11 +13,9 @@ import UIKit
 public typealias LocationPermissionCompletion = (CLAuthorizationStatus) -> Void
 public typealias LocationUpdateCompletion = (CLLocation?, Error?) -> Void
 
+let lastLocationKey = "lastLocationKey"
 
 public class LocationManager: NSObject {
-    
-    // MARK: - Singleton
-    public static let shared = LocationManager()
     
     // MARK: - Properties
     private let locationManager = CLLocationManager()
@@ -26,7 +24,6 @@ public class LocationManager: NSObject {
             locationManager.authorizationStatus
         }
     }
-    public var latestLocation: CLLocation?
     private var lastHeadingUpdateTime: Date = Date()
     private var locationTimeoutTimer: Timer?
     
@@ -37,7 +34,7 @@ public class LocationManager: NSObject {
     public var onHeadingUpdate: ((CLLocationDirection) -> Void)?
     
     // MARK: - Initializer
-    private override init() {
+    public override init() {
         super.init()
         setupLocationManager()
     }
@@ -84,6 +81,7 @@ public class LocationManager: NSObject {
         }
     }
     
+    // MARK: - 定位
     /// 开始持续定位
     public func startContinuousLocationUpdates(updateHandler: LocationUpdateCompletion? = nil) {
         // 检查权限
@@ -116,23 +114,34 @@ public class LocationManager: NSObject {
             return
         }
         
-        self.locationUpdateCompletion = { [weak self] location, error in
+        // 使用局部变量强引用 self，确保在闭包执行期间实例不会被释放
+        // 闭包执行完毕后，manager 变量释放，实例随后被释放
+        let manager = self
+        self.locationUpdateCompletion = { location, error in
             completion(location, error)
-            self?.locationTimeoutTimer?.invalidate()
-            self?.locationUpdateCompletion = nil
+            manager.locationTimeoutTimer?.invalidate()
+            manager.locationUpdateCompletion = nil
         }
         
         // 设置超时定时器
         locationTimeoutTimer?.invalidate() // 确保之前的定时器已停止
-        locationTimeoutTimer = Timer.scheduledTimer(withTimeInterval: 5.0, repeats: false) { [weak self] _ in
-            self?.locationUpdateCompletion?(nil, NSError(domain: "LocationError", code: 102, userInfo: [NSLocalizedDescriptionKey: "定位请求超时"]))
-            self?.locationUpdateCompletion = nil
+        locationTimeoutTimer = Timer.scheduledTimer(withTimeInterval: 5.0, repeats: false) { _ in
+            manager.locationUpdateCompletion?(nil, NSError(domain: "LocationError", code: 102, userInfo: [NSLocalizedDescriptionKey: "定位请求超时"]))
+            manager.locationUpdateCompletion = nil
         }
         
         // 执行定位请求
         locationManager.desiredAccuracy = kCLLocationAccuracyHundredMeters
         locationManager.distanceFilter = kCLDistanceFilterNone
         locationManager.requestLocation()
+    }
+    
+    // 获取上次的定位信息
+    public static func lastLocation() -> CLLocation? {
+        guard let lastLocationDict = UserDefaults.standard.value(forKey: lastLocationKey) as? [String: Double] else {
+            return nil
+        }
+        return CLLocation(latitude: lastLocationDict["latitude"]!, longitude: lastLocationDict["longitude"]!)
     }
 }
 
@@ -158,7 +167,7 @@ extension LocationManager: CLLocationManagerDelegate {
         locationUpdateCompletion?(location, nil)
         onceLocationUpdateCompletion?(location, nil)
         
-        latestLocation = location
+        UserDefaults.standard.setValue(["latitude": location.coordinate.latitude, "longitude": location.coordinate.longitude], forKey: lastLocationKey)
         debugPrint("定位成功: 经度:\(location.coordinate.longitude),纬度:\(location.coordinate.latitude)")
     }
     
