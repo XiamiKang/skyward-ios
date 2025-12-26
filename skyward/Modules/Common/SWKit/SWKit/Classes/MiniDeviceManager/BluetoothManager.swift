@@ -59,6 +59,10 @@ public class BluetoothManager: NSObject {
         centralManager = CBCentralManager(delegate: self, queue: DispatchQueue.main)
     }
     
+    public var isConnected: Bool {
+        return connectedPeripheral != nil && connectedPeripheral?.state == .connected
+    }
+    
     // MARK: - 蓝牙基础操作
     func scanForPeripherals(withServiceUUIDs serviceUUIDs: [CBUUID]? = nil, options: [String: Any]? = nil) {
         guard centralManager.state == .poweredOn else {
@@ -192,6 +196,7 @@ extension BluetoothManager: CBCentralManagerDelegate {
             guard let self = self else { return }
             print("连接稳定，请求设备状态信息")
             self.requestStatusInfo()
+            self.requestDeviceInfo()
         }
     }
     
@@ -436,7 +441,7 @@ public extension BluetoothManager {
     }
     
     // MARK: - 数据发送
-    private func sendRawData(_ data: Data) {
+    public func sendRawData(_ data: Data) {
         guard let peripheral = connectedPeripheral else {
             print("设备未连接")
             return
@@ -635,12 +640,12 @@ public extension BluetoothManager {
 
 // MARK: - 通知名称
 public extension Notification.Name {
-    static let didReceiveBluetoothData = Notification.Name("didReceiveBluetoothData")
-    static let didReceiveCommandFrame = Notification.Name("didReceiveCommandFrame")
-    static let didReceiveResponseFrame = Notification.Name("didReceiveResponseFrame")
-    static let didReceiveDeviceInfo = Notification.Name("didReceiveDeviceInfo")
-    static let didReceiveStatusInfo = Notification.Name("didReceiveStatusInfo")
-    static let didReceiveAlarmReport = Notification.Name("didReceiveAlarmReport")
+    static let didReceiveBluetoothData = Notification.Name("didReceiveBluetoothData")                      //蓝牙应答数据通知
+    static let didReceiveCommandFrame = Notification.Name("didReceiveCommandFrame")                        //蓝牙应答命令通知
+    static let didReceiveResponseFrame = Notification.Name("didReceiveResponseFrame")                      //蓝牙应答通知
+    static let didReceiveDeviceInfo = Notification.Name("didReceiveDeviceInfo")                            //蓝牙设备信息通知
+    static let didReceiveStatusInfo = Notification.Name("didReceiveStatusInfo")                            //蓝牙状态信息通知
+    static let didReceiveAlarmReport = Notification.Name("didReceiveAlarmReport")                          //蓝牙终端上报平台安全通知
     static let didReceivePlatformNotification = Notification.Name("didReceivePlatformNotification")
     static let deviceRequestPhoneLocation = Notification.Name("deviceRequestPhoneLocation")
     static let firmwareUpgradeProgress = Notification.Name("firmwareUpgradeProgress")
@@ -651,6 +656,8 @@ public extension Notification.Name {
     static let didReceiveDeviceCustomMsg = Notification.Name("didReceiveDeviceCustomMsg")
     static let didSaveOfSOSResponseMsg = Notification.Name("didSaveOfSOSResponseMsg")
     static let unBindMiniDeviceResponseMsg = Notification.Name("unBindMiniDeviceResponseMsg")
+    static let bluetoothDeviceDisconnected = Notification.Name("bluetoothDeviceDisconnected")
+    
 }
 
 // MARK: - 枚举描述扩展

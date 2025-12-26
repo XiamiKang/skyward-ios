@@ -12,7 +12,7 @@ import SWKit
 class MiniDeviceSettingCell: UITableViewCell {
 
     let itemWidth = (UIScreen.main.bounds.width - 64)/3
-    
+    private var showTip: Bool = false
     var selectedCallback: ((Int) -> Void)?
     
     private let bgView = UIView()
@@ -86,6 +86,11 @@ class MiniDeviceSettingCell: UITableViewCell {
             
         ])
     }
+    
+    func upDateFrimwareTip(showTip: Bool) {
+        self.showTip = showTip
+        self.collectionView.reloadData()
+    }
 }
 
 extension MiniDeviceSettingCell: UICollectionViewDelegate, UICollectionViewDataSource {
@@ -97,6 +102,13 @@ extension MiniDeviceSettingCell: UICollectionViewDelegate, UICollectionViewDataS
     func collectionView(_ collectionView: UICollectionView, cellForItemAt indexPath: IndexPath) -> UICollectionViewCell {
         let cell = collectionView.dequeueReusableCell(withReuseIdentifier: "ProDeviceSettingManageCell", for: indexPath) as! ProDeviceSettingManageCell
         cell.confign(with: dataSource[indexPath.row])
+        if indexPath.row == 1 {
+            cell.tipLabe.isHidden = !showTip
+            cell.tipLabe.text = "新版本"
+        }else {
+            cell.tipLabe.isHidden = true
+        }
+        
         return cell
     }
     

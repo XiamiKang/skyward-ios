@@ -840,7 +840,7 @@ public extension BluetoothManager {
                 userInfo: ["data": frame.messageContent]
             )
         case .getSatelliteRecords:
-            guard let recordFrame = parseCommunicationFrame(frame.messageContent) else {
+            guard parseCommunicationFrame(frame.messageContent) != nil else {
                 handlePlatformNotification(frame.messageContent)
                 return
             }
@@ -868,14 +868,6 @@ public extension BluetoothManager {
         print("  应答状态: \(responseStatus)")
         
         // 处理固件数据应答
-        if frame.commandCode == .startFirmwareUpgrade {
-            sendNextFirmwarePacket()
-        }
-        
-        if frame.commandCode == .firmwareData {
-            handleFirmwareDataResponse(frame)
-        }
-        
         if frame.commandCode == .appTriggerAlarm {
             NotificationCenter.default.post(
                 name: .didSaveOfSOSResponseMsg,
@@ -905,34 +897,6 @@ public extension BluetoothManager {
                 "responseStatus": responseStatus
             ]
         )
-    }
-    
-    private func handleFirmwareDataResponse(_ frame: ResponseFrame) {
-        guard let responseSerial = frame.responseSerial,
-              let responseStatus = frame.responseStatus else {
-            return
-        }
-        
-        print("固件数据包应答:")
-        print("  状态: \(responseStatus)")
-        print("  对应流水码: \(responseSerial)")
-        
-        switch responseStatus {
-        case .success:
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
-                self.sendNextFirmwarePacket()
-            }
-        case .inProgress:
-            print("设备正在处理固件数据包")
-        case .failed, .crcError:
-            print("固件数据包发送失败，停止升级")
-            firmwareManager.reset()
-            NotificationCenter.default.post(
-                name: .firmwareUpgradeCompleted,
-                object: nil,
-                userInfo: ["success": false, "error": "发送失败"]
-            )
-        }
     }
 }
 

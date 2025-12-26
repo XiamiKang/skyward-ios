@@ -9,6 +9,7 @@
 import UIKit
 import CoreBluetooth
 import SWKit
+import Combine
 
 public class MiniDeviceDetailViewController: PersonalBaseViewController {
     
@@ -23,6 +24,10 @@ public class MiniDeviceDetailViewController: PersonalBaseViewController {
     var deviceConnetedStatus: Int = 0
     private var statusInfo: StatusInfo?
     private let viewModel = PersonalViewModel()
+    private var cancellables = Set<AnyCancellable>()
+    private var newVersion = false
+    private var miniVersion = "1.0.0.0"
+    private var currentFirmwareData: FirmwareData?
     
     private lazy var miniTableView: UITableView = {
         let tableView = UITableView(frame: .zero, style: .plain)
@@ -92,7 +97,12 @@ public class MiniDeviceDetailViewController: PersonalBaseViewController {
         guard let userInfo = notification.userInfo else { return }
         if let deviceInfo = userInfo["deviceInfo"] as? DeviceInfo {
             print("Mini设备信息---\(deviceInfo)")
-            
+            let mcuSoftwareVersion = formatVersion(deviceInfo.mcuSoftwareVersion)
+            miniVersion = String(mcuSoftwareVersion.dropFirst())
+            print("Mini设备固件版本信息---\(miniVersion)")
+            let hardwareModel = "1.0"
+            let model = DeviceFirmwareModel(deviceType: 1, versionCode: miniVersion, hardwareModel: hardwareModel)
+            self.checkNewVersion(model: model)
         }
     }
     
@@ -110,6 +120,37 @@ public class MiniDeviceDetailViewController: PersonalBaseViewController {
             
             self.miniTableView.reloadData()
         }
+    }
+    
+    private func checkNewVersion(model: DeviceFirmwareModel) {
+        viewModel.input.deviceFirmwareRequest.send(model)
+        
+        viewModel.$deviceFirmwareData
+            .receive(on: DispatchQueue.main)
+            .compactMap { $0 }
+            .sink { [weak self] firmwareData in
+                guard let self = self else { return }
+                print("固件信息-----\(firmwareData)")
+                if firmwareData.firmwareUrl != nil {
+                    self.newVersion = true
+                }else {
+                    self.newVersion = false
+                }
+                self.currentFirmwareData = firmwareData
+                DispatchQueue.main.async {
+                    self.miniTableView.reloadData()
+                }
+            }
+            .store(in: &cancellables)
+        
+        viewModel.$error
+            .receive(on: DispatchQueue.main)
+            .compactMap { $0 }
+            .sink { error in
+                // 处理错误
+                print("检查新版本失败: \(error)")
+            }
+            .store(in: &cancellables)
     }
     
     
@@ -159,6 +200,8 @@ public class MiniDeviceDetailViewController: PersonalBaseViewController {
         }
         // 跳转到固件升级页面
         let updateVC = MiniDeviceUpdateViewController()
+        updateVC.currentVersion = miniVersion
+        updateVC.currentFirmwareData = currentFirmwareData
         self.navigationController?.pushViewController(updateVC, animated: true)
     }
     
@@ -256,6 +299,7 @@ extension MiniDeviceDetailViewController: UITableViewDelegate, UITableViewDataSo
             return cell
         case 2:
             let cell = tableView.dequeueReusableCell(withIdentifier: "MiniDeviceSettingCell") as! MiniDeviceSettingCell
+            cell.upDateFrimwareTip(showTip: newVersion)
             cell.selectedCallback = { [weak self] index in
                 guard let self = self else {return}
                 switch index {

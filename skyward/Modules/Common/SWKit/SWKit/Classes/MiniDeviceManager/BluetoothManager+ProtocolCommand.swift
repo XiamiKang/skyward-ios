@@ -227,175 +227,6 @@ public extension BluetoothManager {
         print("发送复位命令")
     }
     
-    // MARK: - 完整的固件升级流程
-    func startCompleteFirmwareUpgrade(version: String, firmwarePath: String) {
-        do {
-            // 读取固件文件
-            let firmwareURL = URL(fileURLWithPath: firmwarePath)
-            let firmwareData = try Data(contentsOf: firmwareURL)
-            
-            // 动态计算包大小（考虑MTU限制）
-            let mtu = MTU
-            let packetOverhead = 14 // 通信帧开销
-            let actualPacketSize = min(512, mtu - packetOverhead - 10) // 留余量
-            
-            print("MTU: \(mtu), 推荐包大小: \(actualPacketSize)")
-            
-            // 准备升级
-            firmwareManager.startUpgrade(firmwareData: firmwareData, packetSize: actualPacketSize)
-            
-            // 发送开始升级命令
-            startFirmwareUpgrade(version: version, firmwareData: firmwareData)
-            
-        } catch {
-            print("读取固件文件失败: \(error)")
-            NotificationCenter.default.post(
-                name: .firmwareUpgradeCompleted,
-                object: nil,
-                userInfo: ["success": false, "error": error.localizedDescription]
-            )
-        }
-    }
-    
-    // 发送下一个固件数据包
-    // MARK: - 固件升级流程优化（2KB应答）
-    func sendNextFirmwarePacket() {
-        guard let packet = firmwareManager.currentPacketInfo() else {
-            print("固件升级完成或没有更多数据包")
-            // 发送升级结束命令
-            endFirmwareUpgrade(success: true)
-            
-            NotificationCenter.default.post(
-                name: .firmwareUpgradeCompleted,
-                object: nil,
-                userInfo: ["success": true]
-            )
-            return
-        }
-        
-        // 发送数据包
-        sendFirmwareData(packetIndex: packet.index, packetData: packet.data)
-        
-        // 更新进度
-        let progress = firmwareManager.progress
-        print("📦 发送固件数据包 \(packet.index + 1)/\(firmwareManager.totalPackets) - \(firmwareManager.ackStatus())")
-        
-        NotificationCenter.default.post(
-            name: .firmwareUpgradeProgress,
-            object: nil,
-            userInfo: [
-                "progress": progress,
-                "currentPacket": packet.index,
-                "totalPackets": firmwareManager.totalPackets,
-                "ackStatus": firmwareManager.ackStatus()
-            ]
-        )
-        
-        // 移动到下一个包但不立即发送，等待设备应答
-        firmwareManager.moveToNextPacket()
-        
-        // 如果已经发送了2KB数据，等待设备应答
-        if firmwareManager.shouldWaitForAck() {
-            print("⏳ 已发送2KB数据，等待设备应答...")
-            // 这里不自动发送下一个包，等待设备应答后再继续
-        } else {
-            // 继续发送下一个数据包（在2KB范围内）
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) {
-                self.sendNextFirmwarePacket()
-            }
-        }
-    }
-
-    // 处理固件数据应答
-    func handleFirmwareDataResponse(_ response: Data, command: CommandCode) {
-        if response.count >= 5 {
-            let index = (UInt32(response[0]) << 24) | (UInt32(response[1]) << 16) |
-            (UInt32(response[2]) << 8) | UInt32(response[3])
-            let result = response[4]
-            
-            print("📨 收到固件数据包应答 - 包索引: \(index), 结果: \(result == 0x00 ? "成功" : "失败")")
-            
-            if result == 0x00 {
-                // 重置ACK计数器
-                firmwareManager.resetAckCounter()
-                
-                // 继续发送下一个2KB数据块
-                print("✅ 设备确认收到2KB数据，继续发送下一批...")
-                DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
-                    self.sendNextFirmwarePacket()
-                }
-            } else {
-                print("❌ 2KB数据块发送失败，错误码: \(result)")
-                // 可以在这里实现重试逻辑
-                DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
-                    print("🔄 重试当前2KB数据块...")
-                    self.firmwareManager.resetAckCounter()
-                    self.sendNextFirmwarePacket()
-                }
-            }
-        }
-    }
-    
-    // 处理固件升级响应
-    func handleFirmwareUpgradeResponse(_ response: Data, command: CommandCode) {
-        print("🔧 处理固件升级响应 - 命令: \(command), 数据: \(response.hexString)")
-        switch command {
-        case .startFirmwareUpgrade:
-            // 设备确认开始升级，开始发送数据包
-            if response.count >= 1 {
-                let result = response[0]
-                if result == 0x00 {
-                    print("设备确认开始固件升级，开始发送数据包")
-                    sendNextFirmwarePacket()
-                } else {
-                    print("设备拒绝固件升级，错误码: \(result)")
-                    NotificationCenter.default.post(
-                        name: .firmwareUpgradeCompleted,
-                        object: nil,
-                        userInfo: ["success": false, "error": "设备拒绝升级"]
-                    )
-                }
-            }
-            
-        case .firmwareData:
-            // 设备确认收到数据包
-            if response.count >= 5 {
-                let index = (UInt32(response[0]) << 24) | (UInt32(response[1]) << 16) |
-                (UInt32(response[2]) << 8) | UInt32(response[3])
-                let result = response[4]
-                
-                if result == 0x00 {
-                    print("设备确认收到数据包 \(index)")
-                    // 移动到下一个包
-                    firmwareManager.moveToNextPacket()
-                    // 发送下一个包
-                    sendNextFirmwarePacket()
-                } else {
-                    print("数据包 \(index) 发送失败，错误码: \(result)")
-                    // 可以在这里实现重试逻辑
-                    DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
-                        self.sendNextFirmwarePacket() // 重试当前包
-                    }
-                }
-            }
-            
-        case .endFirmwareUpgrade:
-            // 设备确认升级完成
-            if response.count >= 1 {
-                let result = response[0]
-                if result == 0x00 {
-                    print("设备确认固件升级完成")
-                    firmwareManager.reset()
-                } else {
-                    print("固件升级完成确认失败，错误码: \(result)")
-                }
-            }
-            
-        default:
-            break
-        }
-    }
-    
     // MARK: - 工具方法
     private func parseVersionString(_ version: String) -> Data {
         let components = version.split(separator: ".").map { String($0) }
@@ -429,3 +260,491 @@ public extension BluetoothManager {
         return hashString
     }
 }
+
+// MARK: - 固件升级扩展
+extension BluetoothManager {
+    
+    // MARK: - 完整固件升级流程（安卓逻辑）
+    public func startFirmwareUpgradeFlow(
+        version: String,
+        firmwareData: Data,
+        progressCallback: @escaping (Double) -> Void,
+        completion: @escaping (Bool, String?) -> Void
+    ) {
+        guard isConnected else {
+            completion(false, "设备未连接")
+            return
+        }
+        
+        // 创建升级管理器
+        let upgradeManager = FirmwareUpgradeManager()
+        upgradeManager.prepareFirmware(version: version, firmwareData: firmwareData)
+        
+        // 开始升级流程
+        startFirmwareUpgradeAsync(
+            version: version,
+            firmwareData: firmwareData,
+            upgradeManager: upgradeManager,
+            progressCallback: progressCallback,
+            completion: completion
+        )
+    }
+    
+    // MARK: - 异步升级流程
+    private func startFirmwareUpgradeAsync(
+        version: String,
+        firmwareData: Data,
+        upgradeManager: FirmwareUpgradeManager,
+        progressCallback: @escaping (Double) -> Void,
+        completion: @escaping (Bool, String?) -> Void
+    ) {
+        Task {
+            do {
+                // Step 1: 发送开始升级命令
+                let startSuccess = try await sendStartUpgradeCommand(
+                    version: version,
+                    firmwareData: firmwareData
+                )
+                
+                guard startSuccess else {
+                    completion(false, "开始升级失败")
+                    return
+                }
+                
+                progressCallback(10) // 开始升级，进度10%
+                
+                // Step 2: 发送固件数据
+                let sendSuccess = try await sendFirmwareDataInChunks(
+                    firmwareData: firmwareData,
+                    upgradeManager: upgradeManager,
+                    progressCallback: progressCallback
+                )
+                
+                guard sendSuccess else {
+                    completion(false, "数据传输失败")
+                    return
+                }
+                
+                // Step 3: 发送结束升级命令
+                let endSuccess = try await sendEndUpgradeCommand()
+                
+                if endSuccess {
+                    completion(true, nil)
+                    progressCallback(100)
+                } else {
+                    completion(false, "结束升级失败")
+                }
+                
+            } catch {
+                completion(false, error.localizedDescription)
+            }
+        }
+    }
+    
+    private func sendStartUpgradeCommand(
+        version: String,
+        firmwareData: Data
+    ) async throws -> Bool {
+        return try await withCheckedThrowingContinuation { continuation in
+            var hasResumed = false
+            var notificationObserver: NSObjectProtocol?
+            
+            // 安全的 resume 辅助方法
+            let safeResume: (Bool) -> Void = { result in
+                guard !hasResumed else { return }
+                hasResumed = true
+                
+                // 移除观察者
+                if let observer = notificationObserver {
+                    NotificationCenter.default.removeObserver(observer)
+                }
+                
+                continuation.resume(returning: result)
+            }
+            
+            // 构建开始升级数据包（和安卓一致）
+            let versionBytes = parseVersionString(version)
+            let md5 = md5Hash(from: firmwareData.hexString)
+            guard let md5Data = md5.data(using: .ascii) else {
+                safeResume(false)
+                return
+            }
+            
+            var messageContent = Data()
+            messageContent.append(versionBytes) // 4字节版本
+            messageContent.append(UInt32(firmwareData.count).bigEndianData) // 4字节长度
+            messageContent.append(md5Data) // 32字节MD5
+            
+            // 监听响应
+            notificationObserver = NotificationCenter.default.addObserver(
+                forName: .didReceiveResponseFrame,
+                object: nil,
+                queue: .main
+            ) { notification in
+                guard let userInfo = notification.userInfo,
+                      let frame = userInfo["frame"] as? ResponseFrame,
+                      frame.commandCode == .startFirmwareUpgrade,
+                      let responseStatus = userInfo["responseStatus"] as? ResponseStatus else {
+                    return
+                }
+                
+                safeResume(responseStatus == .success)
+            }
+            
+            // 发送命令
+            sendCommand(.startFirmwareUpgrade, messageContent: messageContent)
+            
+            // 等待响应（超时处理）
+            DispatchQueue.main.asyncAfter(deadline: .now() + 5.0) {
+                safeResume(false) // 超时
+            }
+        }
+    }
+    
+    private func sendFirmwareDataInChunks(
+        firmwareData: Data,
+        upgradeManager: FirmwareUpgradeManager,
+        progressCallback: @escaping (Double) -> Void
+    ) async throws -> Bool {
+        let fileChunkSize = 2048
+        let fileChunkCount = Int(ceil(Double(firmwareData.count) / Double(fileChunkSize)))
+        
+        print("📦 开始发送固件数据")
+        print("   总数据大小: \(firmwareData.count) 字节")
+        print("   分块大小: \(fileChunkSize) 字节")
+        print("   总分块数: \(fileChunkCount)")
+        
+        for i in 0..<fileChunkCount {
+            guard isConnected else {
+                print("❌ 发送数据块 \(i) 时设备已断开连接")
+                throw NSError(domain: "BluetoothManager", code: -1,
+                              userInfo: [NSLocalizedDescriptionKey: "设备连接已断开"])
+            }
+            
+            let fileStart = i * fileChunkSize
+            let fileEnd = min(fileStart + fileChunkSize, firmwareData.count)
+            let fileChunk = firmwareData.subdata(in: fileStart..<fileEnd)
+            
+            // 构建带索引的数据包
+            var chunkWithIndex = Data()
+            chunkWithIndex.append(UInt32(i).bigEndianData) // 4字节索引
+            chunkWithIndex.append(fileChunk) // 数据
+            
+            // 构建命令数据
+            let messageContent = buildFileChunkData(chunkIndex: i, chunkData: chunkWithIndex)
+            
+            // 发送数据包（带重试）
+            let success = try await sendChunkWithRetry(
+                chunkIndex: i,
+                messageContent: messageContent,
+                maxRetries: 2,
+                retryDelay: 300
+            )
+            
+            if !success {
+                print("❌ 数据块 \(i) 发送失败")
+                return false
+            }
+            
+            let progress = Double(i + 1) / Double(fileChunkCount)
+            progressCallback(progress)
+            
+            print("✅ 数据块 \(i+1)/\(fileChunkCount) 发送成功")
+        }
+        
+        return true
+    }
+    
+    // MARK: - Step 3: 发送结束升级命令
+    private func sendEndUpgradeCommand() async throws -> Bool {
+        return try await withCheckedThrowingContinuation { continuation in
+            var messageContent = Data()
+            messageContent.append(0x00) // 成功标志
+            
+            sendCommand(.endFirmwareUpgrade, messageContent: messageContent)
+            
+            // 等待响应
+            DispatchQueue.main.asyncAfter(deadline: .now() + 5.0) {
+                continuation.resume(returning: false)
+            }
+            
+            NotificationCenter.default.addObserver(
+                forName: .didReceiveResponseFrame,
+                object: nil,
+                queue: .main
+            ) { [weak self] notification in
+                guard let self = self,
+                      let userInfo = notification.userInfo,
+                      let frame = userInfo["frame"] as? ResponseFrame,
+                      frame.commandCode == .endFirmwareUpgrade,
+                      let responseStatus = userInfo["responseStatus"] as? ResponseStatus else {
+                    return
+                }
+                
+                NotificationCenter.default.removeObserver(self, name: .didReceiveResponseFrame, object: nil)
+                
+                if responseStatus == .success {
+                    continuation.resume(returning: true)
+                } else {
+                    continuation.resume(returning: false)
+                }
+            }
+        }
+    }
+    
+    // MARK: - 辅助方法
+    
+    /// 构建文件块数据（模拟安卓的 buildFileContent）
+    private func buildFileChunkData(chunkIndex: Int, chunkData: Data) -> Data {
+        var data = Data()
+        
+        // 构建类似安卓的协议格式
+        // 这里需要根据你的实际协议来调整
+        data.append(UInt32(chunkIndex).bigEndianData) // 块索引
+        data.append(UInt16(chunkData.count).bigEndianData) // 块长度
+        data.append(chunkData) // 实际数据
+        
+        return data
+    }
+    
+    /// 发送数据块（带重试机制）
+    private func sendChunkWithRetry(
+        chunkIndex: Int,
+        messageContent: Data,
+        maxRetries: Int,
+        retryDelay: UInt64
+    ) async throws -> Bool {
+        var attempt = 0
+        
+        while attempt <= maxRetries {
+            attempt += 1
+            
+            print("📤 发送数据块 \(chunkIndex)，尝试 \(attempt)/\(maxRetries + 1)")
+            
+            let success = try await sendSingleChunk(
+                chunkIndex: chunkIndex,
+                messageContent: messageContent
+            )
+            
+            if success {
+                return true
+            } else if attempt <= maxRetries {
+                print("🔄 重试数据块 \(chunkIndex)，等待 \(retryDelay)ms")
+                try await Task.sleep(nanoseconds: retryDelay * 1_000_000)
+            }
+        }
+        
+        return false
+    }
+    
+    /// 发送单个数据块
+//    private func sendSingleChunk(chunkIndex: Int, messageContent: Data) async throws -> Bool {
+//        return try await withCheckedThrowingContinuation { continuation in
+//            // 先分包处理
+//            let chunkSize = MTU - 14 // 考虑协议开销
+//            let chunkCount = Int(ceil(Double(messageContent.count) / Double(chunkSize)))
+//            
+//            print("  分包发送: \(chunkCount) 个小包，MTU: \(MTU)")
+//            
+//            var pkgNumber = 0
+//            var lastPacketSuccess = false
+//            
+//            for j in 0..<chunkCount {
+//                let start = j * chunkSize
+//                let end = min(start + chunkSize, messageContent.count)
+//                let chunk = messageContent.subdata(in: start..<end)
+//                
+//                // 确定包状态（和安卓一致）
+//                let pkgStatus: UInt8
+//                if chunkCount == 1 {
+//                    pkgStatus = 0x00 // 不分包
+//                } else {
+//                    switch j {
+//                    case 0:
+//                        pkgStatus = 0x01 // 分包开始
+//                    case chunkCount - 1:
+//                        pkgStatus = 0x03 // 分包结束
+//                    default:
+//                        pkgStatus = 0x02 // 分包中
+//                    }
+//                }
+//                
+//                // 构建分包数据
+//                let pkgData = buildPacketData(data: chunk, status: pkgStatus, number: pkgNumber)
+//                
+//                // 如果是最后一个包，等待响应
+//                if j == chunkCount - 1 {
+//                    // 发送并等待响应
+//                    sendCommand(.firmwareData, messageContent: chunk)
+//                    
+//                    // 监听响应
+//                    NotificationCenter.default.addObserver(
+//                        forName: .didReceiveResponseFrame,
+//                        object: nil,
+//                        queue: .main
+//                    ) { [weak self] notification in
+//                        guard let self = self,
+//                              let userInfo = notification.userInfo,
+//                              let frame = userInfo["frame"] as? ResponseFrame,
+//                              frame.commandCode == .firmwareData,
+//                              let responseStatus = userInfo["responseStatus"] as? ResponseStatus else {
+//                            return
+//                        }
+//                        
+//                        NotificationCenter.default.removeObserver(self, name: .didReceiveResponseFrame, object: nil)
+//                        
+//                        if responseStatus == .success {
+//                            lastPacketSuccess = true
+//                            continuation.resume(returning: true)
+//                        } else {
+//                            lastPacketSuccess = false
+//                            continuation.resume(returning: false)
+//                        }
+//                    }
+//                    
+//                    // 超时处理
+//                    DispatchQueue.main.asyncAfter(deadline: .now() + 5.0) {
+//                        if !lastPacketSuccess {
+//                            continuation.resume(returning: false)
+//                        }
+//                    }
+//                    
+//                } else {
+//                    // 发送中间包（不等待响应）
+//                    sendRawData(pkgData)
+//                }
+//                
+//                pkgNumber += 1
+//            }
+//        }
+//    }
+    private func sendSingleChunk(chunkIndex: Int, messageContent: Data) async throws -> Bool {
+        // 先分包处理
+        let chunkSize = MTU - 14 // 考虑协议开销
+        let chunkCount = Int(ceil(Double(messageContent.count) / Double(chunkSize)))
+        
+        print("  分包发送: \(chunkCount) 个小包，MTU: \(MTU)")
+        
+        // 存储观察者引用
+        var notificationObserver: NSObjectProtocol?
+        
+        // 使用 Task 来处理异步操作和超时
+        return try await withCheckedThrowingContinuation { continuation in
+            var pkgNumber = 0
+            var lastPacketSuccess = false
+            
+            // 创建响应处理器
+            let responseHandler: (Notification) -> Void = { [weak self] notification in
+                guard let self = self,
+                      let userInfo = notification.userInfo,
+                      let frame = userInfo["frame"] as? ResponseFrame,
+                      frame.commandCode == .firmwareData,
+                      let responseStatus = userInfo["responseStatus"] as? ResponseStatus else {
+                    return
+                }
+                
+                // 移除观察者
+                if let observer = notificationObserver {
+                    NotificationCenter.default.removeObserver(observer)
+                }
+                
+                if responseStatus == .success {
+                    lastPacketSuccess = true
+                    continuation.resume(returning: true)
+                } else {
+                    lastPacketSuccess = true // 这里设为 true 避免超时逻辑触发
+                    continuation.resume(returning: false)
+                }
+            }
+            
+            // 注册通知观察者（只在最后一个包前注册）
+            notificationObserver = NotificationCenter.default.addObserver(
+                forName: .didReceiveResponseFrame,
+                object: nil,
+                queue: .main,
+                using: responseHandler
+            )
+            
+            // 设置超时
+            DispatchQueue.main.asyncAfter(deadline: .now() + 5.0) { [weak self] in
+                guard let self = self, !lastPacketSuccess else { return }
+                
+                // 移除观察者
+                if let observer = notificationObserver {
+                    NotificationCenter.default.removeObserver(observer)
+                }
+                
+                // 如果还没有得到响应，返回失败
+                // 检查 continuation 是否已经被 resume
+                Task {
+                    continuation.resume(returning: false)
+                }
+            }
+            
+            // 发送所有包
+            for j in 0..<chunkCount {
+                let start = j * chunkSize
+                let end = min(start + chunkSize, messageContent.count)
+                let chunk = messageContent.subdata(in: start..<end)
+                
+                // 确定包状态（和安卓一致）
+                let pkgStatus: UInt8
+                if chunkCount == 1 {
+                    pkgStatus = 0x00 // 不分包
+                } else {
+                    switch j {
+                    case 0:
+                        pkgStatus = 0x01 // 分包开始
+                    case chunkCount - 1:
+                        pkgStatus = 0x03 // 分包结束
+                    default:
+                        pkgStatus = 0x02 // 分包中
+                    }
+                }
+                
+                // 构建分包数据
+                let pkgData = buildPacketData(data: chunk, status: pkgStatus, number: pkgNumber)
+                
+                // 如果是最后一个包，发送命令（会期待响应）
+                if j == chunkCount - 1 {
+                    sendCommand(.firmwareData, messageContent: chunk)
+                } else {
+                    // 发送中间包（不等待响应）
+                    sendRawData(pkgData)
+                }
+                
+                // 如果不是最后一个包，添加小的延迟避免发送过快
+                if j < chunkCount - 1 {
+                    Thread.sleep(forTimeInterval: 0.05)
+                }
+                
+                pkgNumber += 1
+            }
+        }
+    }
+    
+    /// 构建分包数据
+    private func buildPacketData(data: Data, status: UInt8, number: Int) -> Data {
+        var packet = Data()
+        
+        // 帧头 (2字节)
+        packet.append(0xFA)
+        packet.append(0xF5)
+        
+        // 分包状态 (1字节)
+        packet.append(status)
+        
+        // 分包编号 (4字节)
+        packet.append(UInt32(number).bigEndianData)
+        
+        // 数据长度 (2字节)
+        packet.append(UInt16(data.count).bigEndianData)
+        
+        // 数据
+        packet.append(data)
+        
+        return packet
+    }
+}
+
+
