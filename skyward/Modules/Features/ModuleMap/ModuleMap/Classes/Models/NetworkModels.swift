@@ -31,30 +31,6 @@ public struct RouteMsgModel {
     }
 }
 
-public struct PublicPOIListModel {
-    public let pageNum: Int
-    public let pageSize: Int
-    public let category: Int?  // 旅游景点 0; 露营地 1; 风景名胜 2; 公共设施 3
-    public let id: String?
-    public let name: String?
-    public let baseCoordinateList: [Coordinate]?
-    
-    public func toDictionary() -> [String: Any] {
-        var dictionary: [String: Any] = [
-            "pageNum": pageNum,
-            "pageSize": pageSize
-        ]
-        dictionary.addIfPresent(pageNum, forKey: "pageNum")
-        dictionary.addIfPresent(pageSize, forKey: "pageSize")
-        dictionary.addIfPresent(category, forKey: "category")
-        dictionary.addIfPresent(id, forKey: "id")
-        dictionary.addIfPresent(name, forKey: "name")
-        dictionary.addValidCoordinates(baseCoordinateList, forKey: "baseCoordinateList")
-        
-        return dictionary
-    }
-}
-
 public struct UserPOIModel {
     public let name: String
     public let description: String

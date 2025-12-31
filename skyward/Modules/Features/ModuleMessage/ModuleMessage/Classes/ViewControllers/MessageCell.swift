@@ -146,23 +146,28 @@ class MessageCell: BaseCell {
 //    }
     
     func configure(with message: UrgentMessage) {
+        prepareForReuse()
         messageLabel.text = message.content
+        timeLabel.text = message.sendTime ?? ""
         let isSelf = message.sendId == UserManager.shared.userId
         if isSelf {
             avatarImageView.sd_setImage(with: URL(string: UserManager.shared.userInfo?.avatar ?? ""), placeholderImage: MessageModule.image(named: "avatar_default"))
             nameLabel.text = UserManager.shared.userInfo?.nickname
             layoutSent()
         } else {
-            avatarImageView.image = MessageModule.image(named: "avatar_txts")
-            nameLabel.text = "天行探索平台"
+            if message.sendUserBaseInfoVO?.imUserType == 9 {
+                avatarImageView.image = MessageModule.image(named: "avatar_txts")
+            } else {
+                avatarImageView.sd_setImage(with: URL(string: message.sendUserBaseInfoVO?.avatar ?? ""), placeholderImage: MessageModule.image(named: "avatar_default"))
+            }
+            
+            if let nickname = message.sendUserBaseInfoVO?.nickname ?? message.sendUserBaseInfoVO?.phone  {
+                nameLabel.text = nickname
+            } else {
+                nameLabel.text = ""
+            }
+            
             layoutReceived()
-        }
-        if let sendTime = message.sendTime { 
-            let timestamp = TimeInterval(sendTime) / 1000 // 然后进行转换和除法运算
-            // 创建日期格式化器
-            timeLabel.text = DateFormatter.fullPretty.string(from: Date(timeIntervalSince1970: timestamp))
-        } else {
-            timeLabel.text = ""
         }
     }
     

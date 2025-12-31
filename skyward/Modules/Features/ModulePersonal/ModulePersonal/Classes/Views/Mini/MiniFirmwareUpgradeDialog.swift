@@ -364,8 +364,9 @@ class MiniFirmwareUpgradeDialog: UIView {
     
     /// 更新进度
     func updateProgress(_ progress: Double) {
-        let clampedProgress = max(0, min(1, progress))
-        let percentage = Int(clampedProgress * 100)
+        print("升级控制器中---弹框----\(progress)")
+        let clampedProgress = max(0, min(1, progress/100))
+        let percentage = Int(progress)
         
         UIView.animate(withDuration: 0.3) {
             self.progressView.setProgress(Float(clampedProgress), animated: true)

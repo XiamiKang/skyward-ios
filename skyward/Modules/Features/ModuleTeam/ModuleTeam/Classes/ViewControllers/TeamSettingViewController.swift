@@ -121,16 +121,23 @@ class TeamSettingViewController: BaseViewController {
     /// 团队数据
     private var team: Team? {
         didSet {
+            guard let team = self.team else {
+                return
+            }
+            //目前insert没有排重，只能能先把表删了，而且删还没法按条件删，数据库写的有问题，暂时这样写，后期要改
+            DBManager.shared.deleteFromDb(fromTable: DBTableName.team.rawValue)
+            DBManager.shared.insertToDb(objects: [team], intoTable: DBTableName.team.rawValue)
+            
             DispatchQueue.main.async {[weak self] in
-                let team = self?.team
-                if let teamName = team?.name {
-                    let memberCount = team?.members?.count ?? 0
+                
+                if let teamName = team.name {
+                    let memberCount = team.members?.count ?? 0
                     self?.teamNameLabel.text = teamName + "(\(memberCount))"
                 }
-                if let teamId = team?.id {
+                if let teamId = team.id {
                     self?.teamGroupIdLabel.text = "群号：" + teamId
                 }
-                if let teamAvatar = team?.teamAvatar {
+                if let teamAvatar = team.teamAvatar {
                     self?.teamAvatarImageView.sd_setImage(with: URL(string: teamAvatar), placeholderImage: TeamModule.image(named: "team_group_avatar"))
                 }
                 self?.membersCollectionView.reloadData()
@@ -314,9 +321,9 @@ class TeamSettingViewController: BaseViewController {
     }
     
     private func getTeamInfo() {
-//        if let teamId = teamId, let team = DBManager.shared.queryFromDb(fromTable: DBTableName.team.rawValue, cls: Team.self)?.first(where: { $0.id == teamId }) {
-//            self.team = team
-//        }
+        if let teamId = teamId, let team = DBManager.shared.queryFromDb(fromTable: DBTableName.team.rawValue, cls: Team.self)?.first(where: { $0.id == teamId }) {
+            self.team = team
+        }
         
         var params = [String : Any]()
         params["id"] = teamId
@@ -386,47 +393,34 @@ extension TeamSettingViewController: UICollectionViewDelegate, UICollectionViewD
 extension TeamSettingViewController: MQTTManagerDelegate {
     
     public func mqttManager(_ manager: MQTTManager, didReceiveMessage message: String, fromTopic topic: String) {
-        DispatchQueue.main.async {[weak self] in
-            do {
-                if topic == TeamAPI.teamInfo_sub {
-                    
-                    guard let jsonData = message.data(using: .utf8) else {
-                        print("[JSON解析] 消息转换为Data失败")
-                        return
-                    }
-            
-                    let decoder = JSONDecoder()
-                    
-                    let rsp = try decoder.decode(MQTTResponse<Team>.self, from: jsonData)
-                    
-                    guard rsp.isSuccess else {
-                        print("[MQTT] 响应失败: \(String(describing: rsp.msg))")
-                        return
-                    }
-                    
-                    if let team = rsp.data {
-                        if team.isDisband == true {
-                            if let teamId = team.id, let conversations = DBManager.shared.queryFromDb(fromTable: DBTableName.conversation.rawValue, cls: Conversation.self)?.filter({$0.teamId != teamId}) {
-                                DBManager.shared.deleteFromDb(fromTable: DBTableName.conversation.rawValue)
-                                DBManager.shared.insertToDb(objects: conversations, intoTable: DBTableName.conversation.rawValue)
-                            }
-                            self?.navigationController?.popToRootViewController(animated: false)
-                            SWRouter.handle(RouteTable.teamPageUrl)
-                            return
-                        }
-
-                        self?.team = team
-                        if UIWindow.topViewController() is TeamSettingEditViewController ||
-                            UIWindow.topViewController() is TeamInviteMemberViewController ||
-                            UIWindow.topViewController() is TeamRemoveMemberViewController{
-                            self?.navigationController?.popViewController(animated: true)
-                        }
-                    }
-                }
-                
-            } catch {
-                print("[JSON解析] 解析失败: \(error)")
+        guard topic == TeamAPI.teamInfo_sub else {
+            return
+        }
+        do {
+            guard let jsonData = message.data(using: .utf8) else {
+                print("[JSON解析] 消息转换为Data失败")
+                return
             }
+            
+            let rsp = try JSONDecoder().decode(MQTTResponse<Team>.self, from: jsonData)
+            guard let team = rsp.data else {
+                return
+            }
+            
+            DispatchQueue.main.async {[weak self] in
+                if team.isDisband == true {
+                    if let teamId = team.id, let conversations = DBManager.shared.queryFromDb(fromTable: DBTableName.conversation.rawValue, cls: Conversation.self)?.filter({$0.teamId != teamId}) {
+                        DBManager.shared.deleteFromDb(fromTable: DBTableName.conversation.rawValue)
+                        DBManager.shared.insertToDb(objects: conversations, intoTable: DBTableName.conversation.rawValue)
+                    }
+                    self?.navigationController?.popToRootViewController(animated: false)
+                    SWRouter.handle(RouteTable.teamPageUrl)
+                    return
+                }
+                self?.team = team
+            }
+        } catch {
+            print("[JSON解析] 解析失败: \(error)")
         }
     }
 }

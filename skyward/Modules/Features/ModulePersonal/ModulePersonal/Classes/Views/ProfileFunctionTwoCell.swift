@@ -28,7 +28,7 @@ class ProfileFunctionTwoCell: UITableViewCell {
         label.text = "我的卫星装备"
         label.translatesAutoresizingMaskIntoConstraints = false
         label.font = .systemFont(ofSize: 16)
-        label.textColor = .label
+        label.textColor = .black
         return label
     }()
     
@@ -69,6 +69,7 @@ class ProfileFunctionTwoCell: UITableViewCell {
     // MARK: - UI设置
     private func setupUI() {
         self.selectionStyle = .none
+        self.backgroundColor = .white
         
         contentView.addSubview(iconImageView)
         contentView.addSubview(titleLabel)

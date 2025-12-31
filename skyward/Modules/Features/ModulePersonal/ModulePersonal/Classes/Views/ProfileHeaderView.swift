@@ -115,7 +115,7 @@ class ProfileHeaderView: UITableViewHeaderFooterView {
         
         editButton.isHidden = false
         signatureLabel.isHidden = false
-        nameLabel.textColor = .label
+        nameLabel.textColor = .black
         
         if let avatarUrl = URL(string: profile?.avatar ?? "") {
             avatarImageView.sd_setImage(with: avatarUrl, placeholderImage: PersonalModule.image(named: "my_avatar"))

@@ -44,7 +44,7 @@ class AddPOIViewController: UIViewController {
         let label = UILabel()
         label.text = "添加兴趣点"
         label.font = .systemFont(ofSize: 18, weight: .medium)
-        label.textColor = .label
+        label.textColor = .black
         return label
     }()
     
@@ -81,7 +81,7 @@ class AddPOIViewController: UIViewController {
         let label = UILabel()
         label.text = "兴趣点名称"
         label.font = .systemFont(ofSize: 14, weight: .regular)
-        label.textColor = .label
+        label.textColor = .black
         return label
     }()
     
@@ -108,7 +108,7 @@ class AddPOIViewController: UIViewController {
         let label = UILabel()
         label.text = "类型"
         label.font = .systemFont(ofSize: 14, weight: .regular)
-        label.textColor = .label
+        label.textColor = .black
         return label
     }()
     
@@ -132,7 +132,7 @@ class AddPOIViewController: UIViewController {
         let label = UILabel()
         label.text = "照片"
         label.font = .systemFont(ofSize: 14, weight: .regular)
-        label.textColor = .label
+        label.textColor = .black
         return label
     }()
     

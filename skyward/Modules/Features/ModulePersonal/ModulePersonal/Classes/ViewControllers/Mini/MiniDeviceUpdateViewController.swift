@@ -32,7 +32,6 @@ class MiniDeviceUpdateViewController: PersonalBaseViewController {
         setupUI()
         setConstraint()
         setupTapGesture()
-        setupDownloadObserver()
         getVersionMsg()
     }
     
@@ -158,7 +157,7 @@ class MiniDeviceUpdateViewController: PersonalBaseViewController {
         if let firmwareData = currentFirmwareData
         {
             self.updateUI(firmwareData: firmwareData)
-            
+            setupDownloadObserver()
             // 检查是否已经下载过
             if FirmwareDownloadManager.shared.firmwareFileExists(firmwareData: firmwareData) {
                 self.updateButtonState(isDownloading: false, progress: 1.0, text: "下载完成，立即安装")
@@ -262,7 +261,7 @@ class MiniDeviceUpdateViewController: PersonalBaseViewController {
                 self.updateButtonState(isDownloading: false, progress: 1.0, text: "下载完成，立即安装")
                 
                 // 显示下载完成提示
-                self.showSuccessAlert(message: "固件下载完成")
+//                self.showSuccessAlert(message: "固件下载完成")
                 
             case .failed(let error):
                 self.isDownloading = false
@@ -349,14 +348,6 @@ extension MiniDeviceUpdateViewController {
                 
         // 创建蓝牙升级管理器
         let upgradeManager = BLEFirmwareUpgradeManager()
-        
-//        upgradeManager.startUpgrade(version: version, firmwarePath: fileURL.path) { progress in
-//            print("蓝牙设备固件升级进度--------\(progress)")
-//            
-//        } onComplete: { result in
-//            
-//        }
-
         
         // 显示升级弹窗
         let dialog = MiniFirmwareUpgradeDialog.showAndStartUpgrade(

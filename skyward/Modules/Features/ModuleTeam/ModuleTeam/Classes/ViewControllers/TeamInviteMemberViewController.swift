@@ -151,7 +151,9 @@ class TeamInviteMemberViewController: BaseViewController {
         
         if let conv = conversation {
             let vc = TeamMapViewController(conversation: conv)
-            UIWindow.topViewController()?.navigationController?.pushViewController(vc, animated: true)
+            navigationController?.pushViewController(vc, animated: true)
+        } else {
+            navigationController?.popViewController(animated: false)
         }
     }
     

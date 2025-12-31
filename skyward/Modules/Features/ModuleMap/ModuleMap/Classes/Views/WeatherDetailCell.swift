@@ -61,7 +61,7 @@ class WeatherDetailCell: UITableViewCell {
         
         // 温度标签
         temperatureLabel.font = UIFont.systemFont(ofSize: 20, weight: .medium)
-        temperatureLabel.textColor = .label
+        temperatureLabel.textColor = .black
         temperatureLabel.text = "--°C"
         temperatureLabel.translatesAutoresizingMaskIntoConstraints = false
         

@@ -15,14 +15,14 @@ class DevieceSettingCell: UITableViewCell {
     private let nameLabel: UILabel = {
         let label = UILabel()
         label.font = UIFont.systemFont(ofSize: 16, weight: .regular)
-        label.textColor = .label
+        label.textColor = .black
         return label
     }()
     
     private let contentLabel: UILabel = {
         let label = UILabel()
         label.font = UIFont.systemFont(ofSize: 14, weight: .regular)
-        label.textColor = .label
+        label.textColor = .black
         label.numberOfLines = 1
         return label
     }()

@@ -41,8 +41,6 @@ class UrgentMessageViewController: BaseViewController {
     // MARK: - Life Cycle
     override func viewDidLoad() {
         super.viewDidLoad()
-        view.backgroundColor = ThemeManager.current.backgroundColor
-        DBManager.shared.createTable(table: DBTableName.urgentMessage.rawValue, of: UrgentMessage.self)
         self.messages = DBManager.shared.queryFromDb(fromTable: DBTableName.urgentMessage.rawValue, cls: UrgentMessage.self) ?? []
         
         // 注册键盘通知
@@ -51,14 +49,10 @@ class UrgentMessageViewController: BaseViewController {
         
         // MQTT
         MQTTManager.shared.addDelegate(self)
-        MQTTManager.shared.subscribe(to: [urgentMessageList_sub, receiveUrgentMessage_sub])
-        
-        var params = [String : Any]()
-        params["requestId"] = Int(Date().timeIntervalSince1970)
-        params["pageNum"] = 1
-        params["pageSize"] = 1000
-        if let jsonStr = params.dataValue?.jsonString {
-            MQTTManager.shared.publish(message: jsonStr, to: urgentMessageList_pub, qos:.qos1)
+        MQTTManager.shared.subscribe(to: receiveUrgentMessage_sub, qos: .qos1)
+        // 获取消息列表
+        _Concurrency.Task {
+            await requestUrgentMessages()
         }
         
         // 监听窄带设备的自定义消息
@@ -166,7 +160,6 @@ class UrgentMessageViewController: BaseViewController {
     @objc private func sendButtonTapped() {
         let content = messageTextView.text.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !content.isEmpty else { return }
-        
         // 清空输入框
         messageTextView.text = ""
         
@@ -178,42 +171,40 @@ class UrgentMessageViewController: BaseViewController {
             view.sw_showWarningToast("消息长度不能超过70个字符")
             return
         }
-        let msgId = UInt64(Date().timeIntervalSince1970 * 1000)
+        let timestamp = Date().timeIntervalSince1970
+        let sendTime = UInt64(timestamp * 1000)
+        let senderId = UserManager.shared.userId
         
-        let message = UrgentMessage(id: String(msgId),
-                                    sendId: UserManager.shared.userId,
+        let message = UrgentMessage(id: String(sendTime),
+                                    sendId: senderId,
                                     receiverId: "1",
                                     content: msg,
-                                    sendTime: msgId,
+                                    sendTime: DateFormatter.fullPretty.string(from: Date()),
                                     type: 0,
-                                    reportType: "")
+                                    sendUserBaseInfoVO: nil,
+                                    receiveUserBaseInfoVO: nil)
         
         if NetworkMonitor.shared.isConnected {
-            var params = [String : Any]()
-            params["content"] = msg
-            params["sendId"] = UserManager.shared.userId
-            params["sendTime"] = msgId
-            params["noticeType"] = 5
-            if let jsonStr = params.dataValue?.jsonString {
-                MQTTManager.shared.publish(message: jsonStr, to: sendUrgentMessage_pub, qos:.qos1)
+            sendMessage(msg: msg) { success in
+                self.addMessageToTable(message)
             }
         }else {
             if let _ = BluetoothManager.shared.connectedPeripheral {
-                guard let msgData = MessageGenerator.generateEmergencyNotifySend(senderId: UserManager.shared.userId,
-                                                                                 timestamp: Date().timeIntervalSince1970,
+                guard let msgData = MessageGenerator.generateEmergencyNotifySend(senderId: senderId,
+                                                                                 timestamp: timestamp,
                                                                                  message: msg) else {
                     return
                 }
+                view.endEditing(true)
                 SWAlertView.showAlert(title: nil, message: "当前无网络连接，通过Mini设备发消息？") {
                     BluetoothManager.shared.sendAppCustomData(msgData)
+                    self.addMessageToTable(message)
                 }
                 
             } else {
                 UIWindow.topWindow?.sw_showWarningToast("请先连接Mini设备")
             }
         }
-        
-        addMessageToTable(message)
     }
     
     func addMessageToTable(_ message: UrgentMessage) {
@@ -230,33 +221,45 @@ class UrgentMessageViewController: BaseViewController {
         do {
             let rsp = try await NetworkProvider<MessageAPI>().request(.urgentMessages(page: 1, size: 1000))
             let networkResponse = try JSONDecoder().decode(NetworkResponse<UrgentMessageList>.self, from: rsp.data)
-            
-            if networkResponse.isSuccess, let messageList = networkResponse.data {                
-                // 提取消息列表
-                if let messages = messageList.list {
-                    // 更新消息列表
-                    self.messages = messages
-                    
-                    // 在主线程更新UI
-                    DispatchQueue.main.async {
-                        self.tableView.reloadData()
-                        
-                        // 滚动到底部显示最新消息
-                        self.scrollToBottom(animated: false)
-                    }
+            if let messages = networkResponse.data?.list, !messages.isEmpty {
+                self.messages = messages.reversed()
+                DBManager.shared.deleteFromDb(fromTable: DBTableName.urgentMessage.rawValue)
+                DBManager.shared.insertToDb(objects: self.messages, intoTable: DBTableName.urgentMessage.rawValue)
+
+                DispatchQueue.main.async {
+                    self.tableView.reloadData()
+                    self.scrollToBottom(animated: false)
                 }
             } else {
-                // 显示错误信息
-                DispatchQueue.main.async {
-                    UIWindow.topWindow?.sw_showWarningToast(networkResponse.msg ?? "获取消息失败")
-                }
+                UIWindow.topWindow?.sw_showWarningToast(networkResponse.msg ?? "")
             }
         } catch {
-            // 处理错误
-            DispatchQueue.main.async {
-                UIWindow.topWindow?.sw_showWarningToast("获取消息失败")
+            UIWindow.topWindow?.sw_showWarningToast(error.localizedDescription)
+            print("+++\(error.localizedDescription)")
+        }
+    }
+    
+    func sendMessage(msg: String, completion: @escaping (Bool) ->Void) {
+        NetworkProvider<MessageAPI>().request(.sendUrgentMessage(msg: msg)) { result in
+            switch result {
+            case .success(let rsp):
+                do {
+                    let networkResponse = try rsp.map(NetworkResponse<Bool>.self)
+                    if networkResponse.isSuccess {
+                        completion(true)
+                    } else {
+                        UIWindow.topWindow?.sw_showWarningToast(networkResponse.msg ?? "")
+                        completion(false)
+                    }
+                } catch {
+                    UIWindow.topWindow?.sw_showWarningToast(error.localizedDescription)
+                    completion(false)
+                }
+                
+            case .failure(let error):
+                UIWindow.topWindow?.sw_showWarningToast(error.localizedDescription)
+                completion(false)
             }
-            print("❌ 获取消息失败: \(error)")
         }
     }
 }
@@ -278,7 +281,7 @@ extension UrgentMessageViewController: UITextViewDelegate {
     func textViewDidBeginEditing(_ textView: UITextView) {
         if textView.text == "请输入消息..." {
             textView.text = ""
-            textView.textColor = .label
+            textView.textColor = .black
         }
     }
     
@@ -306,36 +309,18 @@ extension UrgentMessageViewController: UITextViewDelegate {
 
 extension UrgentMessageViewController: MQTTManagerDelegate {
     public func mqttManager(_ manager: MQTTManager, didReceiveMessage message: String, fromTopic topic: String) {
-        guard topic == urgentMessageList_sub || topic == receiveUrgentMessage_sub else {
+        guard topic == receiveUrgentMessage_sub else {
             return
         }
         do {
             guard let jsonData = message.data(using: .utf8) else {
                 return
             }
-            
-            let decoder = JSONDecoder()
-            
-            if topic == urgentMessageList_sub {
-                let rsp = try decoder.decode(MQTTResponse<UrgentMessageList>.self, from: jsonData)
-                if let messages = rsp.data?.list, !messages.isEmpty {
-                    self.messages = messages.reversed()
-                    DBManager.shared.insertToDb(objects: self.messages, intoTable: DBTableName.urgentMessage.rawValue)
-                    DispatchQueue.main.async {[weak self] in
-                        self?.tableView.reloadData()
-                        self?.scrollToBottom(animated: false)
-                    }
-                }
-                manager.unsubscribe(from: topic)
-            } else if topic == receiveUrgentMessage_sub {
-                let rsp = try decoder.decode(MQTTResponse<UrgentMessage>.self, from: jsonData)
-                if let message = rsp.data {
-                    addMessageToTable(message)
-                }
-            }
-            
+            // 后端返回的是直接的UrgentMessage对象，不是MQTTResponse包装
+            let urgentMessage = try JSONDecoder().decode(UrgentMessage.self, from: jsonData)
+            addMessageToTable(urgentMessage)
         } catch {
-            print("[JSON解析] 解析失败: \(error)")
+            debugPrint("[JSON解析] 解析失败: \(error)")
         }
     }
 }
@@ -443,7 +428,7 @@ extension UrgentMessageViewController {
     func parseDeviceCustomMessage(_ data: Data) -> UrgentMessage? {
         // 1+1+4+2+n
         guard data.count >= 8 else {
-            print("设备信息数据长度错误: \(data.count)")
+            debugPrint("设备信息数据长度错误: \(data.count)")
             return nil
         }
         
@@ -457,8 +442,8 @@ extension UrgentMessageViewController {
         }
         offset += 1
         
-        // 会话类型 (1字节)
-        let messageType = data[offset]
+        // 通知类型(1字节) 1：SOS报警 2：报平安 3：天气 4:紧急通讯 5:紧急通讯消息成功通知
+        let noticeType = data[offset]
         offset += 1
         
         // 时间戳 (4字节)
@@ -468,31 +453,43 @@ extension UrgentMessageViewController {
         Int32(data[offset + 3])
         offset += 4
         
-//            let msgLength = Int32(data[offset]) << 8 | Int32(data[offset + 1])
+        // msgLength (2字节)
         offset += 2
         
         let msg = String(data: data[offset...], encoding: .utf8) ?? ""
         offset += msg.count
         
-        print("✅ 解析出来的数据:")
-        print("  命令指令: 0x\(protocolVersion)")
-        print("  消息类型: \(messageType)")
-        print("  时间戳: \(timestamp)")
-        print("  消息内容: \(msg)")
+        debugPrint("✅ 解析出来的数据:")
+        debugPrint("  命令指令: 0x\(protocolVersion)")
+        debugPrint("  通知类型: \(noticeType)")
+        debugPrint("  时间戳: \(timestamp)")
+        debugPrint("  消息内容: \(msg)")
         
-        return UrgentMessage(id: "device", sendId: "1", receiverId: UserManager.shared.userId, content: msg, sendTime: UInt64(timestamp), type: 0, reportType: "")
-    }
-}
-
-
-struct MQTTResponse<T: Codable>: Codable {
-    public let code: String?
-    public let msg: String?
-    public let data: T?
-    public let requestId: String?
-    
-    /// 检查响应是否成功（code为00000）
-    public var isSuccess: Bool {
-        return code == "00000"
+        let sendTime = Int64(timestamp) * 1000
+        let msgId = String(sendTime)
+        var nickname: String?
+        var userType: Int?
+        if [1, 2, 3].contains(noticeType) {
+            nickname = "天行探索平台"
+            userType = 9
+        } else if noticeType == 4 {
+            nickname = (UserManager.shared.emergencyContact?.name ?? UserManager.shared.emergencyContact?.phone) ?? "紧急联系人"
+            userType = 2
+        } else if noticeType == 5 {
+            nickname = "紧急通讯消息成功通知"
+        }
+        
+        let sender = UrgentUser(id: msgId,
+                                nickname: nickname,
+                                imUserType: userType)
+        
+        return UrgentMessage(id: msgId,
+                             sendId: "1",
+                             receiverId: UserManager.shared.userId,
+                             content: msg,
+                             sendTime: DateFormatter.fullPretty.string(from: Date(timeIntervalSince1970: Double(timestamp))),
+                             type: Int(noticeType),
+                             sendUserBaseInfoVO: sender,
+                             receiveUserBaseInfoVO: nil)
     }
 }

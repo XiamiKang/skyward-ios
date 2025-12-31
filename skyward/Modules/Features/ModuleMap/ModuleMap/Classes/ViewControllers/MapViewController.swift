@@ -13,11 +13,13 @@ import SWKit
 import SnapKit
 import SWTheme
 import SWNetwork
+import Combine
 
 public class MapViewController: UIViewController {
     
     // MARK: - ViewModel
     private let viewModel = MapViewModel()
+    private var cancellables = Set<AnyCancellable>()
     
     // MARK: - UI Components
     private var searchView: UIView!
@@ -95,11 +97,6 @@ public class MapViewController: UIViewController {
     
     private lazy var trackManager: TrackManager = {
         let mgr = TrackManager()
-        return mgr
-    }()
-    
-    private lazy var recordDataManager: TrackDataManager = {
-        let mgr = TrackDataManager()
         return mgr
     }()
     
@@ -211,12 +208,14 @@ extension MapViewController {
         
         mapManager.onMarkerSelected = { [weak self] markerId, data, layerId in
             print("\(markerId)----点--被点击")
-//            if markerId.contains("custom") {
-//                print("点击的----------------\(data.id)")
-//            }else if markerId.contains("campsite") || markerId.contains("scenicSpots") || markerId.contains("gasStation") {
+            if markerId.contains("custom") {
+                print("点击的----------------\(data.id)")
+                let pointId = String(markerId.dropFirst(7))
+                self?.getUserPointData(pointId: pointId)
+            }else if markerId.contains("campsite") || markerId.contains("scenicSpots") || markerId.contains("gasStation") {
                 let coordinate = CLLocationCoordinate2D(latitude: data.coordinate.latitude, longitude: data.coordinate.longitude)
                 self?.showWeatherDetail(with: data.title, address: data.subtitle ?? "", coordinate: coordinate)
-//            }
+            }
         }
         mapManager.onMapSingleTapHandler = {[weak self] coordinate in
             if self?.isMeasuring == true {
@@ -488,15 +487,6 @@ extension MapViewController {
 extension MapViewController {
     private func bindViewModel() {
         
-        viewModel.$poiListData
-            .receive(on: DispatchQueue.main)
-            .sink { [weak self] data in
-                guard let self = self else { return }
-                self.publicPoiDatas = data
-                self.addPublicMarkers()
-            }
-            .store(in: &viewModel.cancellables)
-        
         viewModel.$userPoiListData
             .receive(on: DispatchQueue.main)
             .sink { [weak self] data in
@@ -557,17 +547,10 @@ extension MapViewController {
         viewModel.input.routeListRequest.send(routeModel)
         
         // 请求POI数据
-//        let coordinateList = createCoordinateArrayFromScreenBounds()
-//        print("地图的角位置---\(coordinateList)")
         let poiModel = PublicPOIListModel(
             pageNum: 1,
-            pageSize: 100,
-            category: nil,
-            id: nil,
-            name: nil,
-            baseCoordinateList: nil
+            pageSize: 100
         )
-        viewModel.input.poiListRequest.send(poiModel)
         viewModel.input.userPoiListRequest.send(poiModel)
     }
     
@@ -600,7 +583,15 @@ extension MapViewController {
         }
         contentView.choosePointAction = { [weak self] coordinate in
             self?.bottomSheet.hide()
-            self?.mapManager.createPointLocationMarker(with: coordinate)
+//            self?.mapManager.createPointLocationMarker(with: coordinate)
+            LocationManager().getCurrentLocation { [weak self] location, error in
+                guard let self = self else { return }
+                let startLat = location?.coordinate.latitude ?? 0.0
+                let startLon = location?.coordinate.latitude ?? 0.0
+                let endLat = coordinate.latitude
+                let endLon = coordinate.longitude
+                viewModel.openAmapNavigation(startLat: startLat, startLon: startLon, endLat: endLat, endLon: endLon, destinationName: "yifan")
+            }
         }
         // 设置内容视图（这很重要！）
         bottomSheet.setContentView(contentView)
@@ -893,18 +884,15 @@ extension MapViewController {
         }
     }
     
-    private func createCoordinateArrayFromScreenBounds() -> [Coordinate] {
+    private func createCoordinateArrayFromScreenBounds() -> (Double, Double, Double, Double) {
         // 使用 MapManager 的方法获取坐标
         let corners = mapManager.createCoordinateArrayForPOIRequest()
-        
-        let coordinateList = [
-            Coordinate(longitude: corners.topLeft.longitude, latitude: corners.topLeft.latitude),
-            Coordinate(longitude: corners.topRight.longitude, latitude: corners.topRight.latitude),
-            Coordinate(longitude: corners.bottomLeft.longitude, latitude: corners.bottomLeft.latitude),
-            Coordinate(longitude: corners.bottomRight.longitude, latitude: corners.bottomRight.latitude)
-        ]
-        
-        return coordinateList
+        let minLat = corners.bottomRight.latitude
+        let maxLat = corners.topLeft.latitude
+        let minLon = corners.topLeft.longitude
+        let maxLon = corners.bottomRight.longitude
+       
+        return (minLat, maxLat, minLon, maxLon)
     }
 }
 
@@ -1059,7 +1047,7 @@ extension MapViewController {
     
     private func prsentTrackRecordVC() {
         let trackRecordVC = TrackRecordViewController()
-        trackRecordVC.records = recordDataManager.getTrackRecords()
+        trackRecordVC.records = trackManager.getTrackRecords()
         trackRecordVC.onClickCloseHandler = {[weak self] in
             self?.distanceManager.clear()
         }
@@ -1134,7 +1122,20 @@ extension MapViewController {
             sheet.delegate = userPoiVC
         }
         present(userPoiVC, animated: true)
-        
+    }
+    
+    func getUserPointData(pointId: String) {
+        viewModel.fetchUserPoiData(id: pointId)
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] completion in
+                if case .failure(_) = completion {
+                    self?.view.sw_showWarningToast("获取自定义兴趣点信息失败")
+                }
+            } receiveValue: { [weak self] data in
+                guard let self = self else { return }
+                self.showUserPointDetail(with: data)
+            }
+            .store(in: &cancellables)
     }
     
 }
@@ -1151,6 +1152,14 @@ extension MapViewController {
     
     @objc private func showSelectPoi(_ notification: Notification) {
         guard let userInfo = notification.userInfo else { return }
+        
+        let (minLat, maxLat, minLon, maxLon) = createCoordinateArrayFromScreenBounds()
+        POIDatabaseManager.shared.fetchPOIsInRegion(minLat: minLat, maxLat: maxLat, minLon: minLon, maxLon: maxLon) { [weak self] publicPOIList in
+            guard let self = self else { return }
+            self.publicPoiDatas = publicPOIList
+            self.addPublicMarkers()
+        }
+        
         if let poiLayers = userInfo["poiLayers"] as? [String: Bool] {
             print("选择的兴趣点---\(poiLayers)")
             

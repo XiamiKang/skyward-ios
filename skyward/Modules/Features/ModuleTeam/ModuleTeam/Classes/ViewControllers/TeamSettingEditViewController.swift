@@ -124,6 +124,7 @@ extension TeamSettingEditViewController: UITableViewDataSource, UITableViewDeleg
                 if let jsonStr = params.dataValue?.jsonString {
                     MQTTManager.shared.publish(message: jsonStr, to: TeamAPI.teamUpdate_pub, qos:.qos1)
                 }
+                self.navigationController?.popViewController(animated: false)
             })
         }
     }

@@ -45,7 +45,7 @@ class TrackRecordViewController: UIViewController {
         let label = UILabel()
         label.text = "我的历史轨迹"
         label.font = .systemFont(ofSize: 18, weight: .medium)
-        label.textColor = .label
+        label.textColor = .black
         return label
     }()
     

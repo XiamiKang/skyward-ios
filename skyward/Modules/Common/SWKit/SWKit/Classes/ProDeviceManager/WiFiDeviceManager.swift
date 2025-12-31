@@ -339,7 +339,27 @@ public class WiFiDeviceManager {
             print("设备请求手机定位: \(message)")
             DispatchQueue.main.async {
                 self.onLogReceived?("📱 设备请求手机定位")
-                self.uploadPhoneLoc(longitude: 106.778488, latitude: 32.8884995, altitude: 50.0) { ruselt in
+                guard let location = LocationManager.lastLocation() else { return }
+                // 对中国经纬度进行限制处理
+                var longitude = location.coordinate.longitude
+                var latitude = location.coordinate.latitude
+                
+                // 中国经度范围：73°E 到 135°E
+                // 东经为正，西经为负，所以都是正值
+                if longitude > 135 {
+                    longitude = 135
+                } else if longitude < 73 {
+                    longitude = 73
+                }
+                
+                // 中国纬度范围：3°N 到 54°N
+                // 北纬为正，南纬为负
+                if latitude > 54 {
+                    latitude = 54
+                } else if latitude < 3 {
+                    latitude = 3
+                }
+                self.uploadPhoneLoc(longitude: longitude, latitude: latitude, altitude: location.altitude) { ruselt in
                     
                 }
             }

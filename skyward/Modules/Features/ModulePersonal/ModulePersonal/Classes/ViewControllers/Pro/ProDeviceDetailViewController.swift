@@ -7,6 +7,7 @@
 
 import UIKit
 import SWKit
+import ModuleLogin
 
 class ProDeviceDetailViewController: PersonalBaseViewController {
     
@@ -227,7 +228,26 @@ class ProDeviceDetailViewController: PersonalBaseViewController {
         }
         
         guard let location = LocationManager.lastLocation() else { return }
-        wifiDeviceManager.halfSatellite(longitude: location.coordinate.longitude, latitude: location.coordinate.latitude, altitude: location.altitude, mode: mode) { [weak self] result in
+        // 对中国经纬度进行限制处理
+        var longitude = location.coordinate.longitude
+        var latitude = location.coordinate.latitude
+        
+        // 中国经度范围：73°E 到 135°E
+        // 东经为正，西经为负，所以都是正值
+        if longitude > 135 {
+            longitude = 135
+        } else if longitude < 73 {
+            longitude = 73
+        }
+        
+        // 中国纬度范围：3°N 到 54°N
+        // 北纬为正，南纬为负
+        if latitude > 54 {
+            latitude = 54
+        } else if latitude < 3 {
+            latitude = 3
+        }
+        wifiDeviceManager.halfSatellite(longitude: longitude, latitude: latitude, altitude: location.altitude, mode: mode) { [weak self] result in
             guard let self = self else { return }
             DispatchQueue.main.async {
                 switch result {
@@ -354,10 +374,10 @@ extension ProDeviceDetailViewController: UITableViewDelegate, UITableViewDataSou
                     self.pushToUpdateVC()
                     return
                 case 4:
-                    self.pushToWebVC()
+                    self.pushToWebVC(with: "http://192.168.0.1", title: "192.168.0.1")
                     return
                 case 5:
-                    self.pushToWebVC()
+                    self.pushToWebVC(with: "http://192.168.0.8", title: "192.168.0.8")
                     return
                 default:
                     return
@@ -429,8 +449,10 @@ extension ProDeviceDetailViewController {
         self.navigationController?.pushViewController(vc, animated: true)
     }
     
-    private func pushToWebVC() {
-        print("跳转web")
+    private func pushToWebVC(with url: String, title: String) {
+        let webVC = WebViewController(urlString: url, title: title)
+        self.navigationController?.pushViewController(webVC, animated: true)
+        
     }
     
     private func pushToDebugVC() {

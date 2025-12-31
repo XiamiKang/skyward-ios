@@ -234,6 +234,9 @@ extension TeamMapViewModel: MQTTManagerDelegate {
                         self?.team = team
                         self?.getMemberListHandler?(team.members)
                         self?.getMemberListHandler = nil
+                        //目前insert没有排重，只能能先把表删了，而且删还没法按条件删，数据库写的有问题，暂时这样写，后期要改
+                        DBManager.shared.deleteFromDb(fromTable: DBTableName.team.rawValue)
+                        DBManager.shared.insertToDb(objects: [team], intoTable: DBTableName.team.rawValue)
                     }
                 } else if topic == TeamAPI.memberLoaction_sub {
                     let rsp = try decoder.decode(MQTTResponse<UserLocation>.self, from: jsonData)
@@ -267,10 +270,14 @@ extension TeamMapViewModel: MQTTManagerDelegate {
 extension TeamMapViewModel {
     
     func getMemberList(_ completed: @escaping MemberListBlock) {
+        guard NetworkMonitor.shared.isConnected else {
+            let team = DBManager.shared.queryFromDb(fromTable: DBTableName.team.rawValue, cls: Team.self)?.first(where: {$0.id == conversation.teamId})
+            completed(team?.members)
+            return
+        }
         getMemberListHandler = completed
         
         var params = [String : Any]()
-        params["requestId"] = Int(Date().timeIntervalSince1970)
         params["id"] = conversation.teamId
         if let jsonStr = params.dataValue?.jsonString {
             MQTTManager.shared.publish(message: jsonStr, to: TeamAPI.teamInfo_pub, qos:.qos1)

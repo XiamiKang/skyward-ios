@@ -24,7 +24,7 @@ class MiniDeviceScanningCell: UITableViewCell {
     private let nameLabel: UILabel = {
         let label = UILabel()
         label.font = UIFont.systemFont(ofSize: 16, weight: .medium)
-        label.textColor = .label
+        label.textColor = .black
         return label
     }()
     

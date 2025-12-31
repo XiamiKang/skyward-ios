@@ -32,5 +32,6 @@ Pod::Spec.new do |s|
   s.dependency 'SWKit'
   s.dependency 'SWTheme'
   s.dependency 'SWNetwork'
+  s.dependency 'SDWebImage'
   
 end

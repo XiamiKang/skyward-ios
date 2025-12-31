@@ -7,6 +7,7 @@
 
 import Foundation
 import CoreBluetooth
+import CoreLocation
 
 // MARK: - 数据解析具体实现
 extension BluetoothManager {
@@ -101,7 +102,7 @@ extension BluetoothManager {
         )
         
         print("✅ 收到设备信息:")
-        print("  协议版本: 0x\(String(format: "%04X", protocolVersion))")
+        print("  协议版本: \(formatVersion(protocolVersion))")
         print("  BLE MAC: \(bleMac.hexString)")
         print("  绑定状态: \(bond == 1 ? "已绑定" : "未绑定")")
         print("  蓝牙软件版本: \(formatVersion(bleSoftwareVersion))")
@@ -474,6 +475,91 @@ extension BluetoothManager {
             )
         }
     }
+    
+    private func handleSatelliteInfoNotification(_ data: Data) {
+        if let satelliteInfo = String(data: data, encoding: .utf8) {
+            NotificationCenter.default.post(
+                name: .didReceiveSatelliteInfo,
+                object: nil,
+                userInfo: ["satelliteInfo": satelliteInfo]
+            )
+        }
+    }
+    
+    private func handlePhoneLocation() {
+        print("📱 收到获取手机定位的请求")
+        
+        // 1. 获取当前时间戳（UNIX时间戳）
+        let timestamp = UInt32(Date().timeIntervalSince1970)
+        
+        // 2. 检查定位服务是否可用
+        DispatchQueue.main.async { [weak self] in
+            guard let self = self else { return }
+            
+            if CLLocationManager.locationServicesEnabled() {
+                // 2.1 检查授权状态
+                let authorizationStatus = CLLocationManager().authorizationStatus
+                switch authorizationStatus {
+                case .authorizedWhenInUse, .authorizedAlways:
+                    // 有定位权限，获取最新位置
+                    if let location = CLLocationManager().location {
+                        let coordinate = location.coordinate
+                        let altitude = location.altitude
+                        
+                        // 纬度计算（乘以10000）
+                        let latitude = Int32(coordinate.latitude * 10000)
+                        // 纬度半球：北半球为1，南半球为2
+                        let latitudeHemisphere: UInt8 = coordinate.latitude >= 0 ? 1 : 2
+                        
+                        // 经度计算（乘以10000）
+                        let longitude = Int32(coordinate.longitude * 10000)
+                        // 经度半球：东经为1，西经为2
+                        let longitudeHemisphere: UInt8 = coordinate.longitude >= 0 ? 1 : 2
+                        
+                        // 海拔计算（乘以10）
+                        let altitudeValue = Int32(altitude * 10)
+                        
+                        // 构建位置信息
+                        let positionInfo = PositionInfo(
+                            timestamp: timestamp,
+                            latitude: latitude,
+                            latitudeHemisphere: latitudeHemisphere,
+                            longitude: longitude,
+                            longitudeHemisphere: longitudeHemisphere,
+                            altitude: altitudeValue
+                        )
+                        
+                        print("✅ 获取到手机定位信息:")
+                        print("  时间戳: \(timestamp) (\(Date(timeIntervalSince1970: TimeInterval(timestamp))))")
+                        print("  纬度: \(formatCoordinate(latitude, isLatitude: true))°\(latitudeHemisphere == 1 ? "N" : "S")")
+                        print("  经度: \(formatCoordinate(longitude, isLatitude: false))°\(longitudeHemisphere == 1 ? "E" : "W")")
+                        print("  海拔: \(Float(altitudeValue) / 10.0) 米")
+                        
+                        sendPhoneLocation(positionInfo)
+                    } else {
+                        // 没有获取到位置数据
+                        print("没有获取到位置数据")
+                    }
+                    
+                case .denied, .restricted:
+                    // 用户拒绝或限制定位权限
+                    print("定位权限被拒绝")
+                    
+                    
+                case .notDetermined:
+                    // 尚未请求权限
+                    print("定位权限未确定")
+                    
+                @unknown default:
+                    print("未知的定位状态")
+                }
+            } else {
+                // 定位服务未开启
+                print("定位服务未开启")
+            }
+        }
+    }
+
 }
 
 
@@ -829,10 +915,7 @@ public extension BluetoothManager {
         case .platformNotification:
             handlePlatformNotification(frame.messageContent)
         case .getPhoneLocation:
-            NotificationCenter.default.post(
-                name: .deviceRequestPhoneLocation,
-                object: nil
-            )
+            handlePhoneLocation()
         case .platformCustomData:
             NotificationCenter.default.post(
                 name: .didReceiveDeviceCustomMsg,
@@ -844,6 +927,8 @@ public extension BluetoothManager {
                 handlePlatformNotification(frame.messageContent)
                 return
             }
+        case .getSatelliteSignal:
+            handleSatelliteInfoNotification(frame.messageContent)
             
         default:
             print("未处理的命令: \(frame.commandCode)")
@@ -994,4 +1079,10 @@ public func formatVersion(_ version: UInt32) -> String {
     let patch = (version >> 8) & 0xFF
     let build = version & 0xFF
     return "v\(major).\(minor).\(patch).\(build)"
+}
+
+public func formatVersion(_ version: UInt16) -> String {
+    let major = (version >> 8) & 0xFF
+    let build = version & 0xFF
+    return "v\(major).\(build)"
 }

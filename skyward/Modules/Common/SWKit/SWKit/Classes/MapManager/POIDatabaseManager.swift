@@ -13,71 +13,6 @@ import BackgroundTasks
 import Network
 import SWNetwork
 
-// MARK: - WCDB 表映射扩展
-public struct PublicPOIData: Codable {
-    public let id: String?
-    public let name: String?
-    public let description: String?
-    public let type: String?
-    public let address: String?
-    public let lon: Double?
-    public let lat: Double?
-    public let category: Int?
-    public let tel: String?
-    public let wgsLon: Double?
-    public let wgsLat: Double?
-    public let images: String?
-    public let isCollection: Bool?
-    public let isIsCheck: Bool?
-}
-
-extension PublicPOIData: TableCodable {
-    public enum CodingKeys: String, CodingTableKey {
-        public typealias Root = PublicPOIData
-        
-        public static let objectRelationalMapping = TableBinding(CodingKeys.self)
-        
-        case id
-        case name
-        case description
-        case type
-        case address
-        case lon
-        case lat
-        case category
-        case tel
-        case wgsLon
-        case wgsLat
-        case images
-        case isCollection
-        case isIsCheck
-        
-        // 列约束
-        
-        public static var columnConstraintBindings: [CodingKeys: BindColumnConstraint]? {
-            return [
-                .id: ColumnConstraintConfig(id, isPrimary: true, defaultTo: "id"),
-                .wgsLon: ColumnConstraintConfig(wgsLon, isPrimary: true, defaultTo: 0.0),
-                .wgsLat: ColumnConstraintConfig(wgsLat, isPrimary: true, defaultTo: 0.0),
-                .category: ColumnConstraintConfig(category, isPrimary: true, defaultTo: 0),
-            ]
-        }
-    }
-    
-    public var isAutoIncrement: Bool { false }
-    public init() { self.init(id: nil, name: nil, description: nil, type: nil, address: nil, lon: nil, lat: nil, category: nil, tel: nil, wgsLon: nil, wgsLat: nil, images: nil, isCollection: nil, isIsCheck: nil) }
-}
-
-// MARK: - 分页响应模型
-struct POIPageResponse: Codable {
-    let items: [PublicPOIData]
-    let page: Int
-    let pageSize: Int
-    let totalPages: Int
-    let totalCount: Int
-    let hasMore: Bool
-}
-
 // MARK: - 数据库管理器
 public class POIDatabaseManager {
     public static let shared = POIDatabaseManager()
@@ -190,15 +125,15 @@ public class POIDatabaseManager {
     }
     
     // MARK: - 根据坐标范围查询
-    func fetchPOIsInRegion(minLat: Double, 
+    public func fetchPOIsInRegion(minLat: Double, 
                           maxLat: Double, 
                           minLon: Double, 
                           maxLon: Double,
                           completion: @escaping ([PublicPOIData]) -> Void) {
         operationQueue.async {
             do {
-                let condition = PublicPOIData.Properties.lat.between(minLat, maxLat) &&
-                               PublicPOIData.Properties.lon.between(minLon, maxLon)
+                let condition = PublicPOIData.Properties.wgsLat.between(minLat, maxLat) &&
+                               PublicPOIData.Properties.wgsLon.between(minLon, maxLon)
                 
                 let items: [PublicPOIData] = try self.database.getObjects(
                     on: PublicPOIData.Properties.all,
@@ -259,57 +194,5 @@ public class POIDatabaseManager {
             }
         }
     }
-}
-
-
-// MARK: - 下载状态模型
-public class POIDownloadStatus: TableCodable {
-    var id: Int = 0
-    var lastDownloadTime: Date = Date()
-    var totalPages: Int = 0
-    var totalItems: Int = 0
-    var lastSuccessfulPage: Int = 0
-    var isCompleted: Bool = false
-    
-    // 必需的无参初始化器
-    required init() {}
-    
-    // 便利初始化器
-    convenience init(lastDownloadTime: Date = Date(),
-                     totalPages: Int = 0,
-                     totalItems: Int = 0,
-                     lastSuccessfulPage: Int = 0,
-                     isCompleted: Bool = false) {
-        self.init()
-        self.lastDownloadTime = lastDownloadTime
-        self.totalPages = totalPages
-        self.totalItems = totalItems
-        self.lastSuccessfulPage = lastSuccessfulPage
-        self.isCompleted = isCompleted
-    }
-    
-    public enum CodingKeys: String, CodingTableKey {
-        public typealias Root = POIDownloadStatus
-        public static let objectRelationalMapping = TableBinding(CodingKeys.self)
-        
-        case id
-        case lastDownloadTime
-        case totalPages
-        case totalItems
-        case lastSuccessfulPage
-        case isCompleted
-        
-        static var columnConstraintBindings: [CodingKeys: BindColumnConstraint]? {
-            return [
-                .id: ColumnConstraintConfig(id, isPrimary: true, defaultTo: 0)
-            ]
-        }
-    }
-}
-
-// MARK: - 通知扩展
-public extension Notification.Name {
-    static let poiDataDidUpdate = Notification.Name("poiDataDidUpdate")
-    static let poiDownloadCompleted = Notification.Name("poiDownloadCompleted")
 }
 

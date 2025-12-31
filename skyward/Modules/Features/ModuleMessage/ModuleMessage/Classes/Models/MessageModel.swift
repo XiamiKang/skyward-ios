@@ -7,6 +7,7 @@
 
 import Foundation
 import WCDBSwift
+import SWKit
 
 // MARK: - 用户模型
 struct User: Equatable, Hashable {
@@ -142,60 +143,23 @@ struct Conversation {
         self.lastInteractionTime = lastInteractionTime
         self.participants = participants
     }
-    
-    // 计算属性：用于 UI 显示的摘要文本
-//    var summary: String {
-//        guard let lastMessage = lastMessage else {
-//            return "暂无消息"
-//        }
-//        
-//        if lastMessage.sender.isCurrentUser {
-//            return "你: \(lastMessage.previewText)"
-//        } else {
-//            switch type {
-//            case .single, .service:
-//                return lastMessage.previewText
-//            case .group:
-//                return "\(lastMessage.sender.name): \(lastMessage.previewText)"
-//            case .system:
-//                return lastMessage.previewText
-//            }
-//        }
-//    }
-    
-    // 计算属性：时间格式化（如“今天 10:30”、“昨天”、“08/15”）
-//    var formattedTime: String {
-//        let formatter = RelativeDateTimeFormatter()
-//        formatter.unitsStyle = .abbreviated
-//        
-//        let now = Date()
-//        if Calendar.current.isDate(lastInteractionTime, inSameDayAs: now) {
-//            let timeFormatter = DateFormatter()
-//            timeFormatter.dateFormat = "HH:mm"
-//            return timeFormatter.string(from: lastInteractionTime)
-//        } else if Calendar.current.isDate(lastInteractionTime, inSameDayAs: Calendar.current.date(byAdding: .day, value: -1, to: now)!) {
-//            return "昨天"
-//        } else {
-//            let dateFormatter = DateFormatter()
-//            dateFormatter.dateFormat = "MM/dd"
-//            return dateFormatter.string(from: lastInteractionTime)
-//        }
-//    }
 }
 
 struct UrgentMessageList: Codable {
     public let list: [UrgentMessage]? 
-    public let total: String?
+    public let total: Int?
 }
 
-struct UrgentMessage: TableCodable {
-    let id: String?
-    let sendId: String?
-    let receiverId: String?
+struct UrgentMessage: TableCodable, Codable {
+    @Flexible var id: String?
+    @Flexible var sendId: String?
+    @Flexible var receiverId: String?
     let content: String?
-    let sendTime: UInt64?
+    let sendTime: String?
+    // 通知类型  1：SOS报警 2：报平安 3：天气 4:紧急通讯 5:紧急通讯消息成功通知
     let type: Int?
-    let reportType: String?
+    let sendUserBaseInfoVO: UrgentUser?
+    let receiveUserBaseInfoVO: UrgentUser?
     
     public enum CodingKeys: String, CodingTableKey {
         public typealias Root = UrgentMessage
@@ -207,12 +171,65 @@ struct UrgentMessage: TableCodable {
         case content
         case sendTime
         case type
-        case reportType
+        case sendUserBaseInfoVO
+        case receiveUserBaseInfoVO
         
         public static var columnConstraintBindings: [CodingKeys: BindColumnConstraint]? {
             return [
                 .id: ColumnConstraintConfig(id, isPrimary: true, defaultTo: "id")
             ]
         }
+    }
+}
+
+
+struct UrgentUser: ColumnCodable {
+    @Flexible var id: String?
+    let nickname: String?
+    let avatar: String?
+    let phone: String?
+    // 聊天用户类型 1-普通用户 2-紧急联系人 9-平台
+    let imUserType: Int?
+    
+    public static var columnType: WCDBSwift.ColumnType {
+        return .BLOB
+    }
+    
+    // 添加默认初始化方法
+    public init(id: String? = nil, nickname: String? = nil, avatar: String? = nil, phone: String? = nil, imUserType: Int? = nil) {
+        self.id = id
+        self.nickname = nickname
+        self.avatar = avatar
+        self.phone = phone
+        self.imUserType = imUserType
+    }
+    
+    public init?(with value: WCDBSwift.Value) {
+        let data = value.dataValue
+        guard data.count > 0,
+              let jsonDict = try? JSONSerialization.jsonObject(with: data, options: []) as? [String: Any] else {
+            return nil
+        }
+        
+        self.id = jsonDict["id"] as? String
+        self.nickname = jsonDict["nickname"] as? String
+        self.avatar = jsonDict["avatar"] as? String
+        self.phone = jsonDict["phone"] as? String
+        self.imUserType = jsonDict["imUserType"] as? Int
+    }
+    
+    public func archivedValue() -> WCDBSwift.Value {
+        let jsonDict: [String: Any] = [
+            "id": id ?? "",
+            "nickname": nickname ?? "",
+            "avatar": avatar ?? "",
+            "phone": phone ?? "",
+            "imUserType": imUserType ?? 0
+        ]
+        guard let data = try? JSONSerialization.data(withJSONObject: jsonDict, options: []) else {
+            return FundamentalValue.init(Data())
+        }
+        
+        return FundamentalValue.init(data)
     }
 }

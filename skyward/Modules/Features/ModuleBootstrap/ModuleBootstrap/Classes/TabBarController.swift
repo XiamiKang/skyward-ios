@@ -17,9 +17,6 @@ class TabBarController: UITabBarController {
     public init(_ defaultTag: Int = 0) {
         super.init(nibName: nil, bundle: nil)
         
-        self.viewControllers = [homeVC, mapVC, mineVC]
-        self.selectedIndex = 0
-        
         self.tabBar.backgroundImage = nil
         self.tabBar.shadowImage = nil
         self.tabBar.isTranslucent = false
@@ -58,6 +55,13 @@ class TabBarController: UITabBarController {
     
     required init?(coder: NSCoder) {
         fatalError("init(coder:) has not been implemented")
+    }
+    
+    override func viewDidLoad() {
+        super.viewDidLoad()
+        view.backgroundColor = .white
+        self.viewControllers = [homeVC, mapVC, mineVC]
+        self.selectedIndex = 0
     }
     
     // MARK: - Lazy Properties

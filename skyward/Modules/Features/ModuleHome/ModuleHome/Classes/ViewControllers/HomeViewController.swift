@@ -60,7 +60,7 @@ public class HomeViewController: BaseViewController, MapViewDelegate, SOSButtonD
         view.addSubview(reportSafetyButton)
         view.addSubview(sosButton)
         
-        mapView = mapManager.createMapView(in: mapContianerView, frame: CGRect(x: 0, y: 0, width: UIScreen.main.bounds.width - 32, height: 200))
+        mapView = mapManager.createMapView(in: mapContianerView, frame: CGRect(x: 0, y: 0, width: 10, height: 10))
         mapContianerView.addSubview(mapView)
         mapContianerView.sendSubviewToBack(mapView)
     }

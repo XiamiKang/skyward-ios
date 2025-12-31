@@ -38,7 +38,7 @@ public class LayerPopupController: UIViewController {
         let label = UILabel()
         label.text = "图层"
         label.font = .systemFont(ofSize: 18, weight: .semibold)
-        label.textColor = .label
+        label.textColor = .black
         label.translatesAutoresizingMaskIntoConstraints = false
         return label
     }()

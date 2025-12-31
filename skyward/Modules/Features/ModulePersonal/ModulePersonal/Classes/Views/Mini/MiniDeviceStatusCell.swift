@@ -242,16 +242,18 @@ class MiniDeviceStatusCell: UITableViewCell {
         // 经度
         let longitudeValue = Double(statusInfo.longitude) / 10000.0
         let longitudeHemisphere = statusInfo.longitudeHemisphere == 0 ? "E" : "W"
-        let (degrees, minutes, seconds) = decimalToDMS(longitudeValue)
+//        let (degrees, minutes, seconds) = decimalToDMS(longitudeValue)
 //        let longitudeString = "\(degrees)°\(minutes)′\(seconds)″\(longitudeHemisphere)"
-        let longitudeString = "\(longitudeValue) \(longitudeHemisphere)"
+        let longitudeNum = decimalToDegrees(longitudeValue)
+        let longitudeString = "\(longitudeNum)°\(longitudeHemisphere)"
         
         // 纬度
         let latitudeValue = Double(statusInfo.latitude) / 10000.0
         let latitudeHemisphere = statusInfo.latitudeHemisphere == 0 ? "N" : "S"
-        let (laDegrees, laMinutes, laSeconds) = decimalToDMS(latitudeValue)
+//        let (laDegrees, laMinutes, laSeconds) = decimalToDMS(latitudeValue)
 //        let latitudeString = "\(laDegrees)°\(laMinutes)′\(laSeconds)″\(latitudeHemisphere)"
-        let latitudeString = "\(latitudeValue) \(latitudeHemisphere)"
+        let latitudeNum = decimalToDegrees(latitudeValue)
+        let latitudeString = "\(latitudeNum)°\(latitudeHemisphere)"
         
         // 海拔
         let altitudeValue = Double(statusInfo.altitude) / 10.0
@@ -299,5 +301,21 @@ class MiniDeviceStatusCell: UITableViewCell {
         let seconds = Int(secondsDecimal.rounded()) // 四舍五入到整数秒
         
         return (totalDegrees, minutes, seconds)
+    }
+    
+    private func decimalToDegrees(_ decimal: Double) -> String {
+        // 将 DDMM.MMMMMM 格式转换为十进制度
+        // 3039.985107 -> 30度 + 39.985107分
+        
+        // 获取度（前两位）
+        let degrees = Int(decimal / 100)
+        
+        // 获取剩余部分作为分
+        let minutes = decimal - Double(degrees * 100)
+        
+        // 将分转换为度（1度=60分）
+        let decimalDegrees = Double(degrees) + minutes / 60.0
+        
+        return String(format: "%.6f", decimalDegrees)
     }
 }

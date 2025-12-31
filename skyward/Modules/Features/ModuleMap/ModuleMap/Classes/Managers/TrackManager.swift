@@ -18,7 +18,6 @@ public class TrackManager: NSObject {
     var recording: Bool = false
     let locationManager = CLLocationManager()
     var locationTimer: Timer?
-    var lastLocation: CLLocation?
     var currentRecord: TrackRecord?
     
     // 定位更新的回调
@@ -42,9 +41,6 @@ public class TrackManager: NSObject {
         let mapService = MapService()
         return mapService
     }()
-    
-    // 后台保活相关
-    var backgroundTaskId: UIBackgroundTaskIdentifier = .invalid
     
     // MARK: - Initializer
     override init() {
@@ -72,14 +68,20 @@ public class TrackManager: NSObject {
         locationManager.pausesLocationUpdatesAutomatically = false // 禁用自动暂停
         locationManager.activityType = .otherNavigation // 导航类型，更适合持续追踪
         
-        // 设置后台定位权限 - 只有在确认有权限时才启用
-        // 注意：需要在Xcode项目中配置"Background Modes"中的"Location updates"
-        if UIApplication.shared.backgroundRefreshStatus == .available, locationManager.authorizationStatus == .authorizedAlways {
+        setupBackgroundLocationUpdates()
+    }
+    
+    // 设置后台定位权限 - 只要有定位权限且应用支持后台定位时就可以启用
+    // 注意：需要在Xcode项目中配置"Background Modes"中的"Location updates"
+    func setupBackgroundLocationUpdates(){
+        let hasPermission = locationManager.authorizationStatus == .authorizedAlways ||
+                           locationManager.authorizationStatus == .authorizedWhenInUse
+        if isBackgroundLocationEnabled() && hasPermission {
            locationManager.allowsBackgroundLocationUpdates = true
            locationManager.showsBackgroundLocationIndicator = true
        } else {
-           debugPrint("警告: 应用程序未配置后台定位模式，后台定位更新已禁用")
            locationManager.allowsBackgroundLocationUpdates = false
+           locationManager.showsBackgroundLocationIndicator = false
        }
     }
     
@@ -104,44 +106,39 @@ public class TrackManager: NSObject {
         
         currentRecord = record
         
-        // 设置定时器，确保每5秒记录一次位置
-        locationTimer?.invalidate()
-        locationTimer = Timer.scheduledTimer(timeInterval: 5, target: self, selector: #selector(requestLoaction), userInfo: nil, repeats: true)
-        
-        // 立即触发一次定位
-        requestLoaction()
-        
-        // 注册App进入后台和前台的通知
-        registerAppStateNotifications()
+        // 启动持续定位更新（使用startUpdatingLocation而非requestLocation）
+        // 系统会根据distanceFilter和desiredAccuracy自动推送位置更新
+        // 系统会自动保持定位服务在后台运行，无需额外的后台保活机制
+        // 当收到位置更新时，系统会自动延长后台执行时间
+        locationManager.startUpdatingLocation()
     }
     
     func stopRecord() {
         recording = false
-        locationTimer?.invalidate()
+        
+        // 停止定位更新
         locationManager.stopUpdatingLocation()
-        
-        // 停止后台保活
-        stopBackgroundKeepAlive()
-        
-        // 移除通知监听
-        unregisterAppStateNotifications()
     }
     
     func deleteRecords() {
-        if let record = currentRecord, dataManager.deleteRecord(record) {
-            _dataManager = nil
+        if let record = currentRecord {
+            dataManager.deleteRecord(record)
         }
+        finishRecord()
     }
     
-    @objc func requestLoaction() {
-        if locationManager.authorizationStatus == .authorizedAlways || locationManager.authorizationStatus == .authorizedWhenInUse {
-            locationManager.requestLocation()
-        }
+    func finishRecord() {
+        _dataManager = nil
+        currentRecord = nil
     }
     
     // MARK: - Location Processing
 
     private func saveNewLocation(_ location: CLLocation) {
+        // 新点合法性校验
+        guard validateLocation(location) else {
+            return
+        }
         guard let trackFileURL = currentRecord?.fileFullURL() else {
             return
         }
@@ -150,6 +147,60 @@ public class TrackManager: NSObject {
         if dataManager.writeRecordPoint(point, to: trackFileURL) {
             locationUpdateCompletion?(location.coordinate, nil)
         }
+    }
+    
+    /// 校验新位置点是否合法
+    /// - Parameters:
+    ///   - newLocation: 新的位置点
+    /// - Returns: true表示合法，false表示不合法
+    private func validateLocation(_ newLocation: CLLocation) -> Bool {
+        // 检查位置的有效性
+        if newLocation.horizontalAccuracy < 0 {
+            debugPrint("定位无效：horizontalAccuracy < 0")
+            return false
+        }
+        
+        // 检查定位精度：如果精度超过50米，则认为是低精度点，不记录
+        let maxAccuracy: Double = 50.0  // 最大允许的定位精度（米）
+        if newLocation.horizontalAccuracy > maxAccuracy {
+            debugPrint("定位精度不足：\(newLocation.horizontalAccuracy)米 > \(maxAccuracy)米，已跳过记录")
+            return false
+        }
+        
+        guard let currentRecord = currentRecord else {
+            return false
+        }
+        
+        let recordCoordinates = dataManager.readRecordCoordinates(from: currentRecord)
+        if recordCoordinates.count == 0 {
+            return true
+        }
+        // 读取文件中最后一个点
+        guard let lastLatitude = recordCoordinates.last?.latitude, let lastLongitude = recordCoordinates.last?.longitude else {
+            // 如果文件中没有点，则新点合法
+            return true
+        }
+        
+        // 检查1: 与上一个点的距离是否小于3米
+        let lastLocation = CLLocation(
+            latitude: lastLatitude,
+            longitude: lastLongitude
+        )
+        let distance = newLocation.distance(from: lastLocation)
+        if distance < 3 {
+            debugPrint("新点与上一个点距离小于3米(\(distance)米)，已跳过记录")
+            return false
+        }
+        
+        // 检查2: 是否与上一个点完全相同
+        if abs(lastLatitude - newLocation.coordinate.latitude) < 0.000001 &&
+            abs(lastLongitude - newLocation.coordinate.longitude) < 0.000001 {
+            debugPrint("检测到完全相同的轨迹点，已跳过记录")
+            return false
+        }
+        
+        // 通过所有校验，点合法
+        return true
     }
     
     // MARK: - Data Upload
@@ -199,6 +250,7 @@ public class TrackManager: NSObject {
                                         if let record = self?.currentRecord {
                                             self?.dataManager.updateUploadStatusRecord(record)
                                         }
+                                        self?.finishRecord()
                                     } else {
                                         UIWindow.topWindow?.sw_showWarningToast("保存失败：\(response.description)")
                                     }
@@ -219,57 +271,18 @@ public class TrackManager: NSObject {
         _dataManager = nil
     }
     
+    func getTrackRecords() -> [TrackRecord] {
+        let result = dataManager.getTrackRecords()
+        if let currentRecord = currentRecord {
+            return result.filter({$0.id != currentRecord.id})
+        }
+        return result
+    }
+    
     
     //MARK: - Notification
     @objc func appDidTermination() {
         stopRecord()
-    }
-    
-    /// 注册App状态通知
-    private func registerAppStateNotifications() {
-        NotificationCenter.default.addObserver(
-            self,
-            selector: #selector(appDidEnterBackground),
-            name: UIApplication.didEnterBackgroundNotification,
-            object: nil
-        )
-        
-        NotificationCenter.default.addObserver(
-            self,
-            selector: #selector(appWillEnterForeground),
-            name: UIApplication.willEnterForegroundNotification,
-            object: nil
-        )
-    }
-    
-    /// 移除App状态通知
-    private func unregisterAppStateNotifications() {
-        NotificationCenter.default.removeObserver(self, name: UIApplication.didEnterBackgroundNotification, object: nil)
-        NotificationCenter.default.removeObserver(self, name: UIApplication.willEnterForegroundNotification, object: nil)
-    }
-    
-    /// App进入后台回调
-    @objc private func appDidEnterBackground() {
-        debugPrint("App进入后台，继续定位追踪")
-        
-        // 确保后台定位已启用
-        if locationManager.authorizationStatus == .authorizedAlways {
-            locationManager.allowsBackgroundLocationUpdates = true
-            locationManager.showsBackgroundLocationIndicator = true
-        }
-        
-        // 重新开始后台保活
-        DispatchQueue.main.async { [weak self] in
-            self?.startBackgroundKeepAlive()
-        }
-    }
-    
-    /// App将要进入前台回调
-    @objc private func appWillEnterForeground() {
-        debugPrint("App将要进入前台")
-        
-        // 进入前台后，可以调整定位精度和频率
-        locationManager.desiredAccuracy = kCLLocationAccuracyBestForNavigation
     }
 
     //MARK: - Test
@@ -322,31 +335,12 @@ extension TrackManager: CLLocationManagerDelegate {
         
         // 记录权限状态变化
         debugPrint("定位权限状态变化: \(status.rawValue)")
-        
-        // 权限变化时更新后台定位设置
-        if status == .authorizedAlways {
-            manager.allowsBackgroundLocationUpdates = true
-            manager.showsBackgroundLocationIndicator = true
-        } else if status == .authorizedWhenInUse {
-            manager.allowsBackgroundLocationUpdates = false
-            manager.showsBackgroundLocationIndicator = false
-        }
+        setupBackgroundLocationUpdates()
     }
     
     public func locationManager(_ manager: CLLocationManager, didUpdateLocations locations: [CLLocation]) {
         guard let location = locations.last else { return }
-        
-        // 检查位置的有效性
-        if location.horizontalAccuracy < 0 {
-            return
-        }
-        // 如果本次定位的位置和上一次定位的位置距离小于3米则不存储位置
-        if let lastPoint = lastLocation, location.distance(from: lastPoint) < 3 {
-            return
-        }
-        lastLocation = location
-        
-        // 处理有效的位置数据
+        guard recording == true else { return }
         saveNewLocation(location)
     }
     
@@ -359,10 +353,8 @@ extension TrackManager: CLLocationManagerDelegate {
             case .denied:
                 debugPrint("定位权限被拒绝")
             case .locationUnknown:
-                debugPrint("位置未知，正在重试...")
-                DispatchQueue.main.asyncAfter(deadline: .now() + 2) {
-                    self.requestLoaction()
-                }
+                debugPrint("位置未知，等待系统自动重试...")
+                // 注意：使用startUpdatingLocation时，系统会自动重试，无需手动调用
             default:
                 debugPrint("定位错误: \(clError.code.rawValue)")
             }
@@ -370,77 +362,20 @@ extension TrackManager: CLLocationManagerDelegate {
     }
 }
 
-// MARK: - 后台保活功能
+// MARK: - 后台定位检查
 extension TrackManager {
-    /// 开始后台保活
-    private func startBackgroundKeepAlive() {
-        // 开始后台任务
-        startBackgroundTask()
-    }
     
-    /// 停止后台保活
-    private func stopBackgroundKeepAlive() {
-        // 停止后台任务
-        stopBackgroundTask()
-    }
-    
-    /// 开始后台任务
-    private func startBackgroundTask() {
-        // 结束之前的后台任务
-        if backgroundTaskId != .invalid {
-            UIApplication.shared.endBackgroundTask(backgroundTaskId)
-            backgroundTaskId = .invalid
+    /// 检查应用是否支持后台定位
+    /// - Returns: true表示支持，false表示不支持
+    private func isBackgroundLocationEnabled() -> Bool {
+        // 检查Info.plist中是否配置了UIBackgroundModes
+        guard let infoDict = Bundle.main.infoDictionary,
+              let backgroundModes = infoDict["UIBackgroundModes"] as? [String] else {
+            return false
         }
         
-        // 创建新的后台任务
-        backgroundTaskId = UIApplication.shared.beginBackgroundTask(withName: "LocationTracking") { [weak self] in
-            // 后台任务即将结束时的处理
-            self?.handleBackgroundTaskExpiration()
-        }
-        
-        // 使用定时器定期刷新后台任务
-        scheduleBackgroundTaskRefresh()
-    }
-    
-    /// 停止后台任务
-    private func stopBackgroundTask() {
-        if backgroundTaskId != .invalid {
-            UIApplication.shared.endBackgroundTask(backgroundTaskId)
-            backgroundTaskId = .invalid
-        }
-    }
-    
-    /// 处理后台任务过期
-    private func handleBackgroundTaskExpiration() {
-        debugPrint("后台任务即将过期，正在保存最后位置数据...")
-        
-        // 保存当前状态
-        stopRecord()
-        
-        // 结束后台任务
-        stopBackgroundTask()
-    }
-    
-    /// 定期刷新后台任务
-    private func scheduleBackgroundTaskRefresh() {
-        // 每30秒刷新一次后台任务
-        DispatchQueue.global().asyncAfter(deadline: .now() + 30) { [weak self] in
-            guard let self = self, self.recording else { return }
-            
-            // 检查App状态需要在主线程执行
-            DispatchQueue.main.sync { [weak self] in
-                guard let self = self, self.recording else { return }
-                
-                // 如果App仍在后台运行，刷新后台任务
-                if UIApplication.shared.applicationState == .background {
-                    debugPrint("刷新后台任务")
-                    self.startBackgroundTask()
-                } else {
-                    // App在前台，重新调度
-                    self.scheduleBackgroundTaskRefresh()
-                }
-            }
-        }
+        // 检查是否包含location模式
+        return backgroundModes.contains("location")
     }
 }
 

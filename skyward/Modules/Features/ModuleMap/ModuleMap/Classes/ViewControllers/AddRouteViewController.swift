@@ -29,7 +29,7 @@ class AddRouteViewController: UIViewController {
         let label = UILabel()
         label.text = "添加路线"
         label.font = .systemFont(ofSize: 18, weight: .medium)
-        label.textColor = .label
+        label.textColor = .black
         return label
     }()
     
@@ -58,7 +58,7 @@ class AddRouteViewController: UIViewController {
         let label = UILabel()
         label.text = "路线名称"
         label.font = .systemFont(ofSize: 14, weight: .regular)
-        label.textColor = .label
+        label.textColor = .black
         return label
     }()
     

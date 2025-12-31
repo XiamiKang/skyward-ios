@@ -40,7 +40,7 @@ class AddTrackPopupView: UIView, SWPopupContentView {
         let label = UILabel()
         label.text = "轨迹名称"
         label.font = .systemFont(ofSize: 14, weight: .regular)
-        label.textColor = .label
+        label.textColor = .black
         label.translatesAutoresizingMaskIntoConstraints = false
         return label
     }()

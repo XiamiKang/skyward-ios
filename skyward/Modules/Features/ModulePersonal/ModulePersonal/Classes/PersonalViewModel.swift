@@ -279,7 +279,7 @@ extension PersonalViewModel {
     }
     
     // MARK: - 获取紧急联系人
-    private func checkEmergency() -> AnyPublisher<EmergencyInfoData, PersonalError> {
+    public func checkEmergency() -> AnyPublisher<EmergencyInfoData, PersonalError> {
         isLoading = true
         
         return Future<EmergencyInfoData, PersonalError> { [weak self] promise in
@@ -376,7 +376,7 @@ extension PersonalViewModel {
     }
     
     // MARK: - 获取用户信息
-    private func checkUserInfo() -> AnyPublisher<UserInfoData, PersonalError> {
+    public func checkUserInfo() -> AnyPublisher<UserInfoData, PersonalError> {
         isLoading = true
         
         return Future<UserInfoData, PersonalError> { [weak self] promise in

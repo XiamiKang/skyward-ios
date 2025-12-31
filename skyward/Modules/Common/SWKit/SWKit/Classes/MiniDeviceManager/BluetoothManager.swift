@@ -368,17 +368,17 @@ extension BluetoothManager {
         deviceIMEIMap[peripheral.identifier] = bleData.deviceId
         
         // 发送通知
-        NotificationCenter.default.post(
-            name: .didScanDeviceWithIMEI,
-            object: nil,
-            userInfo: ["device": device]
-        )
-        
-        // 发送更新通知
-        NotificationCenter.default.post(
-            name: .didUpdateScannedDevices,
-            object: nil
-        )
+//        NotificationCenter.default.post(
+//            name: .didScanDeviceWithIMEI,
+//            object: nil,
+//            userInfo: ["device": device]
+//        )
+//        
+//        // 发送更新通知
+//        NotificationCenter.default.post(
+//            name: .didUpdateScannedDevices,
+//            object: nil
+//        )
         
 //        print("💾 保存设备信息: \(deviceName)")
 //        print("  MAC: \(bleData.macAddress)")
@@ -407,7 +407,7 @@ public extension BluetoothManager {
     }
     
     // 生成一个完整的通信帧
-    private func createFrame(commandCode: CommandCode, messageContent: Data = Data()) -> CommunicationFrame {
+    public func createFrame(commandCode: CommandCode, messageContent: Data = Data()) -> CommunicationFrame {
         let header: UInt16 = 0xAA55
         let serialNumber = nextSerialNumber()
         let dataLength = UInt16(messageContent.count)
@@ -646,17 +646,16 @@ public extension Notification.Name {
     static let didReceiveDeviceInfo = Notification.Name("didReceiveDeviceInfo")                            //蓝牙设备信息通知
     static let didReceiveStatusInfo = Notification.Name("didReceiveStatusInfo")                            //蓝牙状态信息通知
     static let didReceiveAlarmReport = Notification.Name("didReceiveAlarmReport")                          //蓝牙终端上报平台安全通知
-    static let didReceivePlatformNotification = Notification.Name("didReceivePlatformNotification")
-    static let deviceRequestPhoneLocation = Notification.Name("deviceRequestPhoneLocation")
-    static let firmwareUpgradeProgress = Notification.Name("firmwareUpgradeProgress")
-    static let firmwareUpgradeCompleted = Notification.Name("firmwareUpgradeCompleted")
-    static let didReceivePositionReport = Notification.Name("didReceivePositionReport")
-    static let didScanDeviceWithIMEI = Notification.Name("didScanDeviceWithIMEI")
-    static let didUpdateScannedDevices = Notification.Name("didUpdateScannedDevices")
-    static let didReceiveDeviceCustomMsg = Notification.Name("didReceiveDeviceCustomMsg")
-    static let didSaveOfSOSResponseMsg = Notification.Name("didSaveOfSOSResponseMsg")
-    static let unBindMiniDeviceResponseMsg = Notification.Name("unBindMiniDeviceResponseMsg")
-    static let bluetoothDeviceDisconnected = Notification.Name("bluetoothDeviceDisconnected")
+    static let didReceivePlatformNotification = Notification.Name("didReceivePlatformNotification")        //平台下发提示信息
+    static let deviceRequestPhoneLocation = Notification.Name("deviceRequestPhoneLocation")                //获取手机定位
+    static let didReceivePositionReport = Notification.Name("didReceivePositionReport")                    //蓝牙设备定位信息上报后台
+    static let didScanDeviceWithIMEI = Notification.Name("didScanDeviceWithIMEI")                          //蓝牙终端上报平台安全通知
+//    static let didUpdateScannedDevices = Notification.Name("didUpdateScannedDevices")                      //获取扫描到的设备信息
+    static let didReceiveDeviceCustomMsg = Notification.Name("didReceiveDeviceCustomMsg")                  //蓝牙自定义消息
+    static let didSaveOfSOSResponseMsg = Notification.Name("didSaveOfSOSResponseMsg")                      //上报平安和SOS的通知
+    static let unBindMiniDeviceResponseMsg = Notification.Name("unBindMiniDeviceResponseMsg")              //解绑蓝牙设备通知
+    static let bluetoothDeviceDisconnected = Notification.Name("bluetoothDeviceDisconnected")              //设备断联通知
+    static let didReceiveSatelliteInfo = Notification.Name("didReceiveSatelliteInfo")                      //获取卫星信号通知
     
 }
 
@@ -679,6 +678,7 @@ extension ResponseStatus: CustomStringConvertible {
         case .inProgress: return "进行中"
         case .failed: return "失败"
         case .crcError: return "CRC错误"
+        case .bufferEmpty: return "缓冲区空"
         }
     }
 }

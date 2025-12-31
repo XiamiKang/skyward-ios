@@ -56,3 +56,5 @@ let latestMessage_sub = "txts/home/servertoapp/urgentMessage/latest/\(UserManage
 let latestMessage_pub = "txts/home/apptoserver/urgentMessage/latest/\(UserManager.shared.userId)"
 
 let cleanMessage_pub = "txts/home/apptoserver/urgentMessage/clean/\(UserManager.shared.userId)"
+
+let onlinePing_pub = "txts/user/apptoserver/online/\(UserManager.shared.userId)"

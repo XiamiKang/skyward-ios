@@ -19,7 +19,7 @@ class SearchResultView: UIView {
     private let titleLabel: UILabel = {
         let label = UILabel()
         label.text = "搜索结果"
-        label.textColor = .label
+        label.textColor = .black
         label.font = .systemFont(ofSize: 18, weight: .medium)
         label.translatesAutoresizingMaskIntoConstraints = false
         return label

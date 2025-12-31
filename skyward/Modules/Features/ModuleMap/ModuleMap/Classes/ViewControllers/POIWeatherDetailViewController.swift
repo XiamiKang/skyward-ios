@@ -8,6 +8,7 @@
 
 import UIKit
 import CoreLocation
+import SWKit
 
 class POIWeatherDetailViewController: UIViewController {
     
@@ -21,6 +22,7 @@ class POIWeatherDetailViewController: UIViewController {
     private var warningData: [WeatherWarningData]?
     private var precipData: [EveryHoursPrecipData]?
     private let viewModel = WeatherViewModel()
+    private let mapViewModel = MapViewModel()
     
     // 使用UITableView替代UIScrollView
     private let tableView = UITableView()
@@ -172,6 +174,15 @@ class POIWeatherDetailViewController: UIViewController {
     private func handleNavigationTapped() {
         print("导航按钮点击")
         // 实现导航功能
+        LocationManager().getCurrentLocation { [weak self] location, error in
+            guard let self = self else { return }
+            let startLat = location?.coordinate.latitude ?? 0.0
+            let startLon = location?.coordinate.latitude ?? 0.0
+            let endLat = self.coordinate.latitude
+            let endLon = self.coordinate.longitude
+            mapViewModel.openAmapNavigation(startLat: startLat, startLon: startLon, endLat: endLat, endLon: endLon, destinationName: self.poiTitle ?? "")
+        }
+        
     }
     
     // MARK: - bindViewModel

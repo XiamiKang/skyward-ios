@@ -165,7 +165,7 @@ extension ConvViewController: UITextViewDelegate {
     func textViewDidBeginEditing(_ textView: UITextView) {
         if textView.text == "请输入消息..." {
             textView.text = ""
-            textView.textColor = .label
+            textView.textColor = .black
         }
     }
     

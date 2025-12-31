@@ -45,7 +45,7 @@ class RealNameAuthCell: UITableViewCell {
         let label = UILabel()
         label.translatesAutoresizingMaskIntoConstraints = false
         label.font = .systemFont(ofSize: 16)
-        label.textColor = .label
+        label.textColor = .black
         return label
     }()
     

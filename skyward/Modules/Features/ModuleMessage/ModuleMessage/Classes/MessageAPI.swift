@@ -12,16 +12,27 @@ import SWKit
 
 enum MessageAPI {
     case urgentMessages(page: Int, size: Int)
+    case sendUrgentMessage(msg: String)
 }
 
 extension MessageAPI: NetworkAPI {
     
     var path: String {
-        return "/txts-user-center-app/api/v1/urgent-message/page/list"
+        switch self {
+        case .urgentMessages:
+            return "/txts-user-center-app/api/v1/urgent-message/page/list"
+        case .sendUrgentMessage:
+            return "/txts-user-center-app/api/v1/urgent-message/sign/add"
+        }
     }
     
     var method: Moya.Method {
-        return .get
+        switch self {
+        case .urgentMessages:
+            return .get
+        case .sendUrgentMessage:
+            return .post
+        }
     }
     
     var task: Moya.Task {
@@ -33,6 +44,8 @@ extension MessageAPI: NetworkAPI {
                 "pageSize": size
             ]
             return .requestParameters(parameters: parameters, encoding: URLEncoding.queryString)
+        case .sendUrgentMessage(let msg):
+            return .requestParameters(parameters: ["content" : msg], encoding: JSONEncoding.default)
         }
     }
     
@@ -47,10 +60,6 @@ extension MessageAPI: NetworkAPI {
     }
 }
 
-// 发送消息
-let sendUrgentMessage_pub = "txts/home/apptoserver/urgentMessage/send/\(UserManager.shared.userId)"
 // 接收消息
 let receiveUrgentMessage_sub = "txts/home/servertoapp/urgentMessage/receive/\(UserManager.shared.userId)"
 
-let urgentMessageList_pub = "txts/home/apptoserver/urgentMessage/list/\(UserManager.shared.userId)"
-let urgentMessageList_sub = "txts/home/servertoapp/urgentMessage/list/\(UserManager.shared.userId)"

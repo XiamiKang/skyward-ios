@@ -10,6 +10,7 @@ import SWNetwork
 import Moya
 import Combine
 import CoreLocation
+import SWKit
 
 public class MapService {
     private let provider: NetworkProvider<MapAPI>
@@ -48,17 +49,7 @@ public class MapService {
         provider.request(.deleteRouteMsg(model), completion: completion)
     }
     
-    // MARK: - 获取公共兴趣点
-    @available(iOS 13.0, *)
-    public func getPublicPOIList(_ model: PublicPOIListModel) async throws -> Response {
-        return try await provider.request(.getPublicPOIList(model))
-    }
-    
-    public func getPublicPOIList(_ model: PublicPOIListModel, completion: @escaping (Result<Response, MoyaError>) -> Void) {
-        provider.request(.getPublicPOIList(model), completion: completion)
-    }
-    
-    // MARK: - 获取用户兴趣点
+    // MARK: - 获取用户兴趣点列表
     @available(iOS 13.0, *)
     public func getUserPOIList(_ model: PublicPOIListModel) async throws -> Response {
         return try await provider.request(.getUserPOIList(model))
@@ -66,6 +57,16 @@ public class MapService {
     
     public func getUserPOIList(_ model: PublicPOIListModel, completion: @escaping (Result<Response, MoyaError>) -> Void) {
         provider.request(.getUserPOIList(model), completion: completion)
+    }
+    
+    // MARK: - 获取用户兴趣点详情
+    @available(iOS 13.0, *)
+    public func getUserPOIData(_ id: String) async throws -> Response {
+        return try await provider.request(.getUserPOIData(id))
+    }
+    
+    public func getUserPOIData(_ id: String, completion: @escaping (Result<Response, MoyaError>) -> Void) {
+        provider.request(.getUserPOIData(id), completion: completion)
     }
     
     // MARK: - 获取天气数据
@@ -176,5 +177,15 @@ public class MapService {
     
     public func getEveryDayWeatherMsg(_ location: CLLocationCoordinate2D, completion: @escaping (Result<Response, MoyaError>) -> Void) {
         provider.request(.getEveryDayWeatherMsg(location), completion: completion)
+    }
+    
+    // MARK: - 删除用户兴趣点
+    @available(iOS 13.0, *)
+    public func deleteUserPOIData(_ id: String) async throws -> Response {
+        return try await provider.request(.deleteUserPOIData(id))
+    }
+    
+    public func deleteUserPOIData(_ id: String, completion: @escaping (Result<Response, MoyaError>) -> Void) {
+        provider.request(.deleteUserPOIData(id), completion: completion)
     }
 }

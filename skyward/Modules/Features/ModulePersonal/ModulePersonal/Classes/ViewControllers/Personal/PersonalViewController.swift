@@ -7,7 +7,7 @@
 
 import UIKit
 import SWKit
-
+import Combine
 
 // 功能项模型
 struct FunctionItem {
@@ -24,6 +24,7 @@ public class PersonalViewController: UIViewController {
     private var userProfile: UserInfoData?
     private let viewModel = PersonalViewModel()
     private var emergencyInfoData: EmergencyInfoData?
+    private var cancellables = Set<AnyCancellable>()
     
     // MARK: - UI组件
     private let headBgImageView: UIImageView = {
@@ -54,16 +55,17 @@ public class PersonalViewController: UIViewController {
         super.viewDidLoad()
         setupUI()
         setupTableView()
-        bindViewModel()
+    }
+    
+    public override func viewWillLayoutSubviews() {
+        super.viewWillLayoutSubviews()
+        
     }
     
     public override func viewWillAppear(_ animated: Bool) {
         super.viewWillAppear(animated)
         navigationController?.setNavigationBarHidden(true, animated: animated)
-        // 可以在这里检查登录状态并更新UI
         checkLoginStatus()
-        requestData()
-        tableView.reloadData()
     }
 }
 
@@ -100,33 +102,30 @@ extension PersonalViewController {
         tableView.register(ProfileFunctionFourCell.self, forCellReuseIdentifier: "ProfileFunctionFourCell")
     }
     
-    private func bindViewModel() {
-        viewModel.$emergencyInfoData
+    // 检查登录状态
+    private func checkLoginStatus() {
+        viewModel.checkEmergency()
             .receive(on: DispatchQueue.main)
-            .sink { [weak self] data in
+            .sink { _ in
+                
+            } receiveValue: { [weak self] data in
                 guard let self = self else { return }
                 self.emergencyInfoData = data
                 self.tableView.reloadData()
             }
-            .store(in: &viewModel.cancellables)
+            .store(in: &cancellables)
         
-        viewModel.$userInfoData
+        viewModel.checkUserInfo()
             .receive(on: DispatchQueue.main)
-            .sink { [weak self] data in
+            .sink { _ in
+                
+            } receiveValue: { [weak self] data in
                 guard let self = self else { return }
                 self.userProfile = data
                 self.updateLoginStatus(isLoggedIn: true, userInfo: data)
+                self.tableView.reloadData()
             }
-            .store(in: &viewModel.cancellables)
-    }
-    
-    private func requestData() {
-        viewModel.input.emergencyRequest.send()
-    }
-    
-    // 检查登录状态
-    private func checkLoginStatus() {
-        viewModel.input.getUserInfoRequest.send()
+            .store(in: &cancellables)
     }
     
     // 更新登录状态

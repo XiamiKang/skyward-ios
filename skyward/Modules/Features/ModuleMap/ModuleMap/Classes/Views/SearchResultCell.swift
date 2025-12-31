@@ -23,7 +23,7 @@ class SearchResultCell: UITableViewCell {
     
     private let pointName: UILabel = {
         let label = UILabel()
-        label.textColor = .label
+        label.textColor = .black
         label.font = .systemFont(ofSize: 16, weight: .medium)
         label.numberOfLines = 1
         label.translatesAutoresizingMaskIntoConstraints = false
@@ -41,7 +41,7 @@ class SearchResultCell: UITableViewCell {
     
     private lazy var pointButton: UIButton = {
         let button = UIButton()
-        button.setTitle("查看", for: .normal)
+        button.setTitle("导航", for: .normal)
         button.setTitleColor(.white, for: .normal)
         button.backgroundColor = UIColor(str: "#FE6A00")
         button.titleLabel?.font = .systemFont(ofSize: 14, weight: .medium)

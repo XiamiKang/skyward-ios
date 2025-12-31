@@ -24,7 +24,6 @@ public class MapViewModel: ObservableObject {
     
     // MARK: - 输出属性（使用 @Published 直接定义）
     @Published public var routeListData: RouteListData?
-    @Published public var poiListData: [PublicPOIData]?
     @Published public var userPoiListData: [UserPOIData]?
     @Published public var weatherData: WeatherAPIResponse?
     @Published public var customPointData: [MapSearchPointMsgData]?
@@ -34,7 +33,6 @@ public class MapViewModel: ObservableObject {
     // MARK: - 输入
     public struct Input {
         let routeListRequest = PassthroughSubject<RouteListModel, Never>()
-        let poiListRequest = PassthroughSubject<PublicPOIListModel, Never>()
         let userPoiListRequest = PassthroughSubject<PublicPOIListModel, Never>()
         let weatherRequest = PassthroughSubject<Void, Never>()
         let locationRequest = PassthroughSubject<Void, Never>()
@@ -71,24 +69,6 @@ public class MapViewModel: ObservableObject {
                 }
             } receiveValue: { [weak self] data in
                 self?.routeListData = data
-            }
-            .store(in: &cancellables)
-        
-        // 绑定POI列表请求
-        input.poiListRequest
-            .flatMap { [weak self] model -> AnyPublisher<[PublicPOIData], MapError> in
-                guard let self = self else {
-                    return Fail(error: .networkError("ViewModel 已释放")).eraseToAnyPublisher()
-                }
-                return self.fetchPOIList(model: model)
-            }
-            .receive(on: DispatchQueue.main)
-            .sink { [weak self] completion in
-                if case .failure(let error) = completion {
-                    self?.error = error
-                }
-            } receiveValue: { [weak self] data in
-                self?.poiListData = data
             }
             .store(in: &cancellables)
         
@@ -385,6 +365,43 @@ extension MapViewModel {
         .eraseToAnyPublisher()
     }
     
+    // MARK: - 用户兴趣点详情
+    public func fetchUserPoiData(id: String) -> AnyPublisher<UserPOIData, MapError> {
+        isLoading = true
+        
+        return Future<UserPOIData, MapError> { [weak self] promise in
+            guard let self = self else { return }
+            
+            self.mapService.getUserPOIData(id) { result in
+                DispatchQueue.main.async {
+                    self.isLoading = false
+                    
+                    switch result {
+                    case .success(let response):
+                        do {
+                            let baseResponse = try JSONDecoder().decode(BaseResponse<UserPOIData>.self, from: response.data)
+                            
+                            if baseResponse.success, let data = baseResponse.data {
+                                promise(.success(data))
+                            } else {
+                                promise(.failure(.businessError(
+                                    message: baseResponse.msg,
+                                    code: baseResponse.code
+                                )))
+                            }
+                        } catch {
+                            promise(.failure(.parseError("数据解析失败")))
+                        }
+                        
+                    case .failure(let error):
+                        promise(.failure(.networkError(error.localizedDescription)))
+                    }
+                }
+            }
+        }
+        .eraseToAnyPublisher()
+    }
+    
     // MARK: - 地图搜索
     public func mapSearchData(address addressName: String) -> AnyPublisher<[MapSearchPointMsgData], MapError> {
         isLoading = true
@@ -505,40 +522,37 @@ extension MapViewModel {
         }
         .eraseToAnyPublisher()
     }
-}
-
-// MARK: - 修改你的现有 ViewModel
-extension MapViewModel {
-    // 获取公共兴趣点，优先从本地数据库读取
-    private func fetchPOIList(model: PublicPOIListModel) -> AnyPublisher<[PublicPOIData], MapError> {
-        // 先尝试从本地数据库读取
-        return Future<[PublicPOIData], MapError> { [weak self] promise in
+    
+    // MARK: - 删除自定义兴趣点
+    public func deleteUserPoi(_ id: String) -> AnyPublisher<Bool, MapError> {
+        isLoading = true
+        
+        return Future<Bool, MapError> { [weak self] promise in
             guard let self = self else { return }
             
-            self.isLoading = true
-            
-            // 计算offset
-            let offset = (model.pageNum - 1) * model.pageSize
-            
-            // 从数据库读取
-            POIDatabaseManager.shared.fetchPOIs(
-                limit: model.pageSize,
-                offset: offset,
-                category: model.category
-            ) { items in
+            self.mapService.deleteUserPOIData(id) { result in
                 DispatchQueue.main.async {
                     self.isLoading = false
                     
-                    if !items.isEmpty {
-                        // 本地有数据，直接使用
-                        self.displayPOIsOnMap(items)
-                        promise(.success(items))
+                    switch result {
+                    case .success(let response):
+                        do {
+                            let baseResponse = try JSONDecoder().decode(BaseResponse<Bool>.self, from: response.data)
+                            
+                            if baseResponse.success, let data = baseResponse.data {
+                                promise(.success(data))
+                            } else {
+                                promise(.failure(.businessError(
+                                    message: baseResponse.msg,
+                                    code: baseResponse.code
+                                )))
+                            }
+                        } catch {
+                            promise(.failure(.parseError("数据解析失败")))
+                        }
                         
-                        // 静默更新数据（后台检查是否有新数据）
-                        self.checkForUpdatesIfNeeded()
-                    } else {
-                        // 本地没有数据，从网络获取
-                        self.fetchFromNetwork(model: model, promise: promise)
+                    case .failure(let error):
+                        promise(.failure(.networkError(error.localizedDescription)))
                     }
                 }
             }
@@ -546,72 +560,23 @@ extension MapViewModel {
         .eraseToAnyPublisher()
     }
     
-    private func fetchFromNetwork(model: PublicPOIListModel,
-                                 promise: @escaping Future<[PublicPOIData], MapError>.Promise) {
-        self.mapService.getPublicPOIList(model) { result in
-            DispatchQueue.main.async {
-                self.isLoading = false
-                
-                switch result {
-                case .success(let response):
-                    do {
-                        let baseResponse = try JSONDecoder().decode(
-                            BaseResponse<[PublicPOIData]>.self,
-                            from: response.data
-                        )
-                        
-                        if baseResponse.success, let data = baseResponse.data {
-                            // 显示数据
-                            self.displayPOIsOnMap(data)
-                            
-                            // 静默保存到数据库（后台线程）
-                            DispatchQueue.global(qos: .utility).async {
-                                POIDatabaseManager.shared.batchInsertPOIs(data)
-                            }
-                            
-                            promise(.success(data))
-                        } else {
-                            promise(.failure(.businessError(
-                                message: baseResponse.msg,
-                                code: baseResponse.code
-                            )))
-                        }
-                    } catch {
-                        promise(.failure(.parseError("数据解析失败")))
-                    }
-                    
-                case .failure(let error):
-                    promise(.failure(.networkError(error.localizedDescription)))
-                }
-            }
+    public func openAmapNavigation(startLat: Double, startLon: Double,
+                           endLat: Double, endLon: Double,
+                           destinationName: String) {
+        let urlString = "iosamap://path?sourceApplication=skyward&sid=BGVIS1&slat=\(startLat)&slon=\(startLon)&sname=我的位置&did=BGVIS2&dlat=\(endLat)&dlon=\(endLon)&dname=\(destinationName)&dev=0&t=0"
+        guard let encodedString = urlString.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed),
+              let url = URL(string: encodedString) else {
+            return
         }
-    }
-    
-    private func checkForUpdatesIfNeeded() {
-        // 检查距离上次更新是否超过1小时
-        let lastUpdateKey = "lastPOIUpdateTime"
-        let lastUpdate = UserDefaults.standard.double(forKey: lastUpdateKey)
-        let currentTime = Date().timeIntervalSince1970
         
-        if currentTime - lastUpdate > 3600 { // 1小时
-            // 静默启动后台下载
-            SilentPOIDownloader.shared.startSmartDownload()
-            UserDefaults.standard.set(currentTime, forKey: lastUpdateKey)
+        if UIApplication.shared.canOpenURL(url) {
+            UIApplication.shared.open(url, options: [:], completionHandler: nil)
+        } else {
+            // 未安装高德地图，跳转App Store下载
+            let appStoreURL = URL(string: "https://apps.apple.com/cn/app/id461703208")!
+            UIApplication.shared.open(appStoreURL)
         }
     }
-    
-    // 新增：从本地数据库加载区域数据（用于地图显示）
-//    func loadPOIsForMapRegion(region: MapRegion) -> AnyPublisher<[PublicPOIData], Never> {
-//        return Future<[PublicPOIData], Never> { promise in
-//            POIDatabaseManager.shared.fetchPOIsInRegion(
-//                minLat: region.minLat,
-//                maxLat: region.maxLat,
-//                minLon: region.minLon,
-//                maxLon: region.maxLon
-//            ) { items in
-//                promise(.success(items))
-//            }
-//        }
-//        .eraseToAnyPublisher()
-//    }
+
 }
+

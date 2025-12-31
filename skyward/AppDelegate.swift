@@ -65,13 +65,11 @@ extension AppDelegate {
 
         NetworkMonitor.shared.startMonitoring()
         
-        DispatchQueue.main.async {
-            let aWindow = UIWindow(frame: UIScreen.main.bounds)
-            self.window = aWindow
-            Bootstrap.shared.window = aWindow
-            Bootstrap.shared.runMainFlow()
-            aWindow.makeKeyAndVisible()
-        }
+        let aWindow = UIWindow(frame: UIScreen.main.bounds)
+        self.window = aWindow
+        Bootstrap.shared.window = aWindow
+        Bootstrap.shared.runMainFlow()
+        aWindow.makeKeyAndVisible()
 
         return true
     }

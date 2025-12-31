@@ -84,6 +84,7 @@ public class BLEFirmwareUpgradeManager {
                 version: version,
                 firmwareData: firmwareData,
                 progressCallback: { [weak self] progress in
+                    print("升级控制器中----\(progress)")
                     self?.handleUpgradeProgress(progress)
                 },
                 completion: { [weak self] success, error in

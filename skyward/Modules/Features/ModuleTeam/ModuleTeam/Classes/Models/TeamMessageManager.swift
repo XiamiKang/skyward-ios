@@ -44,7 +44,8 @@ class DeviceCustomMessage {
         let convId = String(targetId)
         let msgType = MessageType(rawValue: Int(messageType))
         let timestamp = Int64(self.timestamp)
-        let team = DBManager.shared.queryFromDb(fromTable: DBTableName.team.rawValue, cls: Team.self, where: Team.Properties.conversationId.rawValue == convId)?.last
+        let conversation = DBManager.shared.queryFromDb(fromTable: DBTableName.conversation.rawValue, cls: Conversation.self)?.first(where: {$0.id == convId})
+        let team = DBManager.shared.queryFromDb(fromTable: DBTableName.team.rawValue, cls: Team.self)?.first(where: {$0.id == conversation?.teamId})
         let member = team?.members?.first(where: {$0.userId == senderId})
         let sender = User(id: member?.userId, nickname: member?.nickname, avatar: member?.avatar, phone: member?.phone)
         
@@ -150,7 +151,7 @@ class TeamMessageManager: MQTTManagerDelegate {
     }
     
     func parseDeviceCustomMessage(_ data: Data) -> DeviceCustomMessage? {
-        guard data.count >= 30 else {
+        guard data.count >= 24 else {
             print("设备信息数据长度错误: \(data.count)")
             return nil
         }

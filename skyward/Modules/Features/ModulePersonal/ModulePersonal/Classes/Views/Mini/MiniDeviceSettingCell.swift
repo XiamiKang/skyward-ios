@@ -11,7 +11,7 @@ import SWKit
 
 class MiniDeviceSettingCell: UITableViewCell {
 
-    let itemWidth = (UIScreen.main.bounds.width - 64)/3
+    let itemWidth = (UIScreen.main.bounds.width - 64)/4
     private var showTip: Bool = false
     var selectedCallback: ((Int) -> Void)?
     
@@ -33,8 +33,10 @@ class MiniDeviceSettingCell: UITableViewCell {
     
     private let dataSource: [ProDeviceSettingManageData] = [
         ProDeviceSettingManageData(imageStr: "device_mini_setting2", title: "设置"),
+        ProDeviceSettingManageData(imageStr: "device_pro_restart", title: "复位"),
+        ProDeviceSettingManageData(imageStr: "device_pro_msg", title: "设备信息"),
         ProDeviceSettingManageData(imageStr: "device_pro_update", title: "固件升级"),
-        ProDeviceSettingManageData(imageStr: "device_pro_restart", title: "复位")
+        
     ]
     
     override init(style: UITableViewCell.CellStyle, reuseIdentifier: String?) {
@@ -102,7 +104,7 @@ extension MiniDeviceSettingCell: UICollectionViewDelegate, UICollectionViewDataS
     func collectionView(_ collectionView: UICollectionView, cellForItemAt indexPath: IndexPath) -> UICollectionViewCell {
         let cell = collectionView.dequeueReusableCell(withReuseIdentifier: "ProDeviceSettingManageCell", for: indexPath) as! ProDeviceSettingManageCell
         cell.confign(with: dataSource[indexPath.row])
-        if indexPath.row == 1 {
+        if indexPath.row == 3 {
             cell.tipLabe.isHidden = !showTip
             cell.tipLabe.text = "新版本"
         }else {

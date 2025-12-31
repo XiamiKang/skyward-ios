@@ -27,7 +27,7 @@ class ProfileFunctionOneCell: UITableViewCell {
         label.text = "紧急救援服务"
         label.translatesAutoresizingMaskIntoConstraints = false
         label.font = .systemFont(ofSize: 16)
-        label.textColor = .label
+        label.textColor = .black
         return label
     }()
     
@@ -60,13 +60,13 @@ class ProfileFunctionOneCell: UITableViewCell {
     // MARK: - UI设置
     private func setupUI() {
         self.selectionStyle = .none
+        self.backgroundColor = .white
         
         if let phone = UserManager.shared.emergencyContact?.phone {
             infoLabel.text = phone.hidePhoneNumber()
         }else {
             infoLabel.text = "未设置"
         }
-        
         
         contentView.addSubview(iconImageView)
         contentView.addSubview(titleLabel)

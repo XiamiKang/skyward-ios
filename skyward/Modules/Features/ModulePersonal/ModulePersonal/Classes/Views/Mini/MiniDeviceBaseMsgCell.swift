@@ -15,6 +15,7 @@ class MiniDeviceBaseMsgCell: UITableViewCell {
     private let deviceImageView = UIImageView()
     private let deviceNameLabel = UILabel()
     private let connectionStatusLabel = UILabel()
+//    private let messageButton = UIButton()
     private let imeiLabel = UILabel()
     private let bluetoothStatusImageView = UIImageView()
     private let satelliteStatusImageView = UIImageView()
@@ -28,6 +29,7 @@ class MiniDeviceBaseMsgCell: UITableViewCell {
     private let tapInterval: TimeInterval = 5.0 // 2秒内完成5次点击
     
     var connectionAction: (() -> Void)?
+    var messageAction: (() -> Void)?
     var quintupleTapAction: (() -> Void)? // 新增：连续点击5次的回调
     
     override init(style: UITableViewCell.CellStyle, reuseIdentifier: String?) {
@@ -75,6 +77,13 @@ class MiniDeviceBaseMsgCell: UITableViewCell {
         connectionStatusLabel.layer.cornerRadius = 6
         bgView.addSubview(connectionStatusLabel)
         
+        //
+//        messageButton.translatesAutoresizingMaskIntoConstraints = false
+//        messageButton.setImage(PersonalModule.image(named: "device_mini_msg"), for: .normal)
+//        messageButton.addTarget(self, action: #selector(messageClick), for: .touchUpInside)
+//        messageButton.isHidden = true
+//        bgView.addSubview(messageButton)
+        
         // IMEI
         imeiLabel.translatesAutoresizingMaskIntoConstraints = false
         imeiLabel.font = .systemFont(ofSize: 12)
@@ -90,7 +99,7 @@ class MiniDeviceBaseMsgCell: UITableViewCell {
         
         // 卫星状态
         satelliteStatusImageView.translatesAutoresizingMaskIntoConstraints = false
-        satelliteStatusImageView.image = PersonalModule.image(named: "device_mini_noLine_satellite")
+        satelliteStatusImageView.image = PersonalModule.image(named: "device_mini_line_satellite0")
         satelliteStatusImageView.contentMode = .scaleAspectFit
         bgView.addSubview(satelliteStatusImageView)
         
@@ -132,10 +141,10 @@ class MiniDeviceBaseMsgCell: UITableViewCell {
             bgView.bottomAnchor.constraint(equalTo: bottomAnchor, constant: -12),
             
             // 设备图片
-            deviceImageView.topAnchor.constraint(equalTo: bgView.topAnchor, constant: 16),
+            deviceImageView.topAnchor.constraint(equalTo: bgView.topAnchor, constant: 36),
             deviceImageView.leadingAnchor.constraint(equalTo: bgView.leadingAnchor, constant: 16),
-            deviceImageView.widthAnchor.constraint(equalToConstant: 90),
-            deviceImageView.heightAnchor.constraint(equalToConstant: 90),
+            deviceImageView.widthAnchor.constraint(equalToConstant: 60),
+            deviceImageView.heightAnchor.constraint(equalToConstant: 60),
             
             // 设备名称
             deviceNameLabel.topAnchor.constraint(equalTo: bgView.topAnchor, constant: 20),
@@ -146,6 +155,11 @@ class MiniDeviceBaseMsgCell: UITableViewCell {
             connectionStatusLabel.leadingAnchor.constraint(equalTo: deviceNameLabel.trailingAnchor, constant: 10),
             connectionStatusLabel.widthAnchor.constraint(equalToConstant: 55),
             connectionStatusLabel.heightAnchor.constraint(equalToConstant: 30),
+            
+//            messageButton.centerYAnchor.constraint(equalTo: connectionStatusLabel.centerYAnchor),
+//            messageButton.leadingAnchor.constraint(equalTo: connectionStatusLabel.trailingAnchor, constant: 10),
+//            messageButton.widthAnchor.constraint(equalToConstant: 30),
+//            messageButton.heightAnchor.constraint(equalToConstant: 30),
             
             // IMEI
             imeiLabel.topAnchor.constraint(equalTo: deviceNameLabel.bottomAnchor, constant: 10),
@@ -218,6 +232,10 @@ class MiniDeviceBaseMsgCell: UITableViewCell {
         self.connectionAction?()
     }
     
+    @objc private func messageClick() {
+        messageAction?()
+    }
+    
     // 配置方法
     func configure(with deviceName: String, imei: String) {
         deviceNameLabel.text = deviceName
@@ -237,6 +255,8 @@ class MiniDeviceBaseMsgCell: UITableViewCell {
             connectionButton.backgroundColor = UIColor(hex: "#F2F3F4")
             connectionButton.setTitleColor(UIColor(hex: "#FE6A00"), for: .normal)
             
+//            messageButton.isHidden = false
+            
         }else {
             deviceNameLabel.textColor = UIColor(str: "#84888C")
             connectionStatusLabel.textColor = UIColor(hex: "#A0A3A7")
@@ -247,6 +267,7 @@ class MiniDeviceBaseMsgCell: UITableViewCell {
             connectionButton.backgroundColor = UIColor(hex: "#FE6A00")
             connectionButton.setTitleColor(.white, for: .normal)
             
+//            messageButton.isHidden = true
             batteryLevelLabel.isHidden = true
             bluetoothStatusImageView.image = PersonalModule.image(named: "device_mini_noLine_bluetooth")
             satelliteStatusImageView.image = PersonalModule.image(named: "device_mini_noLine_satellite")
@@ -262,7 +283,7 @@ class MiniDeviceBaseMsgCell: UITableViewCell {
         let bleStatus = (statusInfo.moduleStatus & 0x01)
         let satelliteStatus = (statusInfo.moduleStatus & 0x02)
         bluetoothStatusImageView.image = bleStatus != 0 ? PersonalModule.image(named: "device_mini_noLine_bluetooth") : PersonalModule.image(named: "device_mini_line_bluetooth")
-        satelliteStatusImageView.image = satelliteStatus != 0 ? PersonalModule.image(named: "device_mini_noLine_satellite") : PersonalModule.image(named: "device_mini_line_satellite")
+        satelliteStatusImageView.image = satelliteStatus != 0 ? PersonalModule.image(named: "device_mini_line_satellite0") : PersonalModule.image(named: "device_mini_line_satellite1")
         if statusInfo.battery >= 80 {
             batteryLevelImageView.image = PersonalModule.image(named: "device_mini_line_battery")
         }else if statusInfo.battery >= 60 {
@@ -276,6 +297,10 @@ class MiniDeviceBaseMsgCell: UITableViewCell {
         }else {
             batteryLevelImageView.image = PersonalModule.image(named: "device_mini_noLine_battery")
         }
+    }
+    
+    func updateSatelliteImage(with satelliteNum: Int) {
+        satelliteStatusImageView.image = PersonalModule.image(named: "device_mini_line_satellite\(satelliteNum)")
     }
     
     

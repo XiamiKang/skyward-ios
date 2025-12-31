@@ -130,7 +130,7 @@ class WeatherMetricView: UIView {
         
         // 数值
         valueLabel.font = UIFont.systemFont(ofSize: 16, weight: .medium)
-        valueLabel.textColor = .label
+        valueLabel.textColor = .black
         valueLabel.translatesAutoresizingMaskIntoConstraints = false
         
         addSubview(iconImageView)

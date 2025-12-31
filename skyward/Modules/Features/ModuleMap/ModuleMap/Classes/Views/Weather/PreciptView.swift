@@ -34,7 +34,7 @@ class PreciptView: UIView {
         // 标题
         titleLabel.text = "降水"
         titleLabel.font = UIFont.systemFont(ofSize: 16, weight: .medium)
-        titleLabel.textColor = .label
+        titleLabel.textColor = .black
         titleLabel.translatesAutoresizingMaskIntoConstraints = false
         addSubview(titleLabel)
         

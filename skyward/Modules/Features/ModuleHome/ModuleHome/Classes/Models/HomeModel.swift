@@ -79,7 +79,7 @@ struct HomeNoticeItem: Codable {
 
 struct HomeNewMessageModel: Codable {
     public let message: String?
-    public let sendTime: Int64?
+    public let sendTime: String?
     public let sendId: String?
 }
 

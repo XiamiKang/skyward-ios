@@ -22,6 +22,7 @@ public class MiniDeviceDetailViewController: PersonalBaseViewController {
         }
     }
     var deviceConnetedStatus: Int = 0
+    private var miniDeviceInfo: DeviceInfo?
     private var statusInfo: StatusInfo?
     private let viewModel = PersonalViewModel()
     private var cancellables = Set<AnyCancellable>()
@@ -77,8 +78,7 @@ public class MiniDeviceDetailViewController: PersonalBaseViewController {
     // MARK: - Data Management
     private func updateBasicInfo() {
         if deviceConnetedStatus == 1 {
-            BluetoothManager.shared.requestDeviceInfo()
-            BluetoothManager.shared.requestStatusInfo()
+            refreshMiniDeviceData()
         }
     }
     
@@ -91,12 +91,17 @@ public class MiniDeviceDetailViewController: PersonalBaseViewController {
                                                selector: #selector(showStatusInfo(_:)),
                                                name: .didReceiveStatusInfo,
                                                object: nil)
+        NotificationCenter.default.addObserver(self,
+                                               selector: #selector(showSatelliteInfo(_:)),
+                                               name: .didReceiveSatelliteInfo,
+                                               object: nil)
     }
     
     @objc private func showDeviceInfo(_ notification: Notification) {
         guard let userInfo = notification.userInfo else { return }
         if let deviceInfo = userInfo["deviceInfo"] as? DeviceInfo {
             print("Mini设备信息---\(deviceInfo)")
+            self.miniDeviceInfo = deviceInfo
             let mcuSoftwareVersion = formatVersion(deviceInfo.mcuSoftwareVersion)
             miniVersion = String(mcuSoftwareVersion.dropFirst())
             print("Mini设备固件版本信息---\(miniVersion)")
@@ -116,6 +121,18 @@ public class MiniDeviceDetailViewController: PersonalBaseViewController {
             }
             if let cell = self.miniTableView.cellForRow(at: IndexPath(row: 0, section: 0)) as? MiniDeviceBaseMsgCell {
                 cell.updateMsg(statusInfo)
+            }
+            
+            self.miniTableView.reloadData()
+        }
+    }
+    
+    @objc private func showSatelliteInfo(_ notification: Notification) {
+        guard let userInfo = notification.userInfo else { return }
+        if let satelliteInfo = userInfo["satelliteInfo"] as? String {
+            print("Mini设备卫星状态---\(satelliteInfo)")
+            if let cell = self.miniTableView.cellForRow(at: IndexPath(row: 0, section: 0)) as? MiniDeviceBaseMsgCell {
+                cell.updateSatelliteImage(with: Int(satelliteInfo) ?? 0)
             }
             
             self.miniTableView.reloadData()
@@ -149,6 +166,8 @@ public class MiniDeviceDetailViewController: PersonalBaseViewController {
             .sink { error in
                 // 处理错误
                 print("检查新版本失败: \(error)")
+                self.newVersion = false
+                self.miniTableView.reloadData()
             }
             .store(in: &cancellables)
     }
@@ -170,6 +189,7 @@ public class MiniDeviceDetailViewController: PersonalBaseViewController {
                 }
             }
             print("未找到当前设备，请保持设备开启")
+            self.view.sw_showWarningToast("未找到当前设备，请保持设备开启")
         }else {
             BluetoothManager.shared.disconnectPeripheral()
         }
@@ -178,8 +198,7 @@ public class MiniDeviceDetailViewController: PersonalBaseViewController {
     
     @objc private func refreshButtonTapped() {
         print("刷新设备参数...")
-        // 这里发送获取设备状态的命令
-        BluetoothManager.shared.requestStatusInfo()
+        refreshMiniDeviceData()
     }
     
     @objc private func settingsButtonTapped() {
@@ -188,6 +207,18 @@ public class MiniDeviceDetailViewController: PersonalBaseViewController {
         settingVC.deviceInfo = deviceInfo
         settingVC.statusInfo = statusInfo
         self.navigationController?.pushViewController(settingVC, animated: true)
+    }
+    
+    private func pushToMsgVC() {
+        if deviceConnetedStatus == 0 {
+            // 弹框提醒，连接设备
+            print("请先连接设备")
+            view.sw_showWarningToast("请先连接设备")
+            return
+        }
+        let vc = MiniDeviceMsgViewController()
+        vc.deviceInfo = self.miniDeviceInfo
+        self.navigationController?.pushViewController(vc, animated: true)
     }
     
     @objc private func firmwareButtonTapped() {
@@ -215,7 +246,7 @@ public class MiniDeviceDetailViewController: PersonalBaseViewController {
         }
         BluetoothManager.shared.getSatelliteRecords()
         
-        let msgVC = MiniDeviceMsgViewController()
+        let msgVC = MiniDeviceNoSendMsgViewController()
         self.navigationController?.pushViewController(msgVC, animated: true)
     }
     
@@ -232,6 +263,12 @@ public class MiniDeviceDetailViewController: PersonalBaseViewController {
         }
 
     }
+    
+    private func refreshMiniDeviceData() {
+        BluetoothManager.shared.requestDeviceInfo()
+        BluetoothManager.shared.requestStatusInfo()
+        BluetoothManager.shared.getSatelliteSignal()
+    }
 }
 
 // MARK: - BluetoothManagerDelegate
@@ -247,8 +284,7 @@ extension MiniDeviceDetailViewController: BluetoothManagerDelegate {
     public func didConnectPeripheral(_ peripheral: CBPeripheral) {
         DispatchQueue.main.async { [weak self] in
             print("设备连接成功: \(peripheral.name ?? "未知设备")")
-            BluetoothManager.shared.requestDeviceInfo()
-            BluetoothManager.shared.requestStatusInfo()
+            self?.refreshMiniDeviceData()
             self?.deviceConnetedStatus = 1
             self?.miniTableView.reloadData()
         }
@@ -288,6 +324,10 @@ extension MiniDeviceDetailViewController: UITableViewDelegate, UITableViewDataSo
                 guard let self = self else {return}
                 self.connectionButtonTapped()
             }
+            cell.quintupleTapAction = { [weak self] in
+                guard let self = self else {return}
+                self.recordButtonTapped()
+            }
             return cell
         case 1:
             let cell = tableView.dequeueReusableCell(withIdentifier: "MiniDeviceStatusCell") as! MiniDeviceStatusCell
@@ -307,10 +347,13 @@ extension MiniDeviceDetailViewController: UITableViewDelegate, UITableViewDataSo
                     self.settingsButtonTapped()
                     return
                 case 1:
-                    self.firmwareButtonTapped()
+                    self.reSetButtonTapped()
                     return
                 case 2:
-                    self.reSetButtonTapped()
+                    self.pushToMsgVC()
+                    return
+                case 3:
+                    self.firmwareButtonTapped()
                     return
                 default:
                     return

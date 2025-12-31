@@ -45,6 +45,9 @@ public class HomeViewModel: ObservableObject {
     
     private let locationManager = LocationManager()
     
+    // 在线心跳定时器
+    private var onlinePingTimer: Timer?
+    
     // MARK: - Initialization
     public init() {
         // 通知
@@ -59,12 +62,17 @@ public class HomeViewModel: ObservableObject {
         // MQTT
         MQTTManager.shared.addDelegate(self)
         MQTTManager.shared.subscribe(to: [noticeList_sub,latestMessage_sub])
+        
+        // 启动在线心跳定时器
+        startOnlinePingTimer()
+        
         // 天气
         getWeatherInfo()
     }
     
     deinit {
         NotificationCenter.default.removeObserver(self)
+        stopOnlinePingTimer()
     }
     
     // MARK: - Public Methods
@@ -164,7 +172,7 @@ public class HomeViewModel: ObservableObject {
                                          noticeType: .service,
                                          noticeContent: latestMessage.message,
                                          reportId: latestMessage.sendId,
-                                         noticeTime: latestMessage.sendTime)
+                                         noticeTime: nil)
         }
         
         switch selectedItem.noticeType {
@@ -324,6 +332,7 @@ public class HomeViewModel: ObservableObject {
 extension HomeViewModel: MQTTManagerDelegate {
     public func mqttManager(_ manager: MQTTManager, didChangeState state: MQTTConnectState) {
         if state == .connected, !didPublish {
+            sendOnlinePing()
             //通知列表
             manager.publish(message: "{}", to: noticeList_pub, qos:.qos1)
             //最新消息
@@ -386,6 +395,34 @@ extension HomeViewModel: MQTTManagerDelegate {
     
     public func mqttManager(_ manager: MQTTManager, connectionDidFailWithError error: (any Error)?) {
         
+    }
+}
+
+// MARK: - MQTT online
+extension HomeViewModel {
+    /// 启动在线心跳定时器
+    private func startOnlinePingTimer() {
+        // 每60秒发送一次
+        onlinePingTimer = Timer.scheduledTimer(withTimeInterval: 60.0, repeats: true) { [weak self] _ in
+            self?.sendOnlinePing()
+        }
+        
+        // 将定时器添加到RunLoop，确保在主线程运行
+        if let timer = onlinePingTimer {
+            RunLoop.current.add(timer, forMode: .common)
+        }
+    }
+    
+    /// 停止在线心跳定时器
+    private func stopOnlinePingTimer() {
+        onlinePingTimer?.invalidate()
+        onlinePingTimer = nil
+    }
+    
+    /// 发送在线心跳
+    private func sendOnlinePing() {
+        MQTTManager.shared.publish(message: "{}", to: onlinePing_pub, qos: .qos1)
+        print("✅ 发送在线心跳到: \(onlinePing_pub)")
     }
 }
 

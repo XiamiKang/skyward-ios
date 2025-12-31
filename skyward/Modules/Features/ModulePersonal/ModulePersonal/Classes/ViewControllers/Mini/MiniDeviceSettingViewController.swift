@@ -9,6 +9,7 @@ import UIKit
 import CoreBluetooth
 import SWKit
 import Combine
+import SWTheme
 
 struct SettingData {
     let titleStr: String
@@ -331,19 +332,53 @@ extension MiniDeviceSettingViewController {
     }
     
     private func showPositionReportSelection() {
-        guard let statusInfo = statusInfo else { return }
-        
-        let reportView = PositionReportSelectionView() // 需要创建类似的视图
-        reportView.delegate = self
-        reportView.show(in: view, currentReport: statusInfo.positionReport)
+//        guard let statusInfo = statusInfo else { return }
+//        
+//        let reportView = PositionReportSelectionView() // 需要创建类似的视图
+//        reportView.delegate = self
+//        reportView.show(in: view, currentReport: statusInfo.positionReport)
+        let customView = TeamModifyNameView()
+        SWAlertView.showCustomAlert(title: "修改参数（分钟）", customView: customView, confirmTitle: "保存", cancelTitle: "取消", confirmHandler: {
+            let num = customView.textField.text
+            var positionData = Data()
+
+            if let numString = num, let intervalValue = UInt32(numString) {
+                let interval = intervalValue * 60
+                // 使用 bigEndian 属性
+                let bigEndianInterval = interval.bigEndian
+                positionData.append(contentsOf: withUnsafeBytes(of: bigEndianInterval) { Data($0) })
+            }
+            BluetoothManager.shared.sendCommand(.setPositionReport, messageContent: positionData)
+            
+            DispatchQueue.main.asyncAfter(deadline: .now() + 2) {
+                BluetoothManager.shared.requestStatusInfo()
+            }
+        })
     }
     
     private func showSavePointTimeSelection() {
-        guard let statusInfo = statusInfo else { return }
+//        guard let statusInfo = statusInfo else { return }
+//        
+//        let reportView = SavePointTimeSelectionView() // 需要创建类似的视图
+//        reportView.delegate = self
+//        reportView.show(in: view, currentReport: statusInfo.positionStoreTime)
         
-        let reportView = SavePointTimeSelectionView() // 需要创建类似的视图
-        reportView.delegate = self
-        reportView.show(in: view, currentReport: statusInfo.positionStoreTime)
+        let customView = TeamModifyNameView()
+        SWAlertView.showCustomAlert(title: "修改参数（分钟）", customView: customView, confirmTitle: "保存", cancelTitle: "取消", confirmHandler: {
+            let num = customView.textField.text
+            var positionData = Data()
+
+            if let numString = num, let intervalValue = UInt32(numString) {
+                let interval = intervalValue * 60
+                // 使用 bigEndian 属性
+                let bigEndianInterval = interval.bigEndian
+                positionData.append(contentsOf: withUnsafeBytes(of: bigEndianInterval) { Data($0) })
+            }
+            BluetoothManager.shared.sendCommand(.setPositionStoreInterval, messageContent: positionData)
+            DispatchQueue.main.asyncAfter(deadline: .now() + 2) {
+                BluetoothManager.shared.requestStatusInfo()
+            }
+        })
     }
     
 }
@@ -384,4 +419,81 @@ extension MiniDeviceSettingViewController: SavePointTimeSelectionViewDelegate {
 
 extension Notification.Name {
     static let deviceListNeedToUpdate = Notification.Name("deviceListNeedToUpdate")
+}
+
+
+class TeamModifyNameView: UIView, SWAlertCustomView {
+    
+    lazy var textField: UITextField = {
+        let textField = UITextField()
+        textField.backgroundColor = ThemeManager.current.mediumGrayBGColor
+        textField.font = .pingFangFontMedium(ofSize: 14)
+        textField.textColor = ThemeManager.current.titleColor
+        textField.tintColor = ThemeManager.current.mainColor
+        textField.clearButtonMode = .whileEditing
+        textField.placeholder = "请输入分钟数"
+        textField.addTarget(self, action: #selector(textFieldDidChange(_:)), for: .editingChanged)
+        textField.layer.cornerRadius = CornerRadius.medium.rawValue
+        textField.layer.masksToBounds = true
+        textField.layer.borderColor = ThemeManager.current.errorColor.cgColor
+        textField.leftView = UIView(frame: CGRect(x: 0, y: 0, width: Layout.hMargin, height: textField.frame.height))
+        textField.leftViewMode = .always
+        textField.keyboardType = .numberPad
+        return textField
+    }()
+    
+    private lazy var errorLabel: UILabel = {
+        let label = UILabel()
+        label.font = .pingFangFontRegular(ofSize: 12)
+        label.textColor = ThemeManager.current.errorColor
+        label.textAlignment = .left
+        label.numberOfLines = 1
+        return label
+    }()
+
+    override init(frame: CGRect) {
+        super.init(frame: frame)
+        addSubview(textField)
+        textField.snp.makeConstraints { make in
+            make.height.equalTo(swAdaptedValue(48))
+            make.top.left.right.equalToSuperview()
+        }
+        addSubview(errorLabel)
+        errorLabel.snp.makeConstraints { make in
+            make.height.equalTo(swAdaptedValue(17))
+            make.top.equalTo(textField.snp.bottom).offset(swAdaptedValue(8))
+            make.bottom.equalToSuperview().inset(swAdaptedValue(8))
+            make.leading.equalTo(textField.snp.leading)
+        }
+    }
+    
+    required init?(coder: NSCoder) {
+        fatalError("init(coder:) has not been implemented")
+    }
+    
+    func shouldClickConfirmButton() -> Bool {
+        if let text = textField.text, text.count > 20 {
+            errorLabel.text = "已达昵称长度上限"
+            textField.layer.borderWidth = 1
+            return false
+        } else {
+            errorLabel.text = ""
+            textField.layer.borderWidth = 0
+            return true
+        }
+    }
+    
+    @objc private func textFieldDidChange(_ textField: UITextField) {
+        if let text = textField.text, text.count > 20 {
+            errorLabel.text = "已达昵称长度上限"
+            textField.layer.borderWidth = 1
+        } else {
+            errorLabel.text = ""
+            textField.layer.borderWidth = 0
+        }
+    }
+    
+    func alertDidShow() {
+        textField.becomeFirstResponder()
+    }
 }

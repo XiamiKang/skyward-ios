@@ -42,6 +42,7 @@ public enum ResponseStatus: UInt8 {
     case inProgress = 1   // 设置中
     case failed = 2       // 设置失败
     case crcError = 3     // CRC校验失败
+    case bufferEmpty = 4  // 缓冲区空
 }
 
 // 分包状态枚举

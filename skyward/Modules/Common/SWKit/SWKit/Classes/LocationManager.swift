@@ -46,16 +46,16 @@ public class LocationManager: NSObject {
         // 减少电池消耗的设置
         locationManager.pausesLocationUpdatesAutomatically = true
         locationManager.activityType = .other
+
         
         // 设置后台定位权限 - 只有在确认有权限时才启用
         // 注意：需要在Xcode项目中配置"Background Modes"中的"Location updates"
         if UIApplication.shared.backgroundRefreshStatus == .available, locationManager.authorizationStatus == .authorizedAlways {
-           locationManager.allowsBackgroundLocationUpdates = true
            locationManager.showsBackgroundLocationIndicator = true
        } else {
            debugPrint("警告: 应用程序未配置后台定位模式，后台定位更新已禁用")
-           locationManager.allowsBackgroundLocationUpdates = false
        }
+
     }
     
     // MARK: - Permission Management

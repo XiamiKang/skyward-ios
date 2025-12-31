@@ -123,6 +123,8 @@ class TeamRemoveMemberViewController: BaseViewController {
         if let jsonStr = params.dataValue?.jsonString {
             MQTTManager.shared.publish(message: jsonStr, to: TeamAPI.removeMember_pub, qos:.qos1)
         }
+        
+        navigationController?.popViewController(animated: false)
     }
     
    

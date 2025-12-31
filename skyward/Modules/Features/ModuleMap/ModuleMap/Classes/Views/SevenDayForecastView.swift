@@ -37,7 +37,7 @@ class SevenDayForecastView: UIView {
         // 标题
         titleLabel.text = "未来天气预报"
         titleLabel.font = UIFont.systemFont(ofSize: 16, weight: .medium)
-        titleLabel.textColor = .label
+        titleLabel.textColor = .black
         titleLabel.translatesAutoresizingMaskIntoConstraints = false
         addSubview(titleLabel)
         

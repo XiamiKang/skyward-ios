@@ -125,12 +125,7 @@ public class DistanceMeasurementManager {
         }
         self.coordinates.append(contentsOf: coordinates)
         
-        if let firstCoordinate = coordinates.first {
-            addStartPoint(at: firstCoordinate)
-        }
-        
-        // 出第一个点外的所有点， 然后addPoint
-        for coordinate in coordinates.dropFirst() {
+        for coordinate in coordinates {
             addPoint(at: coordinate)
         }
         
