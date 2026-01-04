@@ -234,8 +234,6 @@ extension TeamMapViewModel: MQTTManagerDelegate {
                         self?.team = team
                         self?.getMemberListHandler?(team.members)
                         self?.getMemberListHandler = nil
-                        //目前insert没有排重，只能能先把表删了，而且删还没法按条件删，数据库写的有问题，暂时这样写，后期要改
-                        DBManager.shared.deleteFromDb(fromTable: DBTableName.team.rawValue)
                         DBManager.shared.insertToDb(objects: [team], intoTable: DBTableName.team.rawValue)
                     }
                 } else if topic == TeamAPI.memberLoaction_sub {

@@ -279,8 +279,7 @@ struct Team: TableCodable {
     
     public enum CodingKeys: String, CodingTableKey {
         public typealias Root = Team
-        public static let objectRelationalMapping = TableBinding(CodingKeys.self)
-        
+
         case id
         case number
         case teamAvatar
@@ -291,10 +290,8 @@ struct Team: TableCodable {
         case conversationId
         case isDisband
         
-        public static var columnConstraintBindings: [CodingKeys: BindColumnConstraint]? {
-            return [
-                .id: ColumnConstraintConfig(id, isPrimary: true, defaultTo: "id")
-            ]
+        static let objectRelationalMapping = TableBinding(CodingKeys.self) {
+            BindColumnConstraint(id, isPrimary: true)
         }
     }
 }
