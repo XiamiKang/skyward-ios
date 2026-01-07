@@ -231,7 +231,7 @@ extension BluetoothManager {
         )
     }
     
-    private func handleAlarmReport(_ data: Data) {
+    public func handleAlarmReport(_ data: Data) {
         guard data.count >= 29 else {
             print("报警信息数据长度错误: \(data.count)")
             return
@@ -477,13 +477,21 @@ extension BluetoothManager {
     }
     
     private func handleSatelliteInfoNotification(_ data: Data) {
-        if let satelliteInfo = String(data: data, encoding: .utf8) {
-            NotificationCenter.default.post(
-                name: .didReceiveSatelliteInfo,
-                object: nil,
-                userInfo: ["satelliteInfo": satelliteInfo]
-            )
-        }
+        let satelliteInfo = data.hexString
+        print("Mini设备卫星状态--字符串--\(satelliteInfo)")
+        NotificationCenter.default.post(
+            name: .didReceiveSatelliteInfo,
+            object: nil,
+            userInfo: ["satelliteInfo": satelliteInfo]
+        )
+    }
+    
+    private func handleDeviceBufferInfoNotification(_ data: Data) {
+        NotificationCenter.default.post(
+            name: .didDeviceBufferInfo,
+            object: nil,
+            userInfo: ["deviceBufferInfo": data]
+        )
     }
     
     private func handlePhoneLocation() {
@@ -493,7 +501,7 @@ extension BluetoothManager {
         let timestamp = UInt32(Date().timeIntervalSince1970)
         
         // 2. 检查定位服务是否可用
-        DispatchQueue.main.async { [weak self] in
+        DispatchQueue.global(qos: .userInitiated).async { [weak self] in
             guard let self = self else { return }
             
             if CLLocationManager.locationServicesEnabled() {
@@ -507,12 +515,12 @@ extension BluetoothManager {
                         let altitude = location.altitude
                         
                         // 纬度计算（乘以10000）
-                        let latitude = Int32(coordinate.latitude * 10000)
+                        let latitude = Int32(coordinate.latitude * 10000 * 100)
                         // 纬度半球：北半球为1，南半球为2
                         let latitudeHemisphere: UInt8 = coordinate.latitude >= 0 ? 1 : 2
                         
                         // 经度计算（乘以10000）
-                        let longitude = Int32(coordinate.longitude * 10000)
+                        let longitude = Int32(coordinate.longitude * 10000 * 100)
                         // 经度半球：东经为1，西经为2
                         let longitudeHemisphere: UInt8 = coordinate.longitude >= 0 ? 1 : 2
                         
@@ -610,7 +618,7 @@ public extension Data {
 public extension BluetoothManager {
     
     // 解析通信帧
-    private func parseCommunicationFrame(_ data: Data) -> CommunicationFrame? {
+    func parseCommunicationFrame(_ data: Data) -> CommunicationFrame? {
         guard data.count >= 14 else {
             print("数据长度不足: \(data.count)")
             return nil
@@ -923,10 +931,8 @@ public extension BluetoothManager {
                 userInfo: ["data": frame.messageContent]
             )
         case .getSatelliteRecords:
-            guard parseCommunicationFrame(frame.messageContent) != nil else {
-                handlePlatformNotification(frame.messageContent)
-                return
-            }
+            print("缓存区数据===\(frame.messageContent.hexString)")
+            handleDeviceBufferInfoNotification(frame.messageContent)
         case .getSatelliteSignal:
             handleSatelliteInfoNotification(frame.messageContent)
             
@@ -1086,3 +1092,5 @@ public func formatVersion(_ version: UInt16) -> String {
     let build = version & 0xFF
     return "v\(major).\(build)"
 }
+
+

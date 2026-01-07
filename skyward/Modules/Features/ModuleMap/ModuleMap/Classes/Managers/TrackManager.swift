@@ -17,7 +17,6 @@ public class TrackManager: NSObject {
     // MARK: - Properties
     var recording: Bool = false
     let locationManager = CLLocationManager()
-    var locationTimer: Timer?
     var currentRecord: TrackRecord?
     
     // 定位更新的回调
@@ -32,30 +31,10 @@ public class TrackManager: NSObject {
         return _dataManager!
     }
     
-    private lazy var uploadManager: UploadManager = {
-        let mgr = UploadManager()
-        return mgr
-    }()
-    
-    private lazy var mapService: MapService = {
-        let mapService = MapService()
-        return mapService
-    }()
-    
     // MARK: - Initializer
     override init() {
         super.init()
         setupLocationManager()
-        
-        NotificationCenter.default.addObserver(
-            self,
-            selector: #selector(appDidTermination),
-            name: UIApplication.willTerminateNotification,
-            object: nil
-        )
-    }
-    deinit {
-        NotificationCenter.default.removeObserver(self)
     }
     
     // MARK: - Setup
@@ -118,13 +97,6 @@ public class TrackManager: NSObject {
         
         // 停止定位更新
         locationManager.stopUpdatingLocation()
-    }
-    
-    func deleteRecords() {
-        if let record = currentRecord {
-            dataManager.deleteRecord(record)
-        }
-        finishRecord()
     }
     
     func finishRecord() {
@@ -203,12 +175,9 @@ public class TrackManager: NSObject {
         return true
     }
     
-    // MARK: - Data Upload
-    func uploadRecords(recordName: String?) {
-        guard let recordName = recordName?.trimmingCharacters(in: .whitespacesAndNewlines), !recordName.isEmpty else {
-            UIWindow.topWindow?.sw_showWarningToast("轨迹记录名称不能为空")
-            return
-        }
+    // MARK: - 增删改查
+    
+    func saveRecords(recordName: String) {
         guard let record = currentRecord else {
             return
         }
@@ -219,56 +188,16 @@ public class TrackManager: NSObject {
             updatedRecord.name = recordName
             
             // 修改本地文件夹名称和数据库记录
-            if dataManager.renameRecord(updatedRecord) {
-                // 只有当重命名成功后，才更新currentRecord的名称
-                currentRecord?.name = recordName
-            }
+            dataManager.renameRecord(updatedRecord)
         }
-        
-        guard let data = dataManager.getTrackRecordGPXData(from: record) else {
-            return
+        finishRecord()
+    }
+    
+    func deleteRecords() {
+        if let record = currentRecord {
+            dataManager.deleteRecord(record)
         }
-
-        UIWindow.topWindow?.sw_showLoading()
-        uploadManager.uploadFile(fileData: data, fileName: recordName, mimeType: "gpx") { progress in
-            debugPrint("上传进度： \(progress)")
-        } completion: {[weak self] result in
-            DispatchQueue.main.async {
-                UIWindow.topWindow?.sw_hideLoading()
-                switch result {
-                case .success(let response):
-                    if response.isSuccess, let fileUrl = response.data?.fileUrl {
-                        UIWindow.topWindow?.sw_showLoading()
-                        self?.mapService.saveUserTrack(name: recordName, fileUrl: fileUrl) { result in
-                            DispatchQueue.main.async {
-                                UIWindow.topWindow?.sw_hideLoading()
-                                switch result {
-                                case .success(let response):
-                                    if response.statusCode == 200 {
-                                        UIWindow.topWindow?.sw_showSuccessToast("保存成功")
-                                        self?.currentRecord?.uploadStatus = .uploaded
-                                        if let record = self?.currentRecord {
-                                            self?.dataManager.updateUploadStatusRecord(record)
-                                        }
-                                        self?.finishRecord()
-                                    } else {
-                                        UIWindow.topWindow?.sw_showWarningToast("保存失败：\(response.description)")
-                                    }
-                                case .failure(let error):
-                                    UIWindow.topWindow?.sw_showWarningToast("保存失败：\(error.localizedDescription)")
-                                }
-                            }
-                        }
-                    } else {
-                        UIWindow.topWindow?.sw_showWarningToast("上传失败: \(response.msg ?? "未知错误")")
-                    }
-                case .failure(let error):
-                    UIWindow.topWindow?.sw_showWarningToast("上传错误: \(error.localizedDescription)")
-                }
-            }
-        }
-        
-        _dataManager = nil
+        finishRecord()
     }
     
     func getTrackRecords() -> [TrackRecord] {
@@ -277,12 +206,6 @@ public class TrackManager: NSObject {
             return result.filter({$0.id != currentRecord.id})
         }
         return result
-    }
-    
-    
-    //MARK: - Notification
-    @objc func appDidTermination() {
-        stopRecord()
     }
 
     //MARK: - Test

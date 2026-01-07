@@ -58,12 +58,27 @@ extension AppDelegate {
             Router.default.registe(module.routeSettings)
         }
         
+        if UserManager.shared.isLogin {
+            //初始化数据库
+            DBManager.shared.initDb(userId: UserManager.shared.userId)
+            //MQTT开始链接
+            MQTTManager.shared.connect()
+            //组队模块监听消息
+            SWRouter.handle(RouteTable.teamStartMonitorMessage)
+        }
+        
         // 在后台线程检查并刷新快过期的token，避免阻塞UI启动 暂时写这里，后面移至SWWakeUpService
         DispatchQueue.global().async {
             TokenManager.shared.proactivelyRefreshToken { _ in }
         }
 
         NetworkMonitor.shared.startMonitoring()
+        // 初始化地图
+        MapConfig.shared.resetToDefaults()
+        // 下载公共兴趣点
+        DispatchQueue.main.asyncAfter(deadline: .now() + 2) {
+            POIDownloadManager.shared.startSilentDownload()
+        }
         
         let aWindow = UIWindow(frame: UIScreen.main.bounds)
         self.window = aWindow

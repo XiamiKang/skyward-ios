@@ -18,6 +18,6 @@ public class PersonalModule: ModuleType {
     
     /// 当前模块的路由
     public var routeSettings: [any RoutableType.Type] {
-        return [BindDevicePageRouter.self]
+        return [BindDevicePageRouter.self, ProDevicePageRouter.self]
     }
 }

@@ -8,6 +8,12 @@
 import UIKit
 import SWKit
 
+enum ProDeviceButtonState {
+    case incomplete   //未完成
+    case inprogress   //进行中
+    case completed    //已完成
+}
+
 class ProDeviceBaseMsgCell: UITableViewCell {
     
     private let bgView = UIView()
@@ -40,13 +46,13 @@ class ProDeviceBaseMsgCell: UITableViewCell {
     var resendModlAction: ((Int) -> Void)?
     
     // 按钮状态
-    private var isCollecting = false {
+    private var isCollecting: ProDeviceButtonState = .incomplete {
         didSet {
             updateCollectButtonState()
         }
     }
     
-    private var isLiningStar = false {
+    private var isLiningStar: ProDeviceButtonState = .incomplete {
         didSet {
             updateLineStarButtonState()
         }
@@ -260,8 +266,16 @@ class ProDeviceBaseMsgCell: UITableViewCell {
     
     // MARK: - 按钮状态更新
     private func updateCollectButtonState() {
-        if isCollecting {
-            // 显示等待状态
+        switch isCollecting {
+        case .incomplete:
+            collectButton.setTitle("收藏", for: .normal)
+            collectButton.isEnabled = false
+            collectButton.setTitleColor(UIColor(str: "#C4C7CA"), for: .normal)
+            collectActivityIndicator.stopAnimating()
+            
+            // 重置标题位置
+            collectButton.titleEdgeInsets = .zero
+        case .inprogress:
             collectButton.setTitle("收藏中", for: .normal)
             collectButton.isEnabled = false
             collectButton.setTitleColor(UIColor(str: "#FE6A00"), for: .normal)
@@ -269,11 +283,10 @@ class ProDeviceBaseMsgCell: UITableViewCell {
             
             // 调整标题位置
             collectButton.titleEdgeInsets = UIEdgeInsets(top: 0, left: 20, bottom: 0, right: 0)
-        } else {
-            // 恢复正常状态
+        case .completed:
             collectButton.setTitle("收藏", for: .normal)
             collectButton.isEnabled = true
-            collectButton.setTitleColor(UIColor(str: "#C4C7CA"), for: .normal)
+            collectButton.setTitleColor(UIColor(str: "#FE6A00"), for: .normal)
             collectActivityIndicator.stopAnimating()
             
             // 重置标题位置
@@ -282,8 +295,16 @@ class ProDeviceBaseMsgCell: UITableViewCell {
     }
     
     private func updateLineStarButtonState() {
-        if isLiningStar {
-            // 显示等待状态
+        switch isLiningStar {
+        case .incomplete:
+            lineStarButton.setTitle("对星", for: .normal)
+            lineStarButton.isEnabled = true
+            lineStarButton.backgroundColor = UIColor(str: "#FE6A00")
+            lineStarActivityIndicator.stopAnimating()
+            
+            // 重置标题位置
+            lineStarButton.titleEdgeInsets = .zero
+        case .inprogress:
             lineStarButton.setTitle("对星中", for: .normal)
             lineStarButton.isEnabled = false
             lineStarButton.backgroundColor = UIColor(str: "#FE6A00").withAlphaComponent(0.7)
@@ -291,8 +312,7 @@ class ProDeviceBaseMsgCell: UITableViewCell {
             
             // 调整标题位置
             lineStarButton.titleEdgeInsets = UIEdgeInsets(top: 0, left: 20, bottom: 0, right: 0)
-        } else {
-            // 恢复正常状态
+        case .completed:
             lineStarButton.setTitle("对星", for: .normal)
             lineStarButton.isEnabled = true
             lineStarButton.backgroundColor = UIColor(str: "#FE6A00")
@@ -305,19 +325,19 @@ class ProDeviceBaseMsgCell: UITableViewCell {
     
     // MARK: - 公开方法
     func startCollecting() {
-        isCollecting = true
+        isCollecting = .inprogress
     }
     
-    func stopCollecting() {
-        isCollecting = false
+    func stopCollecting(with collectedSuccess: Bool) {
+        isCollecting = collectedSuccess ? .completed : .incomplete
     }
     
     func startLiningStar() {
-        isLiningStar = true
+        isLiningStar = .inprogress
     }
     
-    func stopLiningStar() {
-        isLiningStar = false
+    func stopLiningStar(with lineSuccese: Bool) {
+        isLiningStar = lineSuccese ? .completed : .incomplete
     }
     
     // MARK: - 设备图片连续点击处理
@@ -362,6 +382,17 @@ class ProDeviceBaseMsgCell: UITableViewCell {
         resendModlAction?(0)
         modeCatImageView.image = PersonalModule.image(named: "device_pro_mode")
         modeGroundImageView.image = PersonalModule.image(named: "device_pro_mode_sel")
+    }
+    
+    // 对星完成更新模式
+    func updateModeChooseAndCollecitonUI(with status: ProDeviceStatus) {
+        if status.mode == 0 {
+            modeGroundTapped()
+        }
+        if status.mode == 1 {
+            modeCatTapped()
+        }
+        stopCollecting(with: true)
     }
     
     @objc private func collectionButtonTapped() {
@@ -415,7 +446,7 @@ class ProDeviceBaseMsgCell: UITableViewCell {
     override func prepareForReuse() {
         super.prepareForReuse()
         resetTapCounter()
-        stopCollecting()
-        stopLiningStar()
+        stopCollecting(with: false)
+        stopLiningStar(with: false)
     }
 }

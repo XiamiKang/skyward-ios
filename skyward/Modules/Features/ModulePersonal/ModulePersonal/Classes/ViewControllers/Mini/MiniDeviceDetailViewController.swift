@@ -14,10 +14,12 @@ import Combine
 public class MiniDeviceDetailViewController: PersonalBaseViewController {
     
     // MARK: - Properties
-    public var deviceInfo: BluetoothDeviceInfo? {
+    public var deviceInfo: MiniDeviceData? {
         didSet {
             if let connectedPeripheral = BluetoothManager.shared.connectedPeripheral {
-                deviceConnetedStatus = deviceInfo?.uuid == connectedPeripheral.identifier.uuidString ? 1 : 0
+                if let scannedDevice = BluetoothManager.shared.findScannedDevice(for: connectedPeripheral) {
+                    deviceConnetedStatus = deviceInfo?.imeiNum == scannedDevice.imei ? 1 : 0
+                }
             }
         }
     }
@@ -183,7 +185,7 @@ public class MiniDeviceDetailViewController: PersonalBaseViewController {
             let scannedDevices = BluetoothManager.shared.getAllScannedDevices()
             print("保存后的扫描设备--\(scannedDevices)")
             for scannedDevice in scannedDevices {
-                if device.uuid == scannedDevice.peripheral.identifier.uuidString {
+                if device.imeiNum == scannedDevice.imei {
                     BluetoothManager.shared.connectToPeripheral(scannedDevice.peripheral)
                     return
                 }
@@ -284,7 +286,6 @@ extension MiniDeviceDetailViewController: BluetoothManagerDelegate {
     public func didConnectPeripheral(_ peripheral: CBPeripheral) {
         DispatchQueue.main.async { [weak self] in
             print("设备连接成功: \(peripheral.name ?? "未知设备")")
-            self?.refreshMiniDeviceData()
             self?.deviceConnetedStatus = 1
             self?.miniTableView.reloadData()
         }
@@ -316,7 +317,7 @@ extension MiniDeviceDetailViewController: UITableViewDelegate, UITableViewDataSo
         case 0:
             let cell = tableView.dequeueReusableCell(withIdentifier: "MiniDeviceBaseMsgCell") as! MiniDeviceBaseMsgCell
             if let deviceInfo = deviceInfo {
-                cell.configure(with: deviceInfo.displayName, imei: deviceInfo.imei)
+                cell.configure(with: deviceInfo.name ?? "", imei: deviceInfo.imeiNum ?? "")
             }
             cell.changeStatus(isConnect: deviceConnetedStatus == 1)
             

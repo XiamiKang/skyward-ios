@@ -16,19 +16,16 @@ struct RouteRecord: TableCodable {
     var desc: String?
     var uploadStatus: Int?
     
-    public enum CodingKeys: String, CodingTableKey {
-        public typealias Root = RouteRecord
-        public static let objectRelationalMapping = TableBinding(CodingKeys.self)
+    enum CodingKeys: String, CodingTableKey {
+        typealias Root = RouteRecord
         
         case routeId
         case name
         case desc
         case uploadStatus
         
-        public static var columnConstraintBindings: [CodingKeys: BindColumnConstraint]? {
-            return [
-                .routeId: ColumnConstraintConfig(routeId, isPrimary: true, defaultTo: "routeId")
-            ]
+        static let objectRelationalMapping = TableBinding(CodingKeys.self) {
+            BindColumnConstraint(routeId, isPrimary: true)
         }
     }
 }
@@ -41,9 +38,8 @@ struct RoutePoint: TableCodable {
     var altitude: Double?
     var timestamp: UInt64?
     
-    public enum CodingKeys: String, CodingTableKey {
-        public typealias Root = RoutePoint
-        public static let objectRelationalMapping = TableBinding(CodingKeys.self)
+    enum CodingKeys: String, CodingTableKey {
+        typealias Root = RoutePoint
         
         case routeId
         case longitude
@@ -51,10 +47,8 @@ struct RoutePoint: TableCodable {
         case altitude
         case timestamp
         
-        public static var columnConstraintBindings: [CodingKeys: BindColumnConstraint]? {
-            return [
-                .routeId: ColumnConstraintConfig(routeId, isPrimary: true, defaultTo: "routeId")
-            ]
+        static let objectRelationalMapping = TableBinding(CodingKeys.self) {
+            BindColumnConstraint(routeId, isPrimary: true)
         }
     }
 }

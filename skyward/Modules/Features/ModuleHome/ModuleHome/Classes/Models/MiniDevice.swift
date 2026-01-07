@@ -9,8 +9,9 @@ import ModulePersonal
 import SWKit
 
 struct MiniDevice {
-    let info: BluetoothDeviceInfo
+    let info: MiniDeviceData
     var status: StatusInfo?
+    var satelliteNum: Int?
     var connected: Bool = false
     let selected: Bool = false
 }

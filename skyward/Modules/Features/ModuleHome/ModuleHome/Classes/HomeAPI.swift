@@ -47,14 +47,26 @@ extension HomeAPI: NetworkAPI {
     }
 }
 
-let noticeList_sub = "txts/home/servertoapp/notice/list/\(UserManager.shared.userId)"
+var noticeList_sub: String {
+    return "txts/home/servertoapp/notice/list/\(UserManager.shared.userId)"
+}
 
-let noticeList_pub = "txts/home/apptoserver/notice/list/\(UserManager.shared.userId)"
+var noticeList_pub: String {
+    return "txts/home/apptoserver/notice/list/\(UserManager.shared.userId)"
+}
 
-let latestMessage_sub = "txts/home/servertoapp/urgentMessage/latest/\(UserManager.shared.userId)"
+var latestMessage_sub: String {
+    return "txts/home/servertoapp/urgentMessage/latest/\(UserManager.shared.userId)"
+}
 
-let latestMessage_pub = "txts/home/apptoserver/urgentMessage/latest/\(UserManager.shared.userId)"
+var latestMessage_pub: String {
+    return "txts/home/apptoserver/urgentMessage/latest/\(UserManager.shared.userId)"
+}
 
-let cleanMessage_pub = "txts/home/apptoserver/urgentMessage/clean/\(UserManager.shared.userId)"
+var cleanMessage_pub: String {
+    return "txts/home/apptoserver/urgentMessage/clean/\(UserManager.shared.userId)"
+}
 
-let onlinePing_pub = "txts/user/apptoserver/online/\(UserManager.shared.userId)"
+var onlinePing_pub: String {
+    return "txts/user/apptoserver/online/\(UserManager.shared.userId)"
+}

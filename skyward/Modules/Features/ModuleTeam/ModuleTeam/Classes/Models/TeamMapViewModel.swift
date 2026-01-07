@@ -10,6 +10,7 @@ import TXKit
 import SWKit
 import SWNetwork
 import CoreLocation
+import WCDBSwift
 
 typealias MemberListBlock = ([Member]?) -> Void
 
@@ -20,7 +21,7 @@ public class TeamMapViewModel: ObservableObject {
     @Published var messageList: [Message] = []
     @Published var team: Team?
     
-    public var conversation: Conversation
+    var conversation: Conversation
     
     var getMemberListHandler: MemberListBlock?
     var getMemberLocationHandler: MemberLoactionBlock?
@@ -30,16 +31,17 @@ public class TeamMapViewModel: ObservableObject {
         return locationManager
     }()
     
-    public init(conversation: Conversation) {
+    init(conversation: Conversation) {
         self.conversation = conversation
         
         // DB
         if let convId = conversation.id {
-            if let result = DBManager.shared.queryFromDb(fromTable: DBTableName.message.rawValue, cls: Message.self) {
-                let filteredMessages = result.filter { $0.conversationId == convId }
-                let sortedMessages = filteredMessages.sorted { $0.sendTime ?? 0 < $1.sendTime ?? 0}
+            if let result = DBManager.shared.queryFromDb(fromTable: DBTableName.message.rawValue,
+                                                         cls: Message.self,
+                                                         where: Message.Properties.conversationId == convId,
+                                                         orderBy: [Message.Properties.sendTime.asOrder()]) {
                 DispatchQueue.main.async {
-                    self.messageList = sortedMessages
+                    self.messageList = result
                 }
             }
         }
@@ -49,7 +51,6 @@ public class TeamMapViewModel: ObservableObject {
         MQTTManager.shared.subscribe(to: [TeamAPI.messagePage_sub, TeamAPI.teamInfo_sub, TeamAPI.memberLoaction_sub])
         
         var params = [String : Any]()
-        params["requestId"] = Int(Date().timeIntervalSince1970)
         params["conversationId"] = conversation.id
         params["pageNum"] = 1
         params["pageSize"] = 1000
@@ -234,8 +235,6 @@ extension TeamMapViewModel: MQTTManagerDelegate {
                         self?.team = team
                         self?.getMemberListHandler?(team.members)
                         self?.getMemberListHandler = nil
-                        //目前insert没有排重，只能能先把表删了，而且删还没法按条件删，数据库写的有问题，暂时这样写，后期要改
-                        DBManager.shared.deleteFromDb(fromTable: DBTableName.team.rawValue)
                         DBManager.shared.insertToDb(objects: [team], intoTable: DBTableName.team.rawValue)
                     }
                 } else if topic == TeamAPI.memberLoaction_sub {
@@ -270,15 +269,19 @@ extension TeamMapViewModel: MQTTManagerDelegate {
 extension TeamMapViewModel {
     
     func getMemberList(_ completed: @escaping MemberListBlock) {
+        guard let teamId = conversation.teamId else {
+            completed(nil)
+            return
+        }
         guard NetworkMonitor.shared.isConnected else {
-            let team = DBManager.shared.queryFromDb(fromTable: DBTableName.team.rawValue, cls: Team.self)?.first(where: {$0.id == conversation.teamId})
+            let team = DBManager.shared.queryFromDb(fromTable: DBTableName.team.rawValue, cls: Team.self, where: Team.Properties.id == teamId)?.first
             completed(team?.members)
             return
         }
         getMemberListHandler = completed
         
         var params = [String : Any]()
-        params["id"] = conversation.teamId
+        params["id"] = teamId
         if let jsonStr = params.dataValue?.jsonString {
             MQTTManager.shared.publish(message: jsonStr, to: TeamAPI.teamInfo_pub, qos:.qos1)
         }
@@ -305,11 +308,10 @@ extension TeamMapViewModel {
         getMemberLocationHandler = completed
         
         var params = [String : Any]()
-        params["requestId"] = Int(Date().timeIntervalSince1970)
         params["userId"] = userId
         params["mode"] = "0"
         params["conversationId"] = convId
-        params["reportTime"] = params["requestId"]
+        params["reportTime"] = Int(Date().timeIntervalSince1970)
         if let jsonStr = params.dataValue?.jsonString {
             MQTTManager.shared.publish(message: jsonStr, to: TeamAPI.memberLoaction_pub, qos:.qos1)
         }
@@ -318,13 +320,15 @@ extension TeamMapViewModel {
     func sendMemberLocation() {
         let convId = conversation.id
         locationManager.getCurrentLocation { location, error in
+            guard let location = location, error == nil else {
+                return
+            }
             var params = [String : Any]()
-            params["requestId"] = Int(Date().timeIntervalSince1970)
             params["userId"] = UserManager.shared.userId
             params["mode"] = "1"
             params["conversationId"] = convId
-            params["reportTime"] = params["requestId"]
-            params["coordinate"] = ["longitude": location?.coordinate.longitude ?? 0.0, "latitude": location?.coordinate.latitude ?? 0.0]
+            params["reportTime"] = Int(Date().timeIntervalSince1970)
+            params["coordinate"] = ["longitude": location.coordinate.longitude, "latitude": location.coordinate.latitude]
             if let jsonStr = params.dataValue?.jsonString {
                 MQTTManager.shared.publish(message: jsonStr, to: TeamAPI.memberLoaction_pub, qos:.qos1)
             }

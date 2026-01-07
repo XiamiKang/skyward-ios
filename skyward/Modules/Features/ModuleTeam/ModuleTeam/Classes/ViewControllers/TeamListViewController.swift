@@ -35,11 +35,7 @@ class TeamListViewController: BaseViewController {
         // MQTT
         MQTTManager.shared.addDelegate(self)
         MQTTManager.shared.subscribe(to: [TeamAPI.convList_sub])
-        var params = [String : Any]()
-        params["requestId"] = Int(Date().timeIntervalSince1970)
-        if let jsonStr = params.dataValue?.jsonString {
-            MQTTManager.shared.publish(message: jsonStr, to: TeamAPI.convList_pub, qos:.qos1)
-        }
+        MQTTManager.shared.publish(message: "{}", to: TeamAPI.convList_pub, qos:.qos1)
         
         // 通知
         NotificationCenter.default.addObserver(
@@ -191,7 +187,6 @@ extension TeamListViewController: MQTTManagerDelegate {
                     }
                     return updatedConversation
                 }
-                DBManager.shared.deleteFromDb(fromTable: DBTableName.conversation.rawValue)
                 DBManager.shared.insertToDb(objects: updatedConversations, intoTable: DBTableName.conversation.rawValue)
                 self.conversations = updatedConversations
                 DispatchQueue.main.async {[weak self] in

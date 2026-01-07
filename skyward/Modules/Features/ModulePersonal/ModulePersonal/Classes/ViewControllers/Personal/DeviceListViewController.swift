@@ -14,7 +14,7 @@ public class DeviceListViewController: PersonalBaseViewController {
     
     // MARK: - 数据
     private var selectedDeviceType: Int = 0 // 0: 行者mini, 1: 行者pro
-    private var devices: [BluetoothDeviceInfo] = []
+    private var miniDevices: [MiniDeviceData] = []
     private var proDevices: [WiFiDevice] = []
     private let viewModel = PersonalViewModel()
     
@@ -141,18 +141,9 @@ extension DeviceListViewController {
     
     private func loadDevices() {
         if selectedDeviceType == 0 {
-            // 行者mini设备
-            let savedDevices = BluetoothManager.shared.getAllSavedDevices()
-            print("保存的设备数量: \(savedDevices.count)")
-            
-            for device in savedDevices {
-                print("设备: \(device.displayName)")
-                print("UUID: \(device.uuid)")
-                print("IMEI: \(device.imei)")
-                print("最后连接: \(device.lastConnectedDate)")
+            if let data = MiniDeviceDBManager.shared.qureyFromMiniDeviceDataAllData() {
+                miniDevices = data
             }
-            devices = savedDevices
-
         } else {
             // 行者pro设备
             proDevices = WiFiDeviceStorageManager.shared.getAllDevices()
@@ -164,9 +155,8 @@ extension DeviceListViewController {
         viewModel.$deviceListData
             .receive(on: DispatchQueue.main)
             .sink { [weak self] data in
-                guard let _ = self else { return }
-//                self.devices = data
-//                self.addTestMarkers()
+                guard let self = self else { return }
+                self.loadDevices()
             }
             .store(in: &viewModel.cancellables)
     }
@@ -216,7 +206,7 @@ extension DeviceListViewController: UICollectionViewDataSource, UICollectionView
     
     public func collectionView(_ collectionView: UICollectionView, numberOfItemsInSection section: Int) -> Int {
         if selectedDeviceType == 0 {
-            return devices.isEmpty ? 1 : devices.count + 1
+            return miniDevices.isEmpty ? 1 : miniDevices.count + 1
         }else {
             return proDevices.isEmpty ? 1 : proDevices.count + 1
         }
@@ -224,17 +214,17 @@ extension DeviceListViewController: UICollectionViewDataSource, UICollectionView
     
     public func collectionView(_ collectionView: UICollectionView, cellForItemAt indexPath: IndexPath) -> UICollectionViewCell {
         if selectedDeviceType == 0 {
-            if devices.isEmpty {
+            if miniDevices.isEmpty {
                 let cell = collectionView.dequeueReusableCell(withReuseIdentifier: "BindDeviceCell", for: indexPath) as! BindDeviceCell
                 return cell
             } else {
-                if indexPath.row == devices.count {
+                if indexPath.row == miniDevices.count {
                     let cell = collectionView.dequeueReusableCell(withReuseIdentifier: "BindDeviceCell", for: indexPath) as! BindDeviceCell
                     return cell
                 }
                 
                 let cell = collectionView.dequeueReusableCell(withReuseIdentifier: "MiniDeviceCell", for: indexPath) as! MiniDeviceCell
-                cell.configure(with: devices[indexPath.item])
+                cell.configure(with: miniDevices[indexPath.item])
                 return cell
             }
         }else {
@@ -264,20 +254,30 @@ extension DeviceListViewController: UICollectionViewDataSource, UICollectionView
     
     public func collectionView(_ collectionView: UICollectionView, didSelectItemAt indexPath: IndexPath) {
         if selectedDeviceType == 0 {
-            if devices.isEmpty {
+            if miniDevices.isEmpty {
                 // 点击绑定设备
                 print("绑定设备")
                 showBindDeviceSheet()
             } else {
-                if indexPath.row == devices.count {
+                if indexPath.row == miniDevices.count {
                     showBindDeviceSheet()
                     return
                 }
-                let device = devices[indexPath.item]
-                print("点击设备: \(device.displayName)")
-                // 这里可以跳转到设备详情页面
+                let device = miniDevices[indexPath.item]
+//                print("点击设备: \(device.name ?? "")")
+//                let scannedDevices = BluetoothManager.shared.getAllScannedDevices()
+//                for scannedDevice in scannedDevices {
+//                    if device.imeiNum == scannedDevice.imei {
+//                        navigateToMiniDeviceDetail(with: scannedDevice)
+//                    }
+////                    else {
+////                        view.sw_showWarningToast("未找到该设备，请确认设备打开")
+////                    }
+//                }
                 navigateToMiniDeviceDetail(with: device)
                 BluetoothManager.shared.stopScanning()
+               
+                
             }
         }else {
             if proDevices.isEmpty {
@@ -302,9 +302,11 @@ extension DeviceListViewController {
             BluetoothManager.shared.disconnectPeripheral()
             let bindDeviceVC = BindMiniDeviceViewController()
             bindDeviceVC.modalPresentationStyle = .overFullScreen
-            bindDeviceVC.onDismiss = { [weak self] uuidStr in
+            bindDeviceVC.onDismiss = { [weak self] miniDeviceData in
                 self?.loadDevices()
-                self?.isConnectedDevice(uuidStr: uuidStr)
+                if let miniDeviceData = miniDeviceData {
+                    self?.navigateToMiniDeviceDetail(with: miniDeviceData)
+                }
             }
             present(bindDeviceVC, animated: false, completion: nil)
         }else {
@@ -314,7 +316,7 @@ extension DeviceListViewController {
         }
     }
     
-    private func navigateToMiniDeviceDetail(with device: BluetoothDeviceInfo) {
+    private func navigateToMiniDeviceDetail(with device: MiniDeviceData) {
         let detailVC = MiniDeviceDetailViewController()
         detailVC.deviceInfo = device
         navigationController?.pushViewController(detailVC, animated: true)
@@ -325,15 +327,6 @@ extension DeviceListViewController {
         navigationController?.pushViewController(detailVC, animated: true)
     }
     
-    private func isConnectedDevice(uuidStr: String) {
-        let sevedDevices = MiniDeviceStorageManager.shared.getAllSavedDevices()
-        
-        for device in sevedDevices {
-            if device.uuid == uuidStr {
-                navigateToMiniDeviceDetail(with: device)
-            }
-        }
-    }
 }
 
 // MARK: - UIColor扩展

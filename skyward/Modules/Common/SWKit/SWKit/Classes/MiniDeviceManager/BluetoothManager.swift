@@ -47,7 +47,7 @@ public class BluetoothManager: NSObject {
     var currentSerialNumber: UInt32 = 0
     var packetAssembler = PacketAssembler()
     var firmwareManager = FirmwareUpgradeManager()
-    var crcCalculator = CRC16.ibm
+    public var crcCalculator = CRC16.ibm
     public var MTU = 244
     
     // 筛选关键词
@@ -57,10 +57,24 @@ public class BluetoothManager: NSObject {
     override init() {
         super.init()
         centralManager = CBCentralManager(delegate: self, queue: DispatchQueue.main)
+        DBManager.shared.createTable(table: DBTableName.miniDevice.rawValue, of: MiniDeviceData.self)
     }
     
     public var isConnected: Bool {
         return connectedPeripheral != nil && connectedPeripheral?.state == .connected
+    }
+    // 连接的外设对应的保存在本地的设备信息
+    public var connectedScannedPeripheral: MiniDeviceData? {
+        if connectedPeripheral != nil && connectedPeripheral?.state == .connected {
+            for scannedDevice in scannedDevices.values {
+                if scannedDevice.peripheral == connectedPeripheral {
+                    if let miniDeviceData = MiniDeviceDBManager.shared.qureyFromMiniDeviceWithIMEI(scannedDevice.imei)?.first {
+                        return miniDeviceData
+                    }
+                }
+            }
+        }
+        return nil
     }
     
     // MARK: - 蓝牙基础操作
@@ -188,7 +202,21 @@ extension BluetoothManager: CBCentralManagerDelegate {
         
         print("连接成功: \(peripheral.name ?? "未知设备")")
         // 保存设备信息到本地
-        saveConnectedDeviceInfo(peripheral)
+        for scannedDevice in scannedDevices.values {
+            if scannedDevice.peripheral == peripheral {
+                let lastFourDigits = String(scannedDevice.imei.suffix(4))
+                let name = "行者nimi_\(lastFourDigits)"
+                let deviceData = MiniDeviceData(name: name, serialNum: scannedDevice.imei, imeiNum: scannedDevice.imei, forthGenCardNum: "", typeCode: "NARROW_BAND", state: 0, macAddress: scannedDevice.macAddress, model: "TXTS-NB-01")
+                // 保存设备信息到本地
+                MiniDeviceDBManager.shared.insertFromMiniDeviceList([deviceData])
+                // 保存设备信息到后台
+                UserManager.shared.bindDevice(serialNum: scannedDevice.imei, macAddress: scannedDevice.macAddress) { result in
+                    
+                }
+            }
+            
+        }
+        
         // 代理
         delegate?.didConnectPeripheral(peripheral)
         // 延时等待特征发现
@@ -197,6 +225,7 @@ extension BluetoothManager: CBCentralManagerDelegate {
             print("连接稳定，请求设备状态信息")
             self.requestStatusInfo()
             self.requestDeviceInfo()
+            self.getSatelliteSignal()
         }
     }
     
@@ -209,6 +238,7 @@ extension BluetoothManager: CBCentralManagerDelegate {
         print("设备断开: \(peripheral.name ?? "未知设备")")
         connectedPeripheral = nil
         delegate?.didDisconnectPeripheral(peripheral)
+        NotificationCenter.default.post(name: .bluetoothDeviceDisconnected, object: nil)
     }
     
 }
@@ -554,90 +584,6 @@ public extension BluetoothManager {
     }
 }
 
-
-public extension BluetoothManager {
-    
-    // MARK: - 设备信息保存
-    private func saveConnectedDeviceInfo(_ peripheral: CBPeripheral) {
-        
-        guard let scannedDevice = findScannedDevice(for: peripheral) else {
-            print("❌ 无法找到设备的扫描信息，无法保存")
-            return
-        }
-        
-        let deviceInfo = BluetoothDeviceInfo(
-            uuid: peripheral.identifier.uuidString,
-            imei: scannedDevice.imei,
-            name: peripheral.name,
-            macAddress: scannedDevice.macAddress,
-            productId: scannedDevice.productId,
-            connectionDate: Date(),
-            lastConnectedDate: Date()
-        )
-        MiniDeviceStorageManager.shared.saveConnectedDevice(deviceInfo)
-        
-        if NetworkMonitor.shared.isConnected {
-            UserManager.shared.bindMiniDevice(serialNum: scannedDevice.imei, macAddress: scannedDevice.macAddress) { result in
-                
-            }
-        }else {
-            SWAlertView.showAlert(title: nil, message: "当前无网络连接，通过Mini设备绑定设备？") {
-                if let data = MessageGenerator.generateDeviceBind(userId: UserManager.shared.userId) {
-                    BluetoothManager.shared.sendAppCustomData(data)
-                }
-            }
-            return
-        }
-    }
-    
-    // MARK: - 获取保存的设备信息
-    func getSavedDeviceInfo(for peripheral: CBPeripheral) -> BluetoothDeviceInfo? {
-        return MiniDeviceStorageManager.shared.findDeviceByUUID(peripheral.identifier.uuidString)
-    }
-    
-    func getSavedDeviceInfo(byIMEI imei: String) -> BluetoothDeviceInfo? {
-        return MiniDeviceStorageManager.shared.findDeviceByIMEI(imei)
-    }
-    
-    // MARK: - 获取所有保存的设备
-    func getAllSavedDevices() -> [BluetoothDeviceInfo] {
-        return MiniDeviceStorageManager.shared.getAllSavedDevices()
-    }
-    
-    // MARK: - 删除保存的设备
-    func removeSavedDevice(_ peripheral: CBPeripheral) {
-        MiniDeviceStorageManager.shared.removeDevice(peripheral.identifier.uuidString)
-    }
-    
-    func removeSavedDevice(byIMEI imei: String) {
-        if let device = MiniDeviceStorageManager.shared.findDeviceByIMEI(imei) {
-            MiniDeviceStorageManager.shared.removeDevice(device.uuid)
-        }
-    }
-    
-    // MARK: - 自动重连上次连接的设备
-    func autoReconnectLastDevice() {
-        guard let lastDevice = MiniDeviceStorageManager.shared.getLastConnectedDevice() else {
-            print("没有找到上次连接的设备")
-            return
-        }
-        
-        print("尝试自动重连上次连接的设备: \(lastDevice.displayName)")
-        
-        // 在已发现的设备中查找
-        if let peripheral = discoveredPeripherals.first(where: {
-            $0.identifier.uuidString == lastDevice.uuid
-        }) {
-            connectToPeripheral(peripheral)
-        } else {
-            print("设备未在扫描范围内，开始扫描...")
-            // 可以在这里触发扫描，然后尝试连接
-            scanForPeripherals()
-        }
-    }
-}
-
-
 // MARK: - 通知名称
 public extension Notification.Name {
     static let didReceiveBluetoothData = Notification.Name("didReceiveBluetoothData")                      //蓝牙应答数据通知
@@ -656,6 +602,7 @@ public extension Notification.Name {
     static let unBindMiniDeviceResponseMsg = Notification.Name("unBindMiniDeviceResponseMsg")              //解绑蓝牙设备通知
     static let bluetoothDeviceDisconnected = Notification.Name("bluetoothDeviceDisconnected")              //设备断联通知
     static let didReceiveSatelliteInfo = Notification.Name("didReceiveSatelliteInfo")                      //获取卫星信号通知
+    static let didDeviceBufferInfo = Notification.Name("didDeviceBufferInfo")                              //获取缓冲区内容
     
 }
 

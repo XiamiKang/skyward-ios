@@ -143,7 +143,7 @@ public class POIDownloadManager {
             pageSize: Config.pageSize
         )
         
-        print("正在下载第 \(page) 页")
+//        print("正在下载第 \(page) 页")
         
         
         publicPOIService.getPublicPOIList(model) { result in
@@ -164,7 +164,7 @@ public class POIDownloadManager {
                                 itemsCount: data.count
                             )
                             
-                            print("下载的条数-----\(data.count)")
+//                            print("下载的条数-----\(data.count)")
                             // 检查是否有更多页
                             if data.count == Config.pageSize*2 {
                                 // 短暂延迟后下载下一页
@@ -204,7 +204,7 @@ public class POIDownloadManager {
                 if let error = error {
                     print("批量插入失败: \(error)")
                 } else {
-                    print("成功保存 \(mergedItems.count) 条数据")
+//                    print("成功保存 \(mergedItems.count) 条数据")
                 }
             }
         }

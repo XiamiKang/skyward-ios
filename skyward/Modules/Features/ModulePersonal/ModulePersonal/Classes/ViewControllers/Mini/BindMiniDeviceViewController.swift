@@ -64,11 +64,11 @@ class BindMiniDeviceViewController: UIViewController {
     private var scannedDevice: ScannedDevice?
     private var scanTimer: Timer?
     private let scanDuration: TimeInterval = 30.0 // 30秒扫描时间
-    private var CBPeripheralUUIDString: String = ""
+    private var miniDeviceData: MiniDeviceData?
     private let bluetoolManager = BluetoothManager.shared
     
     // MARK: - dismiss回调
-    var onDismiss: ((_ uuidStr: String) -> Void)?
+    var onDismiss: ((_ miniDeviceData: MiniDeviceData? ) -> Void)?
     
     // MARK: - 生命周期
     override func viewDidLoad() {
@@ -326,7 +326,7 @@ class BindMiniDeviceViewController: UIViewController {
             self.view.backgroundColor = .clear
         }) { _ in
             self.dismiss(animated: false) { [weak self] in
-                self?.onDismiss?(self?.CBPeripheralUUIDString ?? "")
+                self?.onDismiss?(self?.miniDeviceData)
             }
         }
     }
@@ -409,7 +409,8 @@ extension BindMiniDeviceViewController: BluetoothManagerDelegate {
     func didConnectPeripheral(_ peripheral: CBPeripheral) {
         DispatchQueue.main.async {
             
-            self.CBPeripheralUUIDString = peripheral.identifier.uuidString
+            let miniDeviceData = BluetoothManager.shared.connectedScannedPeripheral
+            self.miniDeviceData = miniDeviceData
             // 停止扫描和计时器
             self.stopScanning()
             

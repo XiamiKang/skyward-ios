@@ -179,10 +179,6 @@ class TeamCreateViewController: BaseViewController {
             view.sw_showWarningToast("队伍名称不能为空")
             return
         }
-        guard let teamName = teamNameTextField.text, !teamName.isEmpty else {
-            // 显示提示信息
-            return
-        }
         self.view.sw_showLoading()
         NetworkProvider<TeamAPI>().request(.creatTeam(name: teamName), completion: {[weak self] result in
             self?.view.sw_hideLoading()
@@ -194,8 +190,8 @@ class TeamCreateViewController: BaseViewController {
                         guard let convId = teamData.conversationId else { return }
                         let conversation = Conversation(id: convId, teamId:teamData.id, teamSize: Int(teamData.number ?? ""), name: teamData.name, type: .group, createTime: teamData.createdTime)
                         let vc = TeamInviteMemberViewController(conversation: conversation)
-                        UIWindow.topViewController()?.navigationController?.pushViewController(vc, animated: true)
-                        UIWindow.topWindow?.sw_showSuccessToast("队伍创建成功")
+                        self?.navigationController?.pushViewController(vc, animated: true)
+                        self?.view.sw_showSuccessToast("队伍创建成功")
                         // 从导航栈中移除当前ViewController
                         if let navigationController = self?.navigationController {
                             var viewControllers = navigationController.viewControllers

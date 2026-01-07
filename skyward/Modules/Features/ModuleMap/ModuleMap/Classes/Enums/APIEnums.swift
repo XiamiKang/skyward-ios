@@ -30,6 +30,7 @@ public enum MapAPI {
     case getUserPOIList(_ model: PublicPOIListModel)                      // 获取用户兴趣点列表
     case getUserPOIData(_ id: String)                                     // 获取用户兴趣点详情
     case deleteUserPOIData(_ id: String)                                  // 删除用户兴趣点
+    case checkSensitiveWords(_ content: String)                           // 敏感词校验
 }
 
 extension MapAPI: NetworkAPI {
@@ -68,6 +69,8 @@ extension MapAPI: NetworkAPI {
             return "/txts-user-center-app/api/v1/user-point-position/getDetail"
         case .deleteUserPOIData:
             return "/txts-user-center-app/api/v1/user-point-position/remove"
+        case .checkSensitiveWords:
+            return "/txts-system/api/v1/sensitive-words/check"
         }
     }
     
@@ -81,7 +84,8 @@ extension MapAPI: NetworkAPI {
                 .getEveryHoursWeatherMsg,
                 .getEveryHoursPrecipMsg,
                 .getEveryDayWeatherMsg,
-                .getUserPOIData:
+                .getUserPOIData,
+                .checkSensitiveWords:
             return .get
         case .getRouteList,
              .getRouteMsg,
@@ -188,6 +192,11 @@ extension MapAPI: NetworkAPI {
         case .deleteUserPOIData(let id):
             return .requestParameters(
                 parameters: ["id": id],
+                encoding: URLEncoding.default
+            )
+        case .checkSensitiveWords(let content):
+            return .requestParameters(
+                parameters: ["content": content],
                 encoding: URLEncoding.default
             )
         }

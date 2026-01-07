@@ -7,12 +7,14 @@
 
 
 import UIKit
+import Combine
 
 // MARK: - 主控制器
 public class LayerPopupController: UIViewController {
     
     // MARK: - ViewModel
     private let viewModel = LayerPopupViewModel()
+    private var cancellables = Set<AnyCancellable>()
     
     // MARK: - UI Components
     private lazy var collectionView: UICollectionView = {
@@ -153,7 +155,7 @@ public class LayerPopupController: UIViewController {
             .sink { [weak self] _ in
                 self?.collectionView.reloadData()
             }
-            .store(in: &viewModel.cancellables)
+            .store(in: &cancellables)
     }
     
     // MARK: - 创建布局
@@ -267,6 +269,12 @@ public class LayerPopupController: UIViewController {
             }
         }
         
+//        if let mapDict = selectedOptions["selectedMap"] as? [String: String],
+//           let sceneName = mapDict["name"] {
+//            handleMapSourceLayerDisplay(sceneName)
+//        }
+        
+
         // 处理兴趣点
         if let selectedPOIs = selectedOptions["selectedPOIs"] as? [String],
            let currentPOIs = viewModel.currentSelectedOptions["selectedPOIs"] as? [String] {
@@ -284,9 +292,6 @@ public class LayerPopupController: UIViewController {
                 handleWeatherLayerDisplay(weatherLayers)
             }
         }
-        
-        // 保存用户选择
-        viewModel.saveUserSelections()
         
         // 关闭弹窗
         dismiss(animated: true)

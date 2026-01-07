@@ -36,19 +36,16 @@ struct TrackRecord: TableCodable {
     var uploadStatus: UploadStatus = .notUploaded
     var isLook: Bool = false
     
-    public enum CodingKeys: String, CodingTableKey {
-        public typealias Root = TrackRecord
-        public static let objectRelationalMapping = TableBinding(CodingKeys.self)
+    enum CodingKeys: String, CodingTableKey {
+        typealias Root = TrackRecord
         
         case id
         case name
         case localFileUrl
         case uploadStatus
         
-        public static var columnConstraintBindings: [CodingKeys: BindColumnConstraint]? {
-            return [
-                .id: ColumnConstraintConfig(id, isPrimary: true, defaultTo: "id")
-            ]
+        static let objectRelationalMapping = TableBinding(CodingKeys.self) {
+            BindColumnConstraint(id, isPrimary: true)
         }
     }
     

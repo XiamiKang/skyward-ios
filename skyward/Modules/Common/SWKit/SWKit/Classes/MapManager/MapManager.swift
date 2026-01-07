@@ -42,6 +42,7 @@ public class MapManager: NSObject {
     public var onTileSourceChanged: ((String) -> Void)? // 地图源切换回调
     public var onMapSingleTapHandler: ((CLLocationCoordinate2D) -> Void)?
     public var onAddCustomMarker: ((CLLocationCoordinate2D, CGPoint) -> Void)?
+    public var onMapPanHandler: (() -> Void)?
     
     // 状态跟踪
     private var isInitialized = false
@@ -196,14 +197,22 @@ public class MapManager: NSObject {
             update.path = config.tileSourcePath
             update.value = tileSourceURL
             
+            print("当前的图源地址-----\(tileSourceURL)")
+            
             let tmsUpdate = TGSceneUpdate()
             tmsUpdate.path = "sources.satellite.tms"
             tmsUpdate.value = tileSourceURL.contains("jl1mall") ? "true" : "false"
             
+            if tileSourceURL.contains("shipxy") {
+                mapView?.zoom = 12
+            }else {
+                mapView?.zoom = 16
+            }
+            
             self.sceneUpdates = [update, tmsUpdate]
             
             // 重新加载地图
-            reloadMapWithCurrentTileSource()
+            loadMapWithUpdates(self.sceneUpdates)
             
             onTileSourceChanged?(sourceName)
             
@@ -221,7 +230,7 @@ public class MapManager: NSObject {
         print("切换地图源结果: \(success ? "成功" : "失败")")
     }
     
-    private func reloadMapWithCurrentTileSource() {
+    public func reloadMapWithCurrentTileSource() {
         guard let tileSourceURL = config.currentTileSourceURL else {
             loadMap()
             return
@@ -231,7 +240,17 @@ public class MapManager: NSObject {
         update.path = config.tileSourcePath
         update.value = tileSourceURL
         
-        loadMapWithUpdates([update])
+        let tmsUpdate = TGSceneUpdate()
+        tmsUpdate.path = "sources.satellite.tms"
+        tmsUpdate.value = tileSourceURL.contains("jl1mall") ? "true" : "false"
+        
+        if tileSourceURL.contains("shipxy") {
+            mapView?.zoom = 12
+        }else {
+            mapView?.zoom = 16
+        }
+        
+        loadMapWithUpdates([update,tmsUpdate])
     }
     
     private func loadMapWithCurrentTileSource() {
@@ -240,7 +259,17 @@ public class MapManager: NSObject {
             update.path = config.tileSourcePath
             update.value = tileSourceURL
             
-            loadMapWithUpdates([update])
+            let tmsUpdate = TGSceneUpdate()
+            tmsUpdate.path = "sources.satellite.tms"
+            tmsUpdate.value = tileSourceURL.contains("jl1mall") ? "true" : "false"
+            
+            if tileSourceURL.contains("shipxy") {
+                mapView?.zoom = 12
+            }else {
+                mapView?.zoom = 16
+            }
+            
+            loadMapWithUpdates([update,tmsUpdate])
         } else {
             loadMapWithUpdates([])
         }
@@ -523,6 +552,7 @@ extension MapManager: TGMapViewDelegate {
             if status == .authorizedWhenInUse || status == .authorizedAlways {
                 startLocationTracking()
             }
+            moveToUserLocation()
         }
     }
     
@@ -564,6 +594,10 @@ extension MapManager {
 
 // MARK: - TGRecognizerDelegate
 extension MapManager: TGRecognizerDelegate {
+    
+    public func mapView(_ view: TGMapView!, recognizer: UIGestureRecognizer!, didRecognizePanGesture displacement: CGPoint) {
+        onMapPanHandler?()
+    }
     
     public func mapView(_ view: TGMapView!, recognizer: UIGestureRecognizer!, didRecognizeSingleTapGesture location: CGPoint) {
         guard let mapView = mapView else { return }

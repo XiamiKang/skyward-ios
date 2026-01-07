@@ -8,6 +8,7 @@
 import Foundation
 import SWNetwork
 import SWKit
+import WCDBSwift
 
 /**
  ● SenderID：发送者id
@@ -44,16 +45,62 @@ class DeviceCustomMessage {
         let convId = String(targetId)
         let msgType = MessageType(rawValue: Int(messageType))
         let timestamp = Int64(self.timestamp)
-        let conversation = DBManager.shared.queryFromDb(fromTable: DBTableName.conversation.rawValue, cls: Conversation.self)?.first(where: {$0.id == convId})
-        let team = DBManager.shared.queryFromDb(fromTable: DBTableName.team.rawValue, cls: Team.self)?.first(where: {$0.id == conversation?.teamId})
-        let member = team?.members?.first(where: {$0.userId == senderId})
-        let sender = User(id: member?.userId, nickname: member?.nickname, avatar: member?.avatar, phone: member?.phone)
         
-        if messageType == 1 || messageType == 2 || messageType == 6 {
-            let location = ReportLocation(longitude: lon, latitude: lat, reportTime: Double(timestamp))
-            return Message(id: "device", conversationId: convId, sender: sender, content: msg, sendTime: timestamp, messageType: msgType, location: location)
+        // 查询会话信息
+        let conversation = DBManager.shared.queryFromDb(
+            fromTable: DBTableName.conversation.rawValue,
+            cls: Conversation.self,
+            where: Conversation.Properties.id == convId
+        )?.first
+        
+        // 查询团队信息
+        var team: Team?
+        if let teamId = conversation?.teamId {
+            team = DBManager.shared.queryFromDb(
+                fromTable: DBTableName.team.rawValue,
+                cls: Team.self,
+                where: Team.Properties.id == teamId
+            )?.first
         }
-        return Message(id: "device", conversationId: convId, sender: sender, content: msg, sendTime: timestamp, messageType: msgType, location: nil)
+        
+        // 查找发送者信息
+        let member = team?.members?.first(where: { $0.userId == senderId })
+        let sender = User(
+            id: member?.userId,
+            nickname: member?.nickname,
+            avatar: member?.avatar,
+            phone: member?.phone
+        )
+        
+        // 根据消息类型创建消息
+        if messageType == 1 || messageType == 2 || messageType == 6 {
+            // SOS消息、安全上报、定位消息 - 包含位置信息
+            let location = ReportLocation(
+                longitude: lon,
+                latitude: lat,
+                reportTime: Double(timestamp)
+            )
+            return Message(
+                id: "device",
+                conversationId: convId,
+                sender: sender,
+                content: msg,
+                sendTime: timestamp,
+                messageType: msgType,
+                location: location
+            )
+        } else {
+            // 其他消息类型 - 不包含位置信息
+            return Message(
+                id: "device",
+                conversationId: convId,
+                sender: sender,
+                content: msg,
+                sendTime: timestamp,
+                messageType: msgType,
+                location: nil
+            )
+        }
     }
 }
 
@@ -61,15 +108,14 @@ class TeamMessageManager: MQTTManagerDelegate {
     
     static let shared = TeamMessageManager()
     
-    init() {
+    func startMonitorNewMessage() {
+        
         DBManager.shared.createTable(table: DBTableName.conversation.rawValue, of: Conversation.self)
         DBManager.shared.createTable(table: DBTableName.message.rawValue, of: Message.self)
         DBManager.shared.createTable(table: DBTableName.team.rawValue, of: Team.self)
-    }
-    
-    func startMonitorNewMessage() {
+        
         MQTTManager.shared.addDelegate(self)
-        MQTTManager.shared.subscribe(to: TeamAPI.receiveMessage_sub , qos: .qos1)
+        MQTTManager.shared.subscribe(to: TeamAPI.receiveMessage_sub)
         
         // 监听窄带设备的自定义消息
         NotificationCenter.default.addObserver(
@@ -80,10 +126,17 @@ class TeamMessageManager: MQTTManagerDelegate {
         )
     }
     
+    func stopMonitorNewMessage() {
+        //MQTTManager 统一处理退出登录 remove Delegate 和 remove Subscribe
+        NotificationCenter.default.removeObserver(self, name: .didReceiveDeviceCustomMsg, object: nil)
+    }
+    
     func didRecevieMessage(_ message: Message) {
-        let conversationId = message.conversationId
+        guard let convId = message.conversationId else {
+            return
+        }
         // 1. 根据message的conversationId查询会话
-        if var conversation = DBManager.shared.queryFromDb(fromTable: DBTableName.conversation.rawValue, cls: Conversation.self)?.first(where: {$0.id == conversationId}) {
+        if var conversation = DBManager.shared.queryFromDb(fromTable: DBTableName.conversation.rawValue, cls: Conversation.self, where: Conversation.Properties.id == convId)?.first {
             
             // 2. 更新未读消息数
             if let unreadCount = conversation.unreadCount {
@@ -111,7 +164,7 @@ class TeamMessageManager: MQTTManagerDelegate {
         NotificationCenter.default.post(name: .receiveTeamNewMessage, object: message)
     }
     
-    // MARK:
+    // MARK: - MQTTManagerDelegate
     func mqttManager(_ manager: SWNetwork.MQTTManager, didReceiveMessage message: String, fromTopic topic: String) {
         guard topic == TeamAPI.receiveMessage_sub else {
             return
@@ -243,8 +296,7 @@ class TeamMessageManager: MQTTManagerDelegate {
             timestamp |= Int32(data[offset + 2]) << 8
             timestamp |= Int32(data[offset + 3])
             offset += 4
-            
-//            let msgLength = Int32(data[offset]) << 8 | Int32(data[offset + 1])
+            // msgLength (2字节)
             offset += 2
             
             let msg = String(data: data[offset...], encoding: .utf8) ?? ""

@@ -125,11 +125,8 @@ class SettingViewController: PersonalBaseViewController {
                     }
                 } receiveValue: { [weak self] success in
                     if success {
-                        TokenManager.shared.clearTokens()
-                        self?.view.sw_showSuccessToast("退出登录成功")
-                        DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) {
-                            SWRouter.handle(RouteTable.loginPageUrl)
-                        }
+                        UIWindow.topWindow?.sw_showSuccessToast("退出登录成功")
+                        UserManager.shared.logout()
                     } else {
                         self?.view.sw_showWarningToast("退出登录失败")
                     }
@@ -184,7 +181,13 @@ extension SettingViewController: UITableViewDelegate, UITableViewDataSource {
     func tableView(_ tableView: UITableView, didSelectRowAt indexPath: IndexPath) {
         if indexPath.section == 0 {
             if indexPath.row == 0 {
-                view.sw_showSuccessToast("当前已是最新版本")
+//                view.sw_showSuccessToast("当前已是最新版本")
+                if NetworkConfig.shared.baseURL == NetworkEnvironment.development.baseURL {
+                    view.sw_showSuccessToast("当前是测试版本")
+                }
+                if NetworkConfig.shared.baseURL == NetworkEnvironment.production.baseURL {
+                    view.sw_showSuccessToast("当前是发布版本")
+                }
             }
             if indexPath.row == 1 {
                 contactUs()

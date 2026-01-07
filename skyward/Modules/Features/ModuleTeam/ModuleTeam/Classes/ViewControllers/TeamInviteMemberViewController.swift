@@ -141,7 +141,6 @@ class TeamInviteMemberViewController: BaseViewController {
         }
         
         var params = [String : Any]()
-        params["requestId"] = Int(Date().timeIntervalSince1970)
         params["teamId"] = teamId
         params["phones"] = validPhoneNumbers
         

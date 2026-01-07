@@ -45,7 +45,7 @@ class AddTrackPopupView: UIView, SWPopupContentView {
         return label
     }()
     
-    let nameTextField: UITextField = {
+    private let nameTextField: UITextField = {
         let textField = UITextField()
         textField.placeholder = "请输入轨迹名称"
         textField.textColor = ThemeManager.current.titleColor
@@ -90,15 +90,14 @@ class AddTrackPopupView: UIView, SWPopupContentView {
     var confirmHandler: ((String?) -> Void)?
     
     // MARK: - Initialization
-    override init(frame: CGRect) {
-        super.init(frame: frame)
+    init(trackName: String?) {
+        super.init(frame: CGRectZero)
         setupUI()
         setupConstraints()
         
         cancelButton.addTarget(self, action: #selector(closeButtonTapped), for: .touchUpInside)
         confirmButton.addTarget(self, action: #selector(confirmButtonTapped), for: .touchUpInside)
-        
-        nameTextField.delegate = self
+        nameTextField.text = trackName
     }
     
     required init?(coder: NSCoder) {
@@ -168,19 +167,6 @@ class AddTrackPopupView: UIView, SWPopupContentView {
     }
     
     @objc private func confirmButtonTapped() {
-        nameTextField.resignFirstResponder()
         self.confirmHandler?(nameTextField.text)
     }
 }
-
-
-// MARK: - UITextFieldDelegate
-
-extension AddTrackPopupView: UITextFieldDelegate {
-    
-    func textField(_ textField: UITextField, shouldChangeCharactersIn range: NSRange, replacementString string: String) -> Bool {
-        let currentText = textField.text ?? ""
-        return currentText.count < 30
-    }
-}
-

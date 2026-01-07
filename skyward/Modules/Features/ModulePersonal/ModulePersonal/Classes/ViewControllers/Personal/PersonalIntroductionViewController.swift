@@ -74,8 +74,8 @@ class PersonalIntroductionViewController: PersonalBaseViewController {
     
     private func configureSaveButton() {
         saveButton.setTitle("保存", for: .normal)
-        saveButton.setTitleColor(UIColor(str: "#FFE0B9"), for: .normal)
-        saveButton.setTitleColor(UIColor(str: "#CCCCCC"), for: .disabled)
+        saveButton.setTitleColor(UIColor(str: "#FE6A00"), for: .normal)
+        saveButton.setTitleColor(UIColor(str: "#FFE0B9"), for: .disabled)
         saveButton.titleLabel?.font = UIFont.systemFont(ofSize: 16, weight: .medium)
         saveButton.addTarget(self, action: #selector(saveClick), for: .touchUpInside)
         saveButton.isEnabled = false

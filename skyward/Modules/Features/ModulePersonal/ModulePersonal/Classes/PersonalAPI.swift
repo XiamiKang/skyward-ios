@@ -211,6 +211,11 @@ public struct BaseModel {
     public let pageNum: Int
     public let pageSize: Int
     
+    public init(pageNum: Int, pageSize: Int) {
+        self.pageNum = pageNum
+        self.pageSize = pageSize
+    }
+    
     func toDictionary() -> [String: Any] {
         return [
             "pageNum": pageNum,

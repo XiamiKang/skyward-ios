@@ -19,6 +19,7 @@ class ProDeviceDetailViewController: PersonalBaseViewController {
     
     private let viewModel = PersonalViewModel()
     private var mode: Int = 1
+    private var isHaveGetDeviceMsg: Bool = false
     
     private lazy var proTableView: UITableView = {
         let tableView = UITableView(frame: .zero, style: .plain)
@@ -43,13 +44,14 @@ class ProDeviceDetailViewController: PersonalBaseViewController {
         
         setupUI()
         setupWiFiDeviceManager()
-    }
-    
-    override func viewWillAppear(_ animated: Bool) {
-        super.viewWillAppear(animated)
         startStatusUpdates()
     }
     
+//    override func viewWillAppear(_ animated: Bool) {
+//        super.viewWillAppear(animated)
+//        startStatusUpdates()
+//    }
+//    
     override func viewWillDisappear(_ animated: Bool) {
         super.viewWillDisappear(animated)
         stopStatusUpdates()
@@ -58,6 +60,8 @@ class ProDeviceDetailViewController: PersonalBaseViewController {
     override func backButtonTapped() {
         if let vc = self.navigationController?.viewControllers.first(where: { $0 is DeviceListViewController }) {
             self.navigationController?.popToViewController(vc, animated: true)
+        }else {
+            self.navigationController?.popViewController(animated: true)
         }
     }
     
@@ -93,11 +97,15 @@ class ProDeviceDetailViewController: PersonalBaseViewController {
         wifiDeviceManager.onStatusUpdate = { [weak self] status in
             DispatchQueue.main.async {
                 self?.deviceStatus = status
+                if let cell = self?.proTableView.cellForRow(at: IndexPath(row: 0, section: 0)) as? ProDeviceBaseMsgCell {
+                    cell.updateModeChooseAndCollecitonUI(with: status)
+                }
+                self?.proTableView.reloadRows(at: [IndexPath(row: 0, section: 0)], with: .none)
                 self?.proTableView.reloadRows(at: [IndexPath(row: 1, section: 0)], with: .none)
             }
         }
         
-        wifiDeviceManager.onLogReceived = { [weak self] log in
+        wifiDeviceManager.onLogReceived = { log in
             print("WiFi设备日志: \(log)")
         }
         
@@ -117,7 +125,7 @@ class ProDeviceDetailViewController: PersonalBaseViewController {
                 cell.changeStatus(isConnect: true)
             }
 
-            statusUpdateTimer = Timer.scheduledTimer(withTimeInterval: 30.0, repeats: true) { [weak self] _ in
+            statusUpdateTimer = Timer.scheduledTimer(withTimeInterval: 3.0, repeats: true) { [weak self] _ in
                 self?.updateDeviceStatus()
             }
         }else {
@@ -139,7 +147,9 @@ class ProDeviceDetailViewController: PersonalBaseViewController {
                 DispatchQueue.main.async {
                     self?.deviceStatus = status
                     self?.proTableView.reloadRows(at: [IndexPath(row: 1, section: 0)], with: .none)
-                    
+                    if status.antennaStatus == .stableTracking {
+                        self?.getProDeviceMsg()
+                    }
                 }
             case .failure(let error):
                 print("状态更新失败: \(error)")
@@ -185,7 +195,7 @@ class ProDeviceDetailViewController: PersonalBaseViewController {
                 }
             case .failure(let error):
                 DispatchQueue.main.async {
-                    self?.view.sw_showWarningToast("连接失败: \(error.localizedDescription)")
+                    self?.view.sw_showWarningToast("连接失败: 请确认您的WiFi连接正确")
                 }
             }
         }
@@ -209,14 +219,19 @@ class ProDeviceDetailViewController: PersonalBaseViewController {
                 case .success(let success):
                     let message = success ? "一键收藏成功" : "一键收藏失败"
                     self?.view.sw_showSuccessToast(message)
+                    // 通知Cell更新按钮状态
+                    if let cell = self?.proTableView.cellForRow(at: IndexPath(row: 0, section: 0)) as? ProDeviceBaseMsgCell {
+                        cell.stopCollecting(with: success)
+                    }
                 case .failure(let error):
                     self?.view.sw_showWarningToast("收藏失败: \(error.localizedDescription)")
+                    // 通知Cell更新按钮状态
+                    if let cell = self?.proTableView.cellForRow(at: IndexPath(row: 0, section: 0)) as? ProDeviceBaseMsgCell {
+                        cell.stopCollecting(with: false)
+                    }
                 }
                 
-                // 通知Cell更新按钮状态
-                if let cell = self?.proTableView.cellForRow(at: IndexPath(row: 0, section: 0)) as? ProDeviceBaseMsgCell {
-                    cell.stopCollecting()
-                }
+                
             }
         }
     }
@@ -267,14 +282,14 @@ class ProDeviceDetailViewController: PersonalBaseViewController {
                         mode: 1
                     )
                     self.proTableView.reloadRows(at: [IndexPath(row: 1, section: 0)], with: .none)
-                    
+                    if let cell = self.proTableView.cellForRow(at: IndexPath(row: 0, section: 0)) as? ProDeviceBaseMsgCell {
+                        cell.stopLiningStar(with: true)
+                    }
                 case .failure(let error):
                     self.view.sw_showWarningToast("对星失败: \(error.localizedDescription)")
-                }
-                
-                // 通知Cell更新按钮状态
-                if let cell = self.proTableView.cellForRow(at: IndexPath(row: 0, section: 0)) as? ProDeviceBaseMsgCell {
-                    cell.stopLiningStar()
+                    if let cell = self.proTableView.cellForRow(at: IndexPath(row: 0, section: 0)) as? ProDeviceBaseMsgCell {
+                        cell.stopLiningStar(with: false)
+                    }
                 }
             }
         }
@@ -303,6 +318,27 @@ class ProDeviceDetailViewController: PersonalBaseViewController {
         }
     }
     
+    private func getProDeviceMsg() {
+        if !isHaveGetDeviceMsg {
+            WiFiDeviceManager.shared.queryDeviceInfo { [weak self] result in
+                switch result {
+                case .success(let deviceInfo):
+                    DispatchQueue.main.async {
+                        self?.isHaveGetDeviceMsg = true
+                        // 保存设备信息到后台
+                        UserManager.shared.bindDevice(serialNum: deviceInfo.deviceSN, macAddress: deviceInfo.catMAC) { result in
+                            
+                        }
+                    }
+                case .failure(let error):
+                    print("设备信息失败: \(error)")
+                    DispatchQueue.main.async {
+                        self?.view.sw_showSuccessToast("获取设备信息失败")
+                    }
+                }
+            }
+        }
+    }
     
 }
 
@@ -393,7 +429,7 @@ extension ProDeviceDetailViewController: UITableViewDelegate, UITableViewDataSou
     func tableView(_ tableView: UITableView, heightForRowAt indexPath: IndexPath) -> CGFloat {
         switch indexPath.row {
         case 0:
-            return 180
+            return 200
         case 1:
             return 240
         case 2:

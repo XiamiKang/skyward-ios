@@ -22,7 +22,7 @@ public enum NetworkEnvironment {
         case .test:
             return URL(string: "http://api-test.example.com")!
         case .production:
-            return URL(string: "http://api.bjtxts.com:9999")!
+            return URL(string: "https://api.bjtxts.com")!
         }
     }
 }

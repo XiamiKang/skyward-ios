@@ -87,7 +87,7 @@ public enum MessageType: Int, Codable, ColumnCodable {
 }
 
 // MARK: - 会话模型（核心）
-public struct Conversation: TableCodable {
+struct Conversation: TableCodable {
     let id: String?
     let teamId: String?
     let teamSize: Int?
@@ -98,9 +98,9 @@ public struct Conversation: TableCodable {
     var unreadCount: Int?
     
     // 使用CodingKeys枚举来控制哪些字段需要解析
-    public enum CodingKeys: String, CodingTableKey {
-        public typealias Root = Conversation
-        public static let objectRelationalMapping = TableBinding(CodingKeys.self) {
+    enum CodingKeys: String, CodingTableKey {
+        typealias Root = Conversation
+        static let objectRelationalMapping = TableBinding(CodingKeys.self) {
             BindColumnConstraint(id, isPrimary: true)
         }
         case id
@@ -116,7 +116,7 @@ public struct Conversation: TableCodable {
 }
 
 // MARK: - 消息模型（核心）
-public struct Message: TableCodable {
+struct Message: TableCodable {
     let id: String?
     let conversationId: String?
     let sender: User?
@@ -126,9 +126,9 @@ public struct Message: TableCodable {
     let location: ReportLocation?
     
     // 使用CodingKeys枚举来控制哪些字段需要解析
-    public enum CodingKeys: String, CodingTableKey {
-        public typealias Root = Message
-        public static let objectRelationalMapping = TableBinding(CodingKeys.self)
+    enum CodingKeys: String, CodingTableKey {
+        typealias Root = Message
+
         case id
         case conversationId
         case sender
@@ -137,11 +137,8 @@ public struct Message: TableCodable {
         case messageType
         case location
         
-        public static var columnConstraintBindings: [CodingKeys: BindColumnConstraint]? {
-            return [
-                .id: ColumnConstraintConfig(id, isPrimary: true, defaultTo: "id"),
-                .conversationId: ColumnConstraintConfig(conversationId, isPrimary: true, defaultTo: "conversationId")
-            ]
+        static let objectRelationalMapping = TableBinding(CodingKeys.self) {
+            BindColumnConstraint(id, isPrimary: true)
         }
     }
 }
@@ -277,10 +274,9 @@ struct Team: TableCodable {
     let conversationId: String?
     let isDisband: Bool?
     
-    public enum CodingKeys: String, CodingTableKey {
-        public typealias Root = Team
-        public static let objectRelationalMapping = TableBinding(CodingKeys.self)
-        
+    enum CodingKeys: String, CodingTableKey {
+        typealias Root = Team
+
         case id
         case number
         case teamAvatar
@@ -291,10 +287,8 @@ struct Team: TableCodable {
         case conversationId
         case isDisband
         
-        public static var columnConstraintBindings: [CodingKeys: BindColumnConstraint]? {
-            return [
-                .id: ColumnConstraintConfig(id, isPrimary: true, defaultTo: "id")
-            ]
+        static let objectRelationalMapping = TableBinding(CodingKeys.self) {
+            BindColumnConstraint(id, isPrimary: true)
         }
     }
 }

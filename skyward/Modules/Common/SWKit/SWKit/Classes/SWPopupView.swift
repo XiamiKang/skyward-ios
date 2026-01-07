@@ -304,7 +304,7 @@ public final class SWPopupView: UIView {
     
     // MARK: - 隐藏动画
     
-    public func dismiss(completion: (() -> Void)? = nil) {
+    public func dismiss(animated: Bool = true, completion: (() -> Void)? = nil) {
         guard !isShowing && !isDismissing else { return }
         
         isDismissing = true
@@ -315,7 +315,8 @@ public final class SWPopupView: UIView {
         }
         
         // 执行隐藏动画
-        performDismissAnimation {
+        performDismissAnimation(animated: animated) { [weak self] in
+            guard let self = self else { return }
             self.removeFromSuperview()
             self.isDismissing = false
             if let popupContent = self.contentView as? SWPopupContentView {
@@ -329,11 +330,27 @@ public final class SWPopupView: UIView {
         dismiss()
     }
     
-    private func performDismissAnimation(completion: @escaping () -> Void) {
+    private func performDismissAnimation(animated: Bool, completion: @escaping () -> Void) {
         guard let containerView = containerView else {
             completion()
             return
         }
+        
+        if !animated {
+            // 如果不使用动画，直接设置最终状态并完成
+            backgroundMaskView.alpha = 0
+            containerView.alpha = 0
+            
+            // 如果当前弹窗是自己，则清除引用
+            if SWPopupView.currentPopup === self {
+                SWPopupView.currentPopup = nil
+            }
+            // 恢复原始位置常量
+            restoreOriginalPosition()
+            completion()
+            return
+        }
+        
         let containerHeight = containerView.frame.height
         
         // 设置最终位置

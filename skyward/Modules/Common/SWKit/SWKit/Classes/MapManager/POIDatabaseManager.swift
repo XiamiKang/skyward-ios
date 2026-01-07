@@ -53,7 +53,7 @@ public class POIDatabaseManager {
         }
     }
     
-    // MARK: - 批量插入数据（静默）
+    // MARK: - 批量插入数据（静默）（检查重复）
     public func batchInsertPOIs(_ items: [PublicPOIData], completion: ((Error?) -> Void)? = nil) {
         guard !items.isEmpty else {
             completion?(nil)
@@ -64,13 +64,17 @@ public class POIDatabaseManager {
             guard let self = self else { return }
             
             do {
-                // 使用事务，提高插入性能
+                // 使用事务
                 try self.database.run(transaction: { _ in
-                    // 分批插入，避免单次事务过大
                     let chunks = items.chunked(into: self.maxBatchSize)
+                    
                     for chunk in chunks {
-                        // 使用 insertOrReplace 避免重复数据
-                        try self.database.insertOrReplace(chunk, intoTable: "poi_data")
+                        // 过滤掉已存在的数据
+                        let newItems = try self.filterExistingItems(chunk)
+                        
+                        if !newItems.isEmpty {
+                            try self.database.insert(newItems, intoTable: "poi_data")
+                        }
                     }
                 })
                 
@@ -78,7 +82,6 @@ public class POIDatabaseManager {
                     completion?(nil)
                 }
                 
-                // 发送数据更新通知（静默）
                 NotificationCenter.default.post(
                     name: .poiDataDidUpdate,
                     object: items.count
@@ -90,6 +93,29 @@ public class POIDatabaseManager {
                 }
             }
         }
+    }
+
+    // MARK: - 过滤已存在的项目
+    private func filterExistingItems(_ items: [PublicPOIData]) throws -> [PublicPOIData] {
+        guard !items.isEmpty else { return [] }
+        
+        // 假设每个POI有唯一ID，这里使用id字段
+        // 如果你的唯一标识是其他字段，可以修改这里的逻辑
+        let ids = items.map { $0.id }
+        
+        guard !ids.isEmpty else { return items }
+        
+        // 查询已存在的ID
+        let condition = PublicPOIData.Properties.id.in(ids as! [any ExpressionConvertible])
+        let existingItems: [PublicPOIData] = try self.database.getObjects(
+            fromTable: "poi_data",
+            where: condition
+        )
+        
+        let existingIds = Set(existingItems.map { $0.id })
+        
+        // 返回不存在的数据
+        return items.filter { !existingIds.contains($0.id) }
     }
     
     // MARK: - 查询数据（兼容现有UI）

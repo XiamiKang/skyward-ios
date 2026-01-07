@@ -8,6 +8,8 @@
 
 import Foundation
 import Network
+import NetworkExtension
+import SystemConfiguration.CaptiveNetwork
 
 // MARK: - WiFi设备管理器
 public class WiFiDeviceManager {
@@ -18,6 +20,7 @@ public class WiFiDeviceManager {
     var port: UInt16 = 2018
     private let maxRetryCount = 5
     private let timeoutInterval: TimeInterval = 10.0
+    private var bssid: String?
     
     // MARK: - 网络连接
     private var connection: NWConnection?
@@ -34,7 +37,12 @@ public class WiFiDeviceManager {
     private var lastCommandId = 0
     
     // MARK: - 状态
-    public private(set) var isConnected = false
+    public var isConnected = false {
+        didSet {
+            NotificationCenter.default.post(name: .proDeviceConnectStatus, object: nil, userInfo: ["status":isConnected])
+        }
+    }
+    
     public private(set) var isLogStreaming = false
     public private(set) var isNewVersionDeviece = true
     
@@ -181,6 +189,7 @@ public class WiFiDeviceManager {
         
         DispatchQueue.main.async {
             self.onConnectionStatusChanged?(false)
+            self.updateDeviceOnDisconnect()
         }
     }
     
@@ -534,14 +543,16 @@ public class WiFiDeviceManager {
         let timeoutWorkItem = DispatchWorkItem { [weak self] in
             guard let self = self else { return }
             
-            if retryCount < self.maxRetryCount {
-                print("⏰ 命令[\(commandKey)]超时，重试第 \(retryCount + 1) 次")
-                self.responseSemaphores.removeValue(forKey: commandKey)
-                self.sendCommand(command, retryCount: retryCount + 1, completion: completion)
-            } else {
-                print("❌ 命令[\(commandKey)]超时，已达最大重试次数")
-                self.responseSemaphores.removeValue(forKey: commandKey)
-                completion(.failure(WiFiDeviceError.timeout))
+            if commandKey != "HAFSATALI" {
+                if retryCount < self.maxRetryCount {
+                    print("⏰ 命令[\(commandKey)]超时，重试第 \(retryCount + 1) 次")
+                    self.responseSemaphores.removeValue(forKey: commandKey)
+                    self.sendCommand(command, retryCount: retryCount + 1, completion: completion)
+                } else {
+                    print("❌ 命令[\(commandKey)]超时，已达最大重试次数")
+                    self.responseSemaphores.removeValue(forKey: commandKey)
+                    completion(.failure(WiFiDeviceError.timeout))
+                }
             }
         }
         
@@ -1058,20 +1069,95 @@ extension WiFiDeviceManager {
 
 }
 
+public struct WiFiInfo {
+    public let ssid: String?
+    public let bssid: String?
+    public let signalStrength: Double?
+    public let isAvailable: Bool
+    public let error: String?
+}
+
 extension WiFiDeviceManager {
     
-    /// 获取当前Wi-Fi的BSSID（伪代码，实际需要获取真实BSSID）
-    private func getCurrentBSSID() -> String? {
-        // 注意：在iOS上获取BSSID需要特殊权限
-        // 这里提供一个模拟实现
+    public func checkWiFiPermission(completion: @escaping (WiFiInfo) -> Void) {
+        if #available(iOS 14.0, *) {
+            NEHotspotNetwork.fetchCurrent { hotspotNetwork in
+                if let network = hotspotNetwork {
+                    let wifiInfo = WiFiInfo(
+                        ssid: network.ssid,
+                        bssid: network.bssid,
+                        signalStrength: network.signalStrength,
+                        isAvailable: true,
+                        error: nil
+                    )
+                    self.bssid = network.bssid.replacingOccurrences(of: ":", with: "")
+                    completion(wifiInfo)
+                } else {
+                    // 无法获取 WiFi 信息（可能是未授权或未连接）
+                    let wifiInfo = WiFiInfo(
+                        ssid: nil,
+                        bssid: nil,
+                        signalStrength: nil,
+                        isAvailable: false,
+                        error: "WiFi信息不可用或未授权"
+                    )
+                    completion(wifiInfo)
+                }
+            }
+        } else {
+            // iOS 14 以下的兼容代码
+            getWiFiInfoLegacy { wifiInfo in
+                completion(wifiInfo)
+            }
+        }
+    }
+
+    // iOS 14 以下版本
+    private func getWiFiInfoLegacy(completion: @escaping (WiFiInfo) -> Void) {
+        guard let interfaces = CNCopySupportedInterfaces() as? [String] else {
+            let wifiInfo = WiFiInfo(
+                ssid: nil,
+                bssid: nil,
+                signalStrength: nil,
+                isAvailable: false,
+                error: "无法获取网络接口"
+            )
+            completion(wifiInfo)
+            return
+        }
         
-        // 实际项目中可以使用：
-        // 1. NetworkExtension框架
-        // 2. 使用设备的唯一标识（如序列号）
-        // 3. 或者让用户手动输入/选择
+        var foundWiFi = false
+        for interface in interfaces {
+            guard let interfaceInfo = CNCopyCurrentNetworkInfo(interface as CFString) as? [String: Any] else {
+                continue
+            }
+            
+            let ssid = interfaceInfo[kCNNetworkInfoKeySSID as String] as? String
+            let bssid = interfaceInfo[kCNNetworkInfoKeyBSSID as String] as? String
+            
+            let wifiInfo = WiFiInfo(
+                ssid: ssid,
+                bssid: bssid,
+                signalStrength: nil, // 旧版本无法获取信号强度
+                isAvailable: true,
+                error: nil
+            )
+            self.bssid = bssid?.replacingOccurrences(of: ":", with: "")
+            completion(wifiInfo)
+            foundWiFi = true
+            break
+        }
         
-        // 模拟返回一个基于IP地址的标识
-        return "MAC_\(host.replacingOccurrences(of: ".", with: "_"))"
+        if !foundWiFi {
+            let wifiInfo = WiFiInfo(
+                ssid: nil,
+                bssid: nil,
+                signalStrength: nil,
+                isAvailable: false,
+                error: "未连接WiFi或权限不足"
+            )
+            completion(wifiInfo)
+        }
     }
     
     /// 连接成功后保存设备信息
@@ -1082,7 +1168,7 @@ extension WiFiDeviceManager {
         }
         
         // 获取设备标识（这里可以根据实际情况调整）
-        guard let identifier = getCurrentBSSID() else {
+        guard let identifier = bssid else {
             print("无法获取设备标识")
             return
         }
@@ -1105,7 +1191,7 @@ extension WiFiDeviceManager {
     
     /// 设备断开时更新状态
     public func updateDeviceOnDisconnect() {
-        guard let identifier = getCurrentBSSID() else { return }
+        guard let identifier = bssid else { return }
         
         WiFiDeviceStorageManager.shared.updateDeviceStatus(
             identifier: identifier,
@@ -1117,7 +1203,7 @@ extension WiFiDeviceManager {
     
     /// 对星状态变化时更新
     public func updateSatelliteTrackingStatus(_ isTracking: Bool) {
-        guard let identifier = getCurrentBSSID() else { return }
+        guard let identifier = bssid else { return }
         
         WiFiDeviceStorageManager.shared.updateDeviceStatus(
             identifier: identifier,
@@ -1165,4 +1251,5 @@ extension WiFiDeviceManager {
 public extension Notification.Name {
     static let proDeviceWarningData = Notification.Name("proDeviceWarningData")
     static let proDeviceInfoData = Notification.Name("proDeviceInfoData")
+    static let proDeviceConnectStatus = Notification.Name("proDeviceConnectStatus")
 }

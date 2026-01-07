@@ -117,7 +117,6 @@ extension TeamSettingEditViewController: UITableViewDataSource, UITableViewDeleg
             let customView = TeamModifyNameView()
             SWAlertView.showCustomAlert(title: "修改队伍昵称", customView: customView, confirmTitle: "保存", cancelTitle: "取消", confirmHandler: {
                 var params = [String : Any]()
-                params["requestId"] = Int(Date().timeIntervalSince1970)
                 params["id"] = self.team.id
                 params["name"] = customView.textField.text
                 

@@ -163,17 +163,17 @@ class TeamMapViewController: BaseViewController {
         bar.setRightButtons(images: [TeamModule.image(named: rightImgIcon), TeamModule.image(named: "team_map_set")]) { [weak self] index in
             self?.view.endEditing(true)
             if index == 0 {
-                if let peripheral = BluetoothManager.shared.connectedPeripheral {
-                    let detailVC = MiniDeviceDetailViewController()
-                    if let device = MiniDeviceStorageManager.shared.findDeviceByUUID(peripheral.identifier.uuidString) {
-                        detailVC.deviceInfo = device
-                        self?.navigationController?.pushViewController(detailVC, animated: true)
-                    }
-                    
-                }else {
+//                if let peripheral = BluetoothManager.shared.connectedPeripheral {
+//                    let detailVC = MiniDeviceDetailViewController()
+//                    if let device = MiniDeviceStorageManager.shared.findDeviceByUUID(peripheral.identifier.uuidString) {
+//                        detailVC.deviceInfo = device
+//                        self?.navigationController?.pushViewController(detailVC, animated: true)
+//                    }
+//                    
+//                }else {
                     let devicelistVC = DeviceListViewController()
                     self?.navigationController?.pushViewController(devicelistVC, animated: true)
-                }
+//                }
             }
             if index == 1 {
                 guard let teamId = self?.conversation.teamId else {

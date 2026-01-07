@@ -14,9 +14,7 @@ public class MessageModule: ModuleType {
     
     public static var name: String = "ModuleMessage"
     
-    public init() {
-        DBManager.shared.createTable(table: DBTableName.urgentMessage.rawValue, of: UrgentMessage.self)
-    }
+    public init() {}
     
     /// 当前模块的路由
     public var routeSettings: [any RoutableType.Type] {

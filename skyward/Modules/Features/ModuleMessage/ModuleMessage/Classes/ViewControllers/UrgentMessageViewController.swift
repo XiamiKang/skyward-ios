@@ -39,8 +39,17 @@ class UrgentMessageViewController: BaseViewController {
     
     
     // MARK: - Life Cycle
+    
+    deinit {
+        NotificationCenter.default.removeObserver(self)
+        MQTTManager.shared.removeDelegate(self)
+        MQTTManager.shared.unsubscribe(from: receiveUrgentMessage_sub)
+    }
+    
     override func viewDidLoad() {
         super.viewDidLoad()
+        
+        DBManager.shared.createTable(table: DBTableName.urgentMessage.rawValue, of: UrgentMessage.self)
         self.messages = DBManager.shared.queryFromDb(fromTable: DBTableName.urgentMessage.rawValue, cls: UrgentMessage.self) ?? []
         
         // 注册键盘通知
@@ -49,7 +58,7 @@ class UrgentMessageViewController: BaseViewController {
         
         // MQTT
         MQTTManager.shared.addDelegate(self)
-        MQTTManager.shared.subscribe(to: receiveUrgentMessage_sub, qos: .qos1)
+        MQTTManager.shared.subscribe(to: receiveUrgentMessage_sub)
         // 获取消息列表
         _Concurrency.Task {
             await requestUrgentMessages()
@@ -223,7 +232,6 @@ class UrgentMessageViewController: BaseViewController {
             let networkResponse = try JSONDecoder().decode(NetworkResponse<UrgentMessageList>.self, from: rsp.data)
             if let messages = networkResponse.data?.list, !messages.isEmpty {
                 self.messages = messages.reversed()
-                DBManager.shared.deleteFromDb(fromTable: DBTableName.urgentMessage.rawValue)
                 DBManager.shared.insertToDb(objects: self.messages, intoTable: DBTableName.urgentMessage.rawValue)
 
                 DispatchQueue.main.async {

@@ -54,10 +54,38 @@ extension PublicPOIAPI: NetworkAPI {
 }
 
 public class PublicPOIService {
+    
     private let provider: NetworkProvider<PublicPOIAPI>
     
-    public init() {
-        self.provider = NetworkProvider<PublicPOIAPI>()
+    public init(logEnabled: Bool = false) {
+//        self.provider = NetworkProvider<PublicPOIAPI>()
+        var plugins: [PluginType] = []
+        
+        if !logEnabled {
+            // 不包含日志插件
+            plugins.append(NetworkCachePlugin(cachePolicy: .memoryOnly))
+            plugins.append(NetworkMonitorPlugin { _ in })
+            // 可以添加其他非日志插件
+        }
+        
+        // 如果传入空数组，NetworkProvider会使用默认插件
+        if plugins.isEmpty {
+            // 使用默认配置但不包含日志插件
+            plugins = NetworkDefaultPlugins.createDefaultMoyaPlugins(
+                logLevel: .none,  // 设置为 .none 可以禁用日志
+                cachePolicy: .memoryOnly
+            )
+        }
+        
+        // 创建配置
+        let config = NetworkConfigurationManager.shared.getConfig()
+        
+        // 创建自定义的 NetworkProvider
+        self.provider = NetworkProvider<PublicPOIAPI>(
+            config: config,
+            plugins: plugins,
+            stubClosure: MoyaProvider.neverStub
+        )
     }
     
     // MARK: - 获取公共兴趣点列表

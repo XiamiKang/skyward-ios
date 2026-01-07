@@ -19,7 +19,7 @@ struct SettingData {
 
 class MiniDeviceSettingViewController: PersonalBaseViewController {
     
-    var deviceInfo: BluetoothDeviceInfo?
+    var deviceInfo: MiniDeviceData?
     var statusInfo: StatusInfo?
     var dataSource: [SettingData] = []
     private let viewModel = PersonalViewModel()
@@ -101,7 +101,7 @@ class MiniDeviceSettingViewController: PersonalBaseViewController {
             dataSource = [
                 SettingData(
                     titleStr: titles[0],
-                    contentStr: deviceInfo?.displayName ?? "未知设备",
+                    contentStr: deviceInfo?.name ?? "未知设备",
                     canChange: false
                 ),
                 SettingData(
@@ -136,7 +136,7 @@ class MiniDeviceSettingViewController: PersonalBaseViewController {
             dataSource = [
                 SettingData(
                     titleStr: titles[0],
-                    contentStr: deviceInfo?.displayName ?? "未知设备",
+                    contentStr: deviceInfo?.name ?? "未知设备",
                     canChange: false
                 ),
                 SettingData(
@@ -166,7 +166,7 @@ class MiniDeviceSettingViewController: PersonalBaseViewController {
             dataSource = [
                 SettingData(
                     titleStr: titles[0],
-                    contentStr: deviceInfo?.displayName ?? "未知设备",
+                    contentStr: deviceInfo?.name ?? "未知设备",
                     canChange: false
                 ),
                 SettingData(
@@ -219,7 +219,7 @@ class MiniDeviceSettingViewController: PersonalBaseViewController {
         BluetoothManager.shared.sendCommand(.setBindStatus, messageContent: bindData)
         
         let userId = Int(UserManager.shared.userId) ?? 0
-        if let imei = deviceInfo?.imei, let macAddress = deviceInfo?.macAddress {
+        if let imei = deviceInfo?.imeiNum, let macAddress = deviceInfo?.macAddress {
             let unbindModel = UnBindModel(userId: userId, serialNum: imei, macAddress: macAddress)
             viewModel.unBingMiniDevice(model: unbindModel)
                 .receive(on: DispatchQueue.main)
@@ -252,7 +252,7 @@ class MiniDeviceSettingViewController: PersonalBaseViewController {
     }
     
     private func unBindMiniDeviceSuccess() {
-        MiniDeviceStorageManager.shared.removeDevice(self.deviceInfo?.uuid ?? "")
+        MiniDeviceDBManager.shared.deleteMiniDeviceWithIMEI(imei: deviceInfo?.imeiNum ?? "")
         BluetoothManager.shared.disconnectPeripheral()
         NotificationCenter.default.post(name: .deviceListNeedToUpdate, object: nil)
         self.view.sw_showSuccessToast("解除设备成功")
@@ -332,53 +332,53 @@ extension MiniDeviceSettingViewController {
     }
     
     private func showPositionReportSelection() {
-//        guard let statusInfo = statusInfo else { return }
-//        
-//        let reportView = PositionReportSelectionView() // 需要创建类似的视图
-//        reportView.delegate = self
-//        reportView.show(in: view, currentReport: statusInfo.positionReport)
-        let customView = TeamModifyNameView()
-        SWAlertView.showCustomAlert(title: "修改参数（分钟）", customView: customView, confirmTitle: "保存", cancelTitle: "取消", confirmHandler: {
-            let num = customView.textField.text
-            var positionData = Data()
-
-            if let numString = num, let intervalValue = UInt32(numString) {
-                let interval = intervalValue * 60
-                // 使用 bigEndian 属性
-                let bigEndianInterval = interval.bigEndian
-                positionData.append(contentsOf: withUnsafeBytes(of: bigEndianInterval) { Data($0) })
-            }
-            BluetoothManager.shared.sendCommand(.setPositionReport, messageContent: positionData)
-            
-            DispatchQueue.main.asyncAfter(deadline: .now() + 2) {
-                BluetoothManager.shared.requestStatusInfo()
-            }
-        })
+        guard let statusInfo = statusInfo else { return }
+        
+        let reportView = PositionReportSelectionView() // 需要创建类似的视图
+        reportView.delegate = self
+        reportView.show(in: view, currentReport: statusInfo.positionReport)
+//        let customView = TeamModifyNameView()
+//        SWAlertView.showCustomAlert(title: "修改参数（分钟）", customView: customView, confirmTitle: "保存", cancelTitle: "取消", confirmHandler: {
+//            let num = customView.textField.text
+//            var positionData = Data()
+//
+//            if let numString = num, let intervalValue = UInt32(numString) {
+//                let interval = intervalValue * 60
+//                // 使用 bigEndian 属性
+//                let bigEndianInterval = interval.bigEndian
+//                positionData.append(contentsOf: withUnsafeBytes(of: bigEndianInterval) { Data($0) })
+//            }
+//            BluetoothManager.shared.sendCommand(.setPositionReport, messageContent: positionData)
+//            
+//            DispatchQueue.main.asyncAfter(deadline: .now() + 2) {
+//                BluetoothManager.shared.requestStatusInfo()
+//            }
+//        })
     }
     
     private func showSavePointTimeSelection() {
-//        guard let statusInfo = statusInfo else { return }
-//        
-//        let reportView = SavePointTimeSelectionView() // 需要创建类似的视图
-//        reportView.delegate = self
-//        reportView.show(in: view, currentReport: statusInfo.positionStoreTime)
+        guard let statusInfo = statusInfo else { return }
         
-        let customView = TeamModifyNameView()
-        SWAlertView.showCustomAlert(title: "修改参数（分钟）", customView: customView, confirmTitle: "保存", cancelTitle: "取消", confirmHandler: {
-            let num = customView.textField.text
-            var positionData = Data()
-
-            if let numString = num, let intervalValue = UInt32(numString) {
-                let interval = intervalValue * 60
-                // 使用 bigEndian 属性
-                let bigEndianInterval = interval.bigEndian
-                positionData.append(contentsOf: withUnsafeBytes(of: bigEndianInterval) { Data($0) })
-            }
-            BluetoothManager.shared.sendCommand(.setPositionStoreInterval, messageContent: positionData)
-            DispatchQueue.main.asyncAfter(deadline: .now() + 2) {
-                BluetoothManager.shared.requestStatusInfo()
-            }
-        })
+        let reportView = SavePointTimeSelectionView() // 需要创建类似的视图
+        reportView.delegate = self
+        reportView.show(in: view, currentReport: statusInfo.positionStoreTime)
+        
+//        let customView = TeamModifyNameView()
+//        SWAlertView.showCustomAlert(title: "修改参数（分钟）", customView: customView, confirmTitle: "保存", cancelTitle: "取消", confirmHandler: {
+//            let num = customView.textField.text
+//            var positionData = Data()
+//
+//            if let numString = num, let intervalValue = UInt32(numString) {
+//                let interval = intervalValue * 60
+//                // 使用 bigEndian 属性
+//                let bigEndianInterval = interval.bigEndian
+//                positionData.append(contentsOf: withUnsafeBytes(of: bigEndianInterval) { Data($0) })
+//            }
+//            BluetoothManager.shared.sendCommand(.setPositionStoreInterval, messageContent: positionData)
+//            DispatchQueue.main.asyncAfter(deadline: .now() + 2) {
+//                BluetoothManager.shared.requestStatusInfo()
+//            }
+//        })
     }
     
 }

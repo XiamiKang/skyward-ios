@@ -66,6 +66,7 @@ public class PersonalViewController: UIViewController {
         super.viewWillAppear(animated)
         navigationController?.setNavigationBarHidden(true, animated: animated)
         checkLoginStatus()
+        tableView.reloadData()
     }
 }
 

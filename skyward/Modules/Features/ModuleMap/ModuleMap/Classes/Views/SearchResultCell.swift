@@ -10,8 +10,8 @@ import CoreLocation
 
 class SearchResultCell: UITableViewCell {
     
-    var searchPointAction: ((CLLocationCoordinate2D) -> Void)?
-    var coordinate: CLLocationCoordinate2D?
+    var searchPointAction: ((MapSearchPointMsgData) -> Void)?
+    var data: MapSearchPointMsgData?
     
     private let pointImageView: UIImageView = {
         let iv = UIImageView()
@@ -94,15 +94,13 @@ class SearchResultCell: UITableViewCell {
     func configWithData(data: MapSearchPointMsgData) {
         pointName.text = data.name
         pointContent.text = data.address
-        if let latitude = data.latitude, let longitude = data.longitude {
-            coordinate = CLLocationCoordinate2D(latitude: latitude, longitude: longitude)
-        }
+        self.data = data
     }
     
     
     @objc private func checkPointClick() {
-        if let coordinate = coordinate {
-            searchPointAction?(coordinate)
+        if let data = self.data {
+            searchPointAction?(data)
         }
     }
 }

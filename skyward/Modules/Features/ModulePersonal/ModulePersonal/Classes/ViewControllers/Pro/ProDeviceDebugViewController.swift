@@ -73,13 +73,13 @@ class ProDeviceDebugViewController: PersonalBaseViewController {
         controlTitle.textColor = .black
         controlTitle.font = UIFont.systemFont(ofSize: 16, weight: .medium)
         
-        resetAUGView.setUiData("device_pro_restAUG", text: "重启AUG")
-        shareAUGLogView.setUiData("device_pro_shareAUGLog", text: "分享AUG存储日志")
+        resetAUGView.setUiData("device_pro_restAUG", text: "重启ACU")
+        shareAUGLogView.setUiData("device_pro_shareAUGLog", text: "分享ACU存储日志")
         beaconStrengthView.setUiData("device_pro_satellite", text: "信标强度")
         
         resetAUGView.touchAction = { [weak self] in
             guard let self = self else { return }
-            self.resetAUG()
+            self.showResetAlertView()
         }
         shareAUGLogView.touchAction = { [weak self] in
             guard let self = self else { return }
@@ -251,6 +251,18 @@ class ProDeviceDebugViewController: PersonalBaseViewController {
             logTextView.trailingAnchor.constraint(equalTo: logGBView.trailingAnchor, constant: -16),
             logTextView.bottomAnchor.constraint(equalTo: logGBView.bottomAnchor, constant: -16),
         ])
+    }
+    
+    private func showResetAlertView() {
+        print("展示重启弹框")
+        SWAlertView.showAlert(
+            title: "重启ACU模块",
+            message: "您确定要重启ACU模块吗？"
+        ) {
+            // 点击确定后的回调
+            print("用户点击了确定")
+            self.resetAUG()
+        }
     }
     
     private func resetAUG() {

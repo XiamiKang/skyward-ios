@@ -14,9 +14,7 @@ public class HomeModule: ModuleType {
     
     public static var name: String = "ModuleHome"
     
-    public init() {
-        MQTTManager.shared.connect()
-    }
+    public init() {}
     
     /// 当前模块的路由
     public var routeSettings: [any RoutableType.Type] {

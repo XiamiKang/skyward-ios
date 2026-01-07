@@ -7,17 +7,6 @@
 
 import Foundation
 
-public struct MiniDeviceData: Codable {
-    public let name: String?                      // 设备名称
-    public let serialNum: String?                 // 设备序列号
-    public let imeiNum: String?                   // 设备IMEI
-    public let forthGenCardNum: String?           // 设备4G卡号
-    public let typeCode: String?                  // 窄带：NARROW_BAND, 宽带：BROAD_BAND
-    public let state: Int?                        //  0 有效 1删除
-    public let macAddress: String?                // 设备MAC地址
-    public let model: String?                     // 设备型号   窄带：TXTS-NB-01
-}
-
 public struct EmergencyInfoData: Codable {
     public let name: String?                      // 名称
     public let phone: String?                     // 手机号

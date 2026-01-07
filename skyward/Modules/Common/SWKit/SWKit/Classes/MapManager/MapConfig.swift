@@ -158,7 +158,7 @@ public class MapConfig {
         defaultZoom = 15.0
         showCompass = true
         showScaleBar = true
-        currentTileSourceName = "天地图影像"
+        currentTileSourceName = "吉林长光影像"
         
         UserDefaults.standard.removeObject(forKey: configKey)
         print("地图配置已重置为默认值")

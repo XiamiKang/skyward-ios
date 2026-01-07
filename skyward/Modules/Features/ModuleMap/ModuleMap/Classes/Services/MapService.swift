@@ -188,4 +188,9 @@ public class MapService {
     public func deleteUserPOIData(_ id: String, completion: @escaping (Result<Response, MoyaError>) -> Void) {
         provider.request(.deleteUserPOIData(id), completion: completion)
     }
+    
+    // MARK: - 敏感词校验
+    public func checkSensitiveWords(_ content: String, completion: @escaping (Result<Response, MoyaError>) -> Void) {
+        provider.request(.checkSensitiveWords(content), completion: completion)
+    }
 }

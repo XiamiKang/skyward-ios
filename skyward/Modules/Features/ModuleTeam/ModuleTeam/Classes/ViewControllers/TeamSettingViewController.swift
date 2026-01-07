@@ -10,6 +10,7 @@ import TXKit
 import SWKit
 import SWTheme
 import SWNetwork
+import WCDBSwift
 
 // MARK: - 团队设置视图控制器
 class TeamSettingViewController: BaseViewController {
@@ -117,16 +118,13 @@ class TeamSettingViewController: BaseViewController {
     
     // MARK: - Properties
     
-    var teamId: String?
+    let teamId: String?
     /// 团队数据
     private var team: Team? {
         didSet {
             guard let team = self.team else {
                 return
             }
-            //目前insert没有排重，只能能先把表删了，而且删还没法按条件删，数据库写的有问题，暂时这样写，后期要改
-            DBManager.shared.deleteFromDb(fromTable: DBTableName.team.rawValue)
-            DBManager.shared.insertToDb(objects: [team], intoTable: DBTableName.team.rawValue)
             
             DispatchQueue.main.async {[weak self] in
                 
@@ -147,12 +145,12 @@ class TeamSettingViewController: BaseViewController {
     
     // MARK: - Initialization
     
-    @MainActor required init?(coder: NSCoder) {
+    required init?(coder: NSCoder) {
         fatalError("init(coder:) has not been implemented")
     }
     
     /// 指定初始化器，通过conversation构造实例
-    @MainActor public init(teamId: String) {
+    init(teamId: String) {
         self.teamId = teamId
         super.init(nibName: nil, bundle: nil)
     }
@@ -269,11 +267,10 @@ class TeamSettingViewController: BaseViewController {
     
     /// 解散队伍按钮点击
     @objc private func disbandTeamButtonTapped() {
+        guard let teamId = self.teamId else { return }
         SWAlertView.showDestructiveAlert(title: "确认解散", message: "解散后所有队员将失去与成员的联系，同时聊天记录也将被删除", destructiveHandler: {
             var params = [String : Any]()
-            params["requestId"] = Int(Date().timeIntervalSince1970)
-            params["id"] = self.teamId
-            
+            params["id"] = teamId
             if let jsonStr = params.dataValue?.jsonString {
                 MQTTManager.shared.publish(message: jsonStr, to: TeamAPI.teamDisband_pub, qos:.qos1)
             }
@@ -321,7 +318,10 @@ class TeamSettingViewController: BaseViewController {
     }
     
     private func getTeamInfo() {
-        if let teamId = teamId, let team = DBManager.shared.queryFromDb(fromTable: DBTableName.team.rawValue, cls: Team.self)?.first(where: { $0.id == teamId }) {
+        guard let teamId = teamId else {
+            return
+        }
+        if let team = DBManager.shared.queryFromDb(fromTable: DBTableName.team.rawValue, cls: Team.self, where: Team.Properties.id == teamId)?.first {
             self.team = team
         }
         
@@ -406,19 +406,19 @@ extension TeamSettingViewController: MQTTManagerDelegate {
             guard let team = rsp.data else {
                 return
             }
-            
-            DispatchQueue.main.async {[weak self] in
-                if team.isDisband == true {
-                    if let teamId = team.id, let conversations = DBManager.shared.queryFromDb(fromTable: DBTableName.conversation.rawValue, cls: Conversation.self)?.filter({$0.teamId != teamId}) {
-                        DBManager.shared.deleteFromDb(fromTable: DBTableName.conversation.rawValue)
-                        DBManager.shared.insertToDb(objects: conversations, intoTable: DBTableName.conversation.rawValue)
-                    }
+            if team.isDisband == true {
+                if let teamId = team.id {
+                    DBManager.shared.deleteFromDb(fromTable: DBTableName.conversation.rawValue, where: Conversation.Properties.teamId == teamId)
+                }
+                DispatchQueue.main.async {[weak self] in
                     self?.navigationController?.popToRootViewController(animated: false)
                     SWRouter.handle(RouteTable.teamPageUrl)
-                    return
                 }
-                self?.team = team
+                return
             }
+            
+            DBManager.shared.insertToDb(objects: [team], intoTable: DBTableName.team.rawValue)
+            self.team = team
         } catch {
             print("[JSON解析] 解析失败: \(error)")
         }

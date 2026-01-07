@@ -16,6 +16,7 @@ class UserPOIDetailViewController: UIViewController {
     private let mapViewModel = MapViewModel()
     var poiData: UserPOIData?
     private var coordinate: CLLocationCoordinate2D
+    public var deletedUserPOISuccess: (() -> Void)?
     // 天气数据
     private var weatherData: WeatherData?
     private var hoursData: [EveryHoursWeatherData]?
@@ -164,15 +165,15 @@ class UserPOIDetailViewController: UIViewController {
             userPOIHeadView.topAnchor.constraint(equalTo: contentContainerView.topAnchor, constant: 10),
             userPOIHeadView.leadingAnchor.constraint(equalTo: contentContainerView.leadingAnchor),
             userPOIHeadView.trailingAnchor.constraint(equalTo: contentContainerView.trailingAnchor),
-            userPOIHeadView.heightAnchor.constraint(equalToConstant: 80),
+            userPOIHeadView.heightAnchor.constraint(equalToConstant: 40),
             
             // 选择视图约束
-            titleSegmentedView.topAnchor.constraint(equalTo: userPOIHeadView.bottomAnchor),
+            titleSegmentedView.topAnchor.constraint(equalTo: userPOIHeadView.bottomAnchor, constant: 10),
             titleSegmentedView.leadingAnchor.constraint(equalTo: contentContainerView.leadingAnchor),
             titleSegmentedView.widthAnchor.constraint(equalToConstant: 140),
-            titleSegmentedView.heightAnchor.constraint(equalToConstant: 60),
+            titleSegmentedView.heightAnchor.constraint(equalToConstant: 40),
             
-            // TableView约束
+            // 用户兴趣点信息视图约束
             userPointMsgView.topAnchor.constraint(equalTo: titleSegmentedView.bottomAnchor, constant: 5),
             userPointMsgView.leadingAnchor.constraint(equalTo: contentContainerView.leadingAnchor),
             userPointMsgView.trailingAnchor.constraint(equalTo: contentContainerView.trailingAnchor),
@@ -208,6 +209,7 @@ class UserPOIDetailViewController: UIViewController {
                         guard let self = self else { return }
                         if success {
                             self.view.sw_showSuccessToast("删除成功")
+                            self.deletedUserPOISuccess?()
                         }else {
                             self.view.sw_showWarningToast("删除失败")
                         }
@@ -471,14 +473,14 @@ class UserPOIMsgView: UIView {
         let label = UILabel()
         label.text = "类型"
         label.textColor = .black
-        label.font = .systemFont(ofSize: 16, weight: .regular)
+        label.font = .systemFont(ofSize: 16, weight: .medium)
         return label
     }()
     private let imageTitleLabel: UILabel = {
         let label = UILabel()
         label.text = "照片"
         label.textColor = .black
-        label.font = .systemFont(ofSize: 16, weight: .regular)
+        label.font = .systemFont(ofSize: 16, weight: .medium)
         return label
     }()
     private let typeTextLabel: UILabel = {
@@ -499,6 +501,7 @@ class UserPOIMsgView: UIView {
         label.text = ""
         label.textColor = UIColor(str: "#84888C")
         label.font = .systemFont(ofSize: 12, weight: .regular)
+        label.numberOfLines = 0
         return label
     }()
     
@@ -530,8 +533,9 @@ class UserPOIMsgView: UIView {
         contentTextLabel.translatesAutoresizingMaskIntoConstraints = false
         
         NSLayoutConstraint.activate([
-            typeTitleLabel.topAnchor.constraint(equalTo: topAnchor, constant: 5),
+            typeTitleLabel.topAnchor.constraint(equalTo: topAnchor, constant: 15),
             typeTitleLabel.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 16),
+            typeTitleLabel.heightAnchor.constraint(equalToConstant: 30),
             
             typeTextLabel.centerYAnchor.constraint(equalTo: typeTitleLabel.centerYAnchor),
             typeTextLabel.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -16)
@@ -572,17 +576,18 @@ class UserPOIMsgView: UIView {
             }
             
             NSLayoutConstraint.activate([
-                imageTitleLabel.topAnchor.constraint(equalTo: typeTitleLabel.bottomAnchor, constant: 10),
+                imageTitleLabel.topAnchor.constraint(equalTo: typeTitleLabel.bottomAnchor, constant: 15),
                 imageTitleLabel.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 16),
                 
-                photoContainerView.topAnchor.constraint(equalTo: imageTitleLabel.bottomAnchor, constant: 5),
+                photoContainerView.topAnchor.constraint(equalTo: imageTitleLabel.bottomAnchor, constant: 10),
                 photoContainerView.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 16),
                 photoContainerView.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -16),
                 photoContainerView.heightAnchor.constraint(equalToConstant: (UIScreen.main.bounds.width - 62) / 3),
             ])
             if userPOIData.description != "" {
+                contentTextLabel.text = userPOIData.description
                 NSLayoutConstraint.activate([
-                    contentTextLabel.topAnchor.constraint(equalTo: photoContainerView.bottomAnchor, constant: 10),
+                    contentTextLabel.topAnchor.constraint(equalTo: photoContainerView.bottomAnchor, constant: 15),
                     contentTextLabel.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 16),
                     contentTextLabel.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -16),
                 ])
@@ -590,8 +595,9 @@ class UserPOIMsgView: UIView {
         }else {
             imageTitleLabel.isHidden = true
             if userPOIData.description != "" {
+                contentTextLabel.text = userPOIData.description
                 NSLayoutConstraint.activate([
-                    contentTextLabel.topAnchor.constraint(equalTo: typeTitleLabel.bottomAnchor, constant: 10),
+                    contentTextLabel.topAnchor.constraint(equalTo: typeTitleLabel.bottomAnchor, constant: 16),
                     contentTextLabel.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 16),
                     contentTextLabel.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -16),
                 ])

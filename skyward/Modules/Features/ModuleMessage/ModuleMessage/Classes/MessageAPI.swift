@@ -61,5 +61,7 @@ extension MessageAPI: NetworkAPI {
 }
 
 // 接收消息
-let receiveUrgentMessage_sub = "txts/home/servertoapp/urgentMessage/receive/\(UserManager.shared.userId)"
-
+// 将MQTT接口定义从let常量改为计算属性，确保每次访问都能获取最新的userId
+var receiveUrgentMessage_sub: String {
+    return "txts/home/servertoapp/urgentMessage/receive/\(UserManager.shared.userId)"
+}

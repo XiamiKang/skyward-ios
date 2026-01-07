@@ -18,17 +18,16 @@ public class HomeViewModel: ObservableObject {
     @Published var noticeList: [HomeNoticeItem] = []
     @Published var weatherInfo: WeatherInfo?
     @Published var selectedMiniDevice: MiniDevice?
+    @Published var selectedProDevice: WiFiDevice?
+    private var selectedMiniDeviceStatusInfo: StatusInfo?  //选中的设备的状态信息
+    private var selectedMiniDeviceSatelliteNum: Int?       //选中的设备的卫星信号
     
     var savedMiniDevices: [MiniDevice] {
         get {
-            var savedMiniDevices: [MiniDevice] = []
-            let peripheral = BluetoothManager.shared.connectedPeripheral
-            BluetoothManager.shared.getAllSavedDevices().forEach { info in
-                let status = selectedMiniDevice?.info.uuid == info.uuid ? selectedMiniDevice?.status : nil
-                let miniDevice = MiniDevice(info: info, status: status, connected: info.uuid == peripheral?.identifier.uuidString)
-                savedMiniDevices.append(miniDevice)
-            }
-            return savedMiniDevices
+            let baseModel = BaseModel(pageNum: 1, pageSize: 20)
+            PersonalViewModel().input.deviceListRequest.send(baseModel)
+            let miniDeviceList = getSaveMiniDeviceListData()
+            return miniDeviceList
         }
     }
     var latestMessage: HomeNewMessageModel?
@@ -77,11 +76,38 @@ public class HomeViewModel: ObservableObject {
     
     // MARK: - Public Methods
     
-    func setupZhaidaiDevice() {
+    func getSaveMiniDeviceListData() -> [MiniDevice] {
+        var savedMiniDevices: [MiniDevice] = []
+        let connectedMiniDevice = BluetoothManager.shared.connectedScannedPeripheral
+        if let miniDevices = MiniDeviceDBManager.shared.qureyFromMiniDeviceDataAllData() {
+            miniDevices.forEach { device in
+                let status = selectedMiniDevice?.info.imeiNum == device.imeiNum ? selectedMiniDevice?.status : nil
+                let satelliteNum = selectedMiniDevice?.info.imeiNum == device.imeiNum ? selectedMiniDevice?.satelliteNum : nil
+                var connected = false
+                if  device.imeiNum == connectedMiniDevice?.imeiNum {
+                   connected = true
+                }
+                let miniDevice = MiniDevice(info: device, status: status, satelliteNum: satelliteNum, connected: connected)
+                savedMiniDevices.append(miniDevice)
+            }
+            return savedMiniDevices
+        }
+        return []
+    }
+    
+    func getProDeviceListData() -> [WiFiDevice] {
+        return WiFiDeviceStorageManager.shared.getAllDevices()
+    }
+    
+    func setupDevice() {
         
         if let miniDevice = self.savedMiniDevices.first {
             selectedMiniDevice = miniDevice
             linkOrBreakMiniDevice(miniDevice)
+        }
+        
+        if let proDevice = getProDeviceListData().first {
+            selectedProDevice = proDevice
         }
 
         if BluetoothManager.shared.connectedPeripheral != nil {
@@ -111,14 +137,15 @@ public class HomeViewModel: ObservableObject {
         if device.connected {
             BluetoothManager.shared.disconnectPeripheral()
         } else {
-            let scannedDevices = BluetoothManager.shared.getAllScannedDevices()
-            print("保存后的扫描设备--\(scannedDevices)")
-            for scannedDevice in scannedDevices {
-                if device.info.uuid == scannedDevice.peripheral.identifier.uuidString {
-                    BluetoothManager.shared.connectToPeripheral(scannedDevice.peripheral)
+            let scannedMiniDevices = BluetoothManager.shared.getAllScannedDevices()
+            print("扫描出来的窄带设备--\(scannedMiniDevices)")
+            for miniDevice in scannedMiniDevices {
+                if device.info.imeiNum == miniDevice.imei {
+                    BluetoothManager.shared.connectToPeripheral(miniDevice.peripheral)
                     return
                 }
             }
+            
         }
     }
     
@@ -312,6 +339,12 @@ public class HomeViewModel: ObservableObject {
             name: .didReceiveStatusInfo,
             object: nil
         )
+        NotificationCenter.default.addObserver(
+            self,
+            selector: #selector(showSatelliteInfo(_:)),
+            name: .didReceiveSatelliteInfo,
+            object: nil
+        )
     }
     
     @objc private func handleStatusInfoUpdate(_ notification: Notification) {
@@ -319,10 +352,22 @@ public class HomeViewModel: ObservableObject {
               let statusInfo = userInfo["statusInfo"] as? StatusInfo else {
             return
         }
-        
-        if let peripheral = BluetoothManager.shared.connectedPeripheral,
-           let deviceInfo = BluetoothManager.shared.getAllSavedDevices().first(where: {$0.uuid == peripheral.identifier.uuidString})  {
-            selectedMiniDevice = MiniDevice(info: deviceInfo, status: statusInfo, connected: true)
+        selectedMiniDeviceStatusInfo = statusInfo
+        uploadSelectedMiniDevice()
+    }
+    
+    @objc private func showSatelliteInfo(_ notification: Notification) {
+        guard let userInfo = notification.userInfo else { return }
+        if let satelliteInfo = userInfo["satelliteInfo"] as? String {
+            print("Mini设备卫星状态--首页Model--\(satelliteInfo)")
+            selectedMiniDeviceSatelliteNum = Int(satelliteInfo)
+            uploadSelectedMiniDevice()
+        }
+    }
+    
+    private func uploadSelectedMiniDevice() {
+        if let deviceInfo = BluetoothManager.shared.connectedScannedPeripheral  {
+            selectedMiniDevice = MiniDevice(info: deviceInfo, status: selectedMiniDeviceStatusInfo, satelliteNum: selectedMiniDeviceSatelliteNum, connected: true)
         } else {
             selectedMiniDevice?.connected = false
         }

@@ -116,7 +116,6 @@ class TeamRemoveMemberViewController: BaseViewController {
         }
         
         var params = [String : Any]()
-        params["requestId"] = Int(Date().timeIntervalSince1970)
         params["teamId"] = teamId
         params["memberIds"] = selectedMembers.compactMap { $0.userId }
         

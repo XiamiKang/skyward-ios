@@ -12,7 +12,6 @@ import SWKit
 import SWNetwork
 import Moya
 
-
 // MARK: - 添加兴趣点页面
 class AddPOIViewController: UIViewController {
     

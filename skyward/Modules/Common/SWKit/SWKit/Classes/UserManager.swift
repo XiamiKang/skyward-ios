@@ -49,6 +49,10 @@ public class UserManager {
     
     public func logout() {
         cleanUserInfo()
+        TokenManager.shared.clearTokens()
+        SWRouter.handle(RouteTable.loginPageUrl)
+        // 发送登出成功通知
+        NotificationCenter.default.post(name: .logoutSuccess, object: nil)
     }
     
     /// 获取用户信息
@@ -120,7 +124,7 @@ public class UserManager {
     }
     
     /// 绑定Mini设备
-    public func bindMiniDevice(serialNum: String, macAddress: String, _ completion: @escaping (Bool) -> Void) {
+    public func bindDevice(serialNum: String, macAddress: String, _ completion: @escaping (Bool) -> Void) {
         NetworkProvider<UserAPI>().retryRequest(.bindMiniDevice(userId: userId, serialNum: serialNum, macAddress: macAddress)) { result in
             switch result {
             case .success(let rsp):
@@ -135,7 +139,7 @@ public class UserManager {
                     completion(false)
                 }
                 
-            case .failure(let error):
+            case .failure(_):
                 completion(false)
             }
         }

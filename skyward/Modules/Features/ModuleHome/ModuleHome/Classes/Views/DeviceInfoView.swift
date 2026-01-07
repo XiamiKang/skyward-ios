@@ -57,6 +57,16 @@ class DeviceInfoView: UIView {
         }
     }
     
+    var satelliteLevel: Int? {
+        didSet {
+            if let level = satelliteLevel {
+                satelliteImageView.image = HomeModule.image(named: "device_mini_line_satellite\(level)")
+            } else {
+                satelliteImageView.isHidden = true
+            }
+        }
+    }
+    
     // MARK: - Private Subviews
     
     public let nameLabel = UILabel()

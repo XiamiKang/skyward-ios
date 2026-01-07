@@ -14,12 +14,10 @@ public class TeamModule: ModuleType {
     
     public static var name: String = "ModuleTeam"
     
-    public init() {
-        TeamMessageManager.shared.startMonitorNewMessage()
-    }
+    public init() {}
     
     /// 当前模块的路由
     public var routeSettings: [any RoutableType.Type] {
-        return [TeamRouter.self]
+        return [TeamRouter.self, TeamStartMonitorMessageRouter.self, TeamStopMonitorMessageRouter.self]
     }
 }

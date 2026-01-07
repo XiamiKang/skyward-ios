@@ -10,6 +10,7 @@ import Combine
 import CoreLocation
 import Moya
 import SWKit
+import SWNetwork
 
 public enum SearchType {
     case coordinate  // 坐标格式
@@ -580,3 +581,47 @@ extension MapViewModel {
 
 }
 
+//MARK: - 轨迹
+extension MapViewModel {
+    
+    func checkValidTrackName(_ name: String?, completion:((String?) ->Void)?) {
+        guard let name = name?.trimmingCharacters(in: .whitespacesAndNewlines), !name.isEmpty else {
+            completion?("请输入轨迹名称")
+            return
+        }
+        if name.count > 30 {
+            completion?("最多输入30个字符")
+            return
+        }
+        // 无网络没法敏感词校验
+        guard NetworkMonitor.shared.isConnected else {
+            completion?(nil)
+            return
+        }
+        
+        isLoading = true
+        self.mapService.checkSensitiveWords(name) { result in
+            DispatchQueue.main.async {
+                self.isLoading = false
+                
+                switch result {
+                case .success(let response):
+                    do {
+                        let baseResponse = try JSONDecoder().decode(BaseResponse<Bool>.self, from: response.data)
+                        
+                        if baseResponse.success, baseResponse.data == true {
+                            completion?(nil)
+                        } else {
+                            completion?(baseResponse.msg)
+                        }
+                    } catch {
+                        completion?("数据解析失败")
+                    }
+                    
+                case .failure(let error):
+                    completion?(error.localizedDescription)
+                }
+            }
+        }
+    }
+}

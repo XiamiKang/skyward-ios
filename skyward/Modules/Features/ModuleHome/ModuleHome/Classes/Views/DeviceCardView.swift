@@ -122,18 +122,19 @@ class DeviceCardView: UIView {
     
     private func updateUI() {
         // 更新边框
-        layer.borderWidth = isSelected && hasDevice ? 1.0 / ScreenUtil.scale  : 0.0
+        layer.borderWidth = isSelected && hasDevice ? 1.0 : 0.0
         layer.borderColor = UIColor.black.cgColor
         
         // 更新设备信息视图中的名称颜色
         if hasDevice {
-            deviceInfoView.connectionImageView.isHidden = false
-            deviceInfoView.satelliteImageView.isHidden = false
             if isConnected {
                 deviceInfoView.nameLabel.textColor = .black
-                
+                deviceInfoView.connectionImageView.isHidden = false
+                deviceInfoView.satelliteImageView.isHidden = false
             } else {
                 deviceInfoView.nameLabel.textColor = .gray
+                deviceInfoView.connectionImageView.isHidden = true
+                deviceInfoView.satelliteImageView.isHidden = true
             }
             
             // 更新箭头方向（有设备时）

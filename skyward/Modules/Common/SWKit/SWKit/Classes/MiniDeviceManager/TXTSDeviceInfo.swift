@@ -7,6 +7,7 @@
 
 import Foundation
 import CoreBluetooth
+import WCDBSwift
 
 // MARK: - 枚举和结构体定义
 
@@ -65,13 +66,13 @@ public struct BLEAdvertisementData {
 // 连接到设备信息结构
 public struct DeviceInfo {
     public let protocolVersion: UInt16    // 协议版本号
-    public let bleMac: Data              // 设备蓝牙MAC地址 (6字节)
-    public let bond: UInt8               // 绑定标识
+    public let bleMac: Data               // 设备蓝牙MAC地址 (6字节)
+    public let bond: UInt8                // 绑定标识
     public let bleSoftwareVersion: UInt32 // 蓝牙模组软件版本号
     public let bleHardwareVersion: UInt32 // 蓝牙模组硬件版本号
     public let mcuSoftwareVersion: UInt32 // MCU软件版本号
     public let mcuHardwareVersion: UInt32 // MCU硬件版本号
-    public let deviceId: UInt64          // 设备ID
+    public let deviceId: UInt64           // 设备ID
 }
 
 // 状态信息结构体 - 修正数据类型
@@ -120,16 +121,16 @@ public struct AlarmInfo {
 
 // 通信帧结构
 public struct CommunicationFrame {
-    let header: UInt16           // 帧头 0xAA55
-    let serialNumber: UInt32     // 流水码
-    let dataLength: UInt16       // 数据长度
-    let commandCode: CommandCode // 命令编号
-    let messageContent: Data     // 信息内容
-    let checksum: UInt16         // 校验码
-    let terminator: UInt16       // 结束符 0x0D0A
+    public let header: UInt16           // 帧头 0xAA55
+    public let serialNumber: UInt32     // 流水码
+    public let dataLength: UInt16       // 数据长度
+    public let commandCode: CommandCode // 命令编号
+    public let messageContent: Data     // 信息内容
+    public let checksum: UInt16         // 校验码
+    public let terminator: UInt16       // 结束符 0x0D0A
     
     // 完整的帧数据
-    var frameData: Data {
+    public var frameData: Data {
         var data = Data()
         data.append(header.bigEndianData)
         data.append(serialNumber.bigEndianData)
@@ -191,7 +192,7 @@ public struct FirmwarePacket {
 // MARK: - 工具类
 
 // CRC16校验 (IBM格式)
-class CRC16 {
+public class CRC16 {
     static let ibm: CRC16 = CRC16(polynomial: 0xA001)
     
     private let polynomial: UInt16
@@ -217,7 +218,7 @@ class CRC16 {
         }
     }
     
-    func calculate(_ data: Data) -> UInt16 {
+    public func calculate(_ data: Data) -> UInt16 {
         var crc: UInt16 = 0  // ✅ IBM初始值为0
         for byte in data {
             let index = Int((crc ^ UInt16(byte)) & 0xFF)
@@ -234,6 +235,7 @@ class CRC16 {
 
 // MARK: - 扫描到的设备模型
 public class ScannedDevice {
+    // 基础属性（不变）
     public let peripheral: CBPeripheral
     public let imei: String
     public let rssi: Int
@@ -243,16 +245,17 @@ public class ScannedDevice {
     public let productId: UInt16
     public let advVersion: UInt8
     public let timestamp: Date
-    
-    init(peripheral: CBPeripheral,
-         imei: String,
-         rssi: Int,
-         macAddress: String,
-         bondStatus: UInt8,
-         deviceName: String,
-         productId: UInt16,
-         advVersion: UInt8,
-         timestamp: Date) {
+      
+    // MARK: - 初始化
+    public init(peripheral: CBPeripheral,
+                imei: String,
+                rssi: Int,
+                macAddress: String,
+                bondStatus: UInt8,
+                deviceName: String,
+                productId: UInt16,
+                advVersion: UInt8,
+                timestamp: Date = Date()) {
         self.peripheral = peripheral
         self.imei = imei
         self.rssi = rssi
@@ -264,52 +267,44 @@ public class ScannedDevice {
         self.timestamp = timestamp
     }
     
-    /// 绑定状态描述
-    var bondStatusDescription: String {
-        return bondStatus == 1 ? "已绑定" : "未绑定"
+    public var name: String {
+        // 确保 imei 至少有 4 位
+        guard imei.count >= 4 else { return "行者nimi_未知" }
+        
+        // 获取 imei 的最后 4 位
+        let lastFourDigits = String(imei.suffix(4))
+        return "行者nimi_\(lastFourDigits)"
     }
+}
+
+public struct MiniDeviceData: TableCodable {
     
-    /// 产品类型描述
-    var productDescription: String {
-        switch productId {
-        case 0x0001:
-            return "窄带mini"
-        case 0x0002:
-            return "窄带标准版"
-        // 添加更多产品类型...
-        default:
-            return "未知产品(0x\(String(format: "%04X", productId)))"
+    public let name: String?                      // 设备名称
+    public let serialNum: String?                 // 设备序列号
+    public let imeiNum: String?                   // 设备IMEI
+    public let forthGenCardNum: String?           // 设备4G卡号
+    public let typeCode: String?                  // 窄带：NARROW_BAND, 宽带：BROAD_BAND
+    public let state: Int?                        //  0 有效 1删除
+    public let macAddress: String?                // 设备MAC地址
+    public let model: String?                     // 设备型号   窄带：TXTS-NB-01
+    
+    public enum CodingKeys: String, CodingTableKey {
+        public typealias Root = MiniDeviceData
+        public static let objectRelationalMapping = TableBinding(CodingKeys.self)
+        
+        case name
+        case serialNum
+        case imeiNum
+        case forthGenCardNum
+        case typeCode
+        case state
+        case macAddress
+        case model
+        
+        static var columnConstraintBindings: [CodingKeys: BindColumnConstraint]? {
+            return [
+                .imeiNum: ColumnConstraintConfig(imeiNum, isPrimary: true, defaultTo: "")
+            ]
         }
     }
-    
-    /// 格式化显示信息
-    var displayInfo: String {
-        return "\(deviceName)\nIMEI: \(imei)\nMAC: \(macAddress)\n状态: \(bondStatusDescription)"
-    }
 }
-
-// MARK: - 保存到本地的设备信息
-public struct BluetoothDeviceInfo: Codable {
-    public let uuid: String
-    public let imei: String
-    public let name: String?
-    public let macAddress: String?
-    public let productId: UInt16?
-    public let connectionDate: Date
-    public var lastConnectedDate: Date
-    
-    // 为了方便使用，添加一些计算属性
-    public var displayName: String {
-        let originalName = "行者mini"
-        
-        // 如果 IMEI 长度足够，取后5位
-        let imeiSuffix = imei.count >= 5 ? String(imei.suffix(5)) : imei
-        
-        return "\(originalName)_\(imeiSuffix)"
-    }
-    
-    public var deviceIdentifier: String {
-        return "\(imei)-\(uuid)"
-    }
-}
-

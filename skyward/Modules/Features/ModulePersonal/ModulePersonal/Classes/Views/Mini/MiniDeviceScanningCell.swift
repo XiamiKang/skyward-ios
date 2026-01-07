@@ -134,12 +134,12 @@ class MiniDeviceScanningCell: UITableViewCell {
             imeiLabel.text = "IMEI: \(device.imei)"
             
             // 可以根据绑定状态调整UI
-            if device.bondStatus == 1 {
-                // 已绑定设备的特殊显示
-                imeiLabel.textColor = UIColor(hex: "#28A745")
-            } else {
+//            if device.bondStatus == 1 {
+//                // 已绑定设备的特殊显示
+//                imeiLabel.textColor = UIColor(hex: "#28A745")
+//            } else {
                 imeiLabel.textColor = .secondaryLabel
-            }
+//            }
         } else {
             // 没有扫描信息时显示基本UUID
             let shortUUID = String(peripheral.identifier.uuidString.prefix(8)).uppercased()

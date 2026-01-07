@@ -16,6 +16,7 @@ class BindProDeviceViewController: PersonalBaseViewController {
     private let tipView = UIView()
     private let tipImageView = UIImageView()
     private let tipTextLabel = UILabel()
+    private var wifiName: String?
     
     // 添加 Loading 相关属性
     private let loadingView: UIView = {
@@ -81,6 +82,7 @@ class BindProDeviceViewController: PersonalBaseViewController {
         setupUI()
         setupConstraints()
         loadWifiData()
+        getWiFiSSID()
     }
     
     private func setupUI() {
@@ -186,22 +188,27 @@ class BindProDeviceViewController: PersonalBaseViewController {
     
     @objc private func stateBindProClick() {
         // 显示 loading
-        showLoading()
         
-        WiFiDeviceManager.shared.connect { [weak self] result in
-            guard let self = self else { return }
-            
-            // 在主线程中隐藏 loading 并处理结果
-            DispatchQueue.main.async {
-                self.hideLoading()
+        if let wifiName = wifiName,
+           wifiName.contains("天行探索") {
+            showLoading()
+            WiFiDeviceManager.shared.connect { [weak self] result in
+                guard let self = self else { return }
                 
-                switch result {
-                case .success(_):
-                    self.proDeviceLineSuccess()
-                case .failure(_):
-                    self.proDeviceLineFail()
+                // 在主线程中隐藏 loading 并处理结果
+                DispatchQueue.main.async {
+                    self.hideLoading()
+                    
+                    switch result {
+                    case .success(_):
+                        self.proDeviceLineSuccess()
+                    case .failure(_):
+                        self.proDeviceLineFail()
+                    }
                 }
             }
+        }else {
+            view.sw_showWarningToast("当前WiFi不正确，请重新连接")
         }
     }
     
@@ -221,7 +228,7 @@ class BindProDeviceViewController: PersonalBaseViewController {
         dataSource = [
             SettingData(
                 titleStr: titles[0],
-                contentStr: getWiFiSSID() ?? "无法获取WiFi信息",
+                contentStr: wifiName ?? "天行探索卫星地面站",
                 canChange: true
             ),
             SettingData(
@@ -253,30 +260,13 @@ class BindProDeviceViewController: PersonalBaseViewController {
         }
     }
     
-    func getWiFiSSID() -> String? {
-        // ... 原有实现保持不变
-        guard Bundle.main.object(forInfoDictionaryKey: "com.apple.developer.networking.wifi-info") != nil else {
-            print("❌ 未开启Access WiFi Information能力，请在项目配置中添加")
-            return nil
-        }
-        
-        guard let interfaces = CNCopySupportedInterfaces() as? [String] else {
-            print("❌ 无法获取WiFi接口列表")
-            return nil
-        }
-        
-        for interface in interfaces {
-            guard let interfaceInfo = CNCopyCurrentNetworkInfo(interface as CFString) as? [String: AnyObject] else {
-                continue
+    func getWiFiSSID() {
+        WiFiDeviceManager.shared.checkWiFiPermission { [weak self] wifiInfo in
+            if wifiInfo.isAvailable {
+                self?.wifiName = wifiInfo.ssid
+                self?.loadWifiData()
             }
-            
-            guard let ssid = interfaceInfo[kCNNetworkInfoKeySSID as String] as? String else {
-                continue
-            }
-            return ssid
         }
-        
-        return nil
     }
 }
 

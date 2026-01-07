@@ -12,31 +12,59 @@ import SWNetwork
 
 public enum TeamAPI {
     // 会话列表
-    public static let convList_pub = "txts/im/apptoserver/conversation/list/\(UserManager.shared.userId)"
-    public static let convList_sub = "txts/im/servertoapp/conversation/list/\(UserManager.shared.userId)"
+    public static var convList_pub: String {
+        return "txts/im/apptoserver/conversation/list/\(UserManager.shared.userId)"
+    }
+    public static var convList_sub: String {
+        return "txts/im/servertoapp/conversation/list/\(UserManager.shared.userId)"
+    }
     
     // 队伍信息
-    public static let teamInfo_pub = "txts/im/apptoserver/team/info/\(UserManager.shared.userId)"
-    public static let teamInfo_sub = "txts/im/servertoapp/team/info/\(UserManager.shared.userId)"
+    public static var teamInfo_pub: String {
+        return "txts/im/apptoserver/team/info/\(UserManager.shared.userId)"
+    }
+    public static var teamInfo_sub: String {
+        return "txts/im/servertoapp/team/info/\(UserManager.shared.userId)"
+    }
     // 加入队伍
-    public static let joinTeam_pub = "txts/im/apptoserver/team/join/\(UserManager.shared.userId)"
+    public static var joinTeam_pub: String {
+        return "txts/im/apptoserver/team/join/\(UserManager.shared.userId)"
+    }
     // 移除队伍成员
-    public static let removeMember_pub = "txts/im/apptoserver/team/removeMember/\(UserManager.shared.userId)"
+    public static var removeMember_pub: String {
+        return "txts/im/apptoserver/team/removeMember/\(UserManager.shared.userId)"
+    }
     // 更新队伍信息
-    public static let teamUpdate_pub = "txts/im/apptoserver/team/update/\(UserManager.shared.userId)"
+    public static var teamUpdate_pub: String {
+        return "txts/im/apptoserver/team/update/\(UserManager.shared.userId)"
+    }
     // 解散队伍
-    public static let teamDisband_pub = "txts/im/apptoserver/team/disband/\(UserManager.shared.userId)"
+    public static var teamDisband_pub: String {
+        return "txts/im/apptoserver/team/disband/\(UserManager.shared.userId)"
+    }
     // 获取队伍成员定位
-    public static let memberLoaction_pub = "txts/im/apptoserver/team/friendLocation/\(UserManager.shared.userId)"
-    public static let memberLoaction_sub = "txts/im/servertoapp/team/friendLocation/\(UserManager.shared.userId)"
+    public static var memberLoaction_pub: String {
+        return "txts/im/apptoserver/team/friendLocation/\(UserManager.shared.userId)"
+    }
+    public static var memberLoaction_sub: String {
+        return "txts/im/servertoapp/team/friendLocation/\(UserManager.shared.userId)"
+    }
     
     // 消息列表
-    public static let messagePage_pub = "txts/im/apptoserver/message/page/\(UserManager.shared.userId)"
-    public static let messagePage_sub = "txts/im/servertoapp/message/page/\(UserManager.shared.userId)"
+    public static var messagePage_pub: String {
+        return "txts/im/apptoserver/message/page/\(UserManager.shared.userId)"
+    }
+    public static var messagePage_sub: String {
+        return "txts/im/servertoapp/message/page/\(UserManager.shared.userId)"
+    }
     // 发送消息
-    public static let sendMessage_pub = "txts/im/apptoserver/message/send/\(UserManager.shared.userId)"
+    public static var sendMessage_pub: String {
+        return "txts/im/apptoserver/message/send/\(UserManager.shared.userId)"
+    }
     // 接收消息
-    public static let receiveMessage_sub = "txts/im/servertoapp/message/receive/\(UserManager.shared.userId)"
+    public static var receiveMessage_sub: String {
+        return "txts/im/servertoapp/message/receive/\(UserManager.shared.userId)"
+    }
     
     case creatTeam(name: String)
 }

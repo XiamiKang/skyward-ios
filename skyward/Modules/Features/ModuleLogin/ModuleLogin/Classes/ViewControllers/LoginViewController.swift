@@ -51,7 +51,7 @@ public class LoginViewController: UIViewController {
     
     private let welcomeText: UILabel = {
         let label = UILabel()
-        label.text = "欢迎使用天行探索"
+        label.text = "欢迎使用行者Adventure"
         label.textColor = defaultBlackColor
         label.font = UIFont.systemFont(ofSize: 28, weight: .semibold)
         return label

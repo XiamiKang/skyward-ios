@@ -14,7 +14,7 @@ class SearchResultView: UIView {
     private let viewModel = MapViewModel()
     private var resultData: [MapSearchPointMsgData] = []
     var closeAction: (() -> Void)?
-    var choosePointAction: ((CLLocationCoordinate2D) -> Void)?
+    var choosePointAction: ((MapSearchPointMsgData) -> Void)?
     
     private let titleLabel: UILabel = {
         let label = UILabel()
@@ -176,9 +176,9 @@ extension SearchResultView: UITableViewDelegate, UITableViewDataSource {
         let cell = tableView.dequeueReusableCell(withIdentifier: "SearchResultCell") as! SearchResultCell
         let data = resultData[indexPath.row]
         cell.configWithData(data: data)
-        cell.searchPointAction = { [weak self] coordinate in
+        cell.searchPointAction = { [weak self] data in
             guard let self = self else { return }
-            self.choosePointAction?(coordinate)
+            self.choosePointAction?(data)
         }
         return cell
     }

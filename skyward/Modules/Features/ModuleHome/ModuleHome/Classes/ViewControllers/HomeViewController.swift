@@ -47,6 +47,11 @@ public class HomeViewController: BaseViewController, MapViewDelegate, SOSButtonD
         setupNotifications()
     }
     
+    public override func viewWillAppear(_ animated: Bool) {
+        super.viewWillAppear(animated)
+        mapManager.reloadMapWithCurrentTileSource()
+    }
+    
     override public func setupViews() {
         super.setupViews()
         
@@ -75,7 +80,7 @@ public class HomeViewController: BaseViewController, MapViewDelegate, SOSButtonD
             make.height.equalTo(44)
         }
         proDeviceCardView.snp.makeConstraints { make in
-            make.top.equalToSuperview().offset(ScreenUtil.statusBarHeight)
+            make.top.equalToSuperview().offset(ScreenUtil.statusBarHeight + 10)
             make.leading.equalTo(view.snp.centerX).offset(6)
             make.trailing.equalToSuperview().inset(Layout.hMargin)
             make.height.equalTo(44)
@@ -93,6 +98,7 @@ public class HomeViewController: BaseViewController, MapViewDelegate, SOSButtonD
         }
         
         clearButton.snp.makeConstraints { make in
+            make.height.equalTo(swAdaptedValue(30))
             make.centerY.equalTo(centerTitleLabel)
             make.trailing.equalToSuperview().offset(-16)
         }
@@ -149,21 +155,37 @@ public class HomeViewController: BaseViewController, MapViewDelegate, SOSButtonD
         // 窄带卡片信息
         bindPublisher(viewModel.$selectedMiniDevice.eraseToAnyPublisher()) { [weak self] selectedMiniDevice in
             self?.miniDeviceCardView.hasDevice = true
-            self?.miniDeviceCardView.deviceName = selectedMiniDevice?.info.displayName
+            self?.miniDeviceCardView.deviceName = selectedMiniDevice?.info.name ?? "行者mini"
             
             if let connected = selectedMiniDevice?.connected, connected == true {
                 self?.miniDeviceCardView.isConnected = true
                 self?.miniDeviceCardView.connectionIcon = HomeModule.image(named: "device_bluetooth_linked")
-                self?.miniDeviceCardView.satelliteIcon = HomeModule.image(named: "device_satellite_linked")
+                self?.miniDeviceCardView.satelliteIcon = HomeModule.image(named: "device_mini_line_satellite0")
             } else {
                 self?.miniDeviceCardView.isConnected = false
                 self?.miniDeviceCardView.connectionIcon = HomeModule.image(named: "device_bluetooth_unlink")
-                self?.miniDeviceCardView.satelliteIcon = HomeModule.image(named: "device_satellite_unlink")
+                self?.miniDeviceCardView.satelliteIcon = HomeModule.image(named: "device_mini_line_satellite0")
+            }
+            
+        }
+        // 宽带卡片信息
+        bindPublisher(viewModel.$selectedProDevice.eraseToAnyPublisher()) { [weak self] selectedProDevice in
+            self?.proDeviceCardView.hasDevice = true
+            self?.proDeviceCardView.deviceName = selectedProDevice?.nickname ?? "行者pro"
+            
+            if let connected = selectedProDevice?.isConnected, connected == true {
+                self?.proDeviceCardView.isConnected = true
+                self?.proDeviceCardView.connectionIcon = HomeModule.image(named: "device_wifi_linked")
+                self?.proDeviceCardView.satelliteIcon = HomeModule.image(named: "device_satellite_linked")
+            } else {
+                self?.proDeviceCardView.isConnected = false
+                self?.proDeviceCardView.connectionIcon = nil
+                self?.proDeviceCardView.satelliteIcon = nil
             }
             
         }
         
-        viewModel.setupZhaidaiDevice()
+        viewModel.setupDevice()
     }
     
     // MARK: - Actions
@@ -171,6 +193,10 @@ public class HomeViewController: BaseViewController, MapViewDelegate, SOSButtonD
     private func setupActions() {
         miniDeviceCardView.onTap = { [weak self] in
             self?.selectMiniDevice()
+        }
+        
+        proDeviceCardView.onTap = { [weak self] in
+            self?.selectProDevice()
         }
         
         reportSafetyButton.addAction(UIAction { _ in
@@ -191,17 +217,17 @@ public class HomeViewController: BaseViewController, MapViewDelegate, SOSButtonD
             return
         }
         
+        if proDeviceCardView.isSelected {
+            SWPopupView.currentPopup?.dismiss(animated: false)
+        }
+        
         if miniDeviceCardView.isSelected == false {
             SWPopupView.currentPopup?.dismiss()
             return
         }
         
-        let contentView = DeviceListView()
-        contentView.dataSource = contentView
-        contentView.delegate = contentView
+        let contentView = MiniDeviceListView()
         contentView.deviceList = savedMiniDevices
-        contentView.register(cellType: DeviceCell.self)
-        contentView.translatesAutoresizingMaskIntoConstraints = false
         NSLayoutConstraint.activate([
             contentView.widthAnchor.constraint(equalToConstant: ScreenUtil.screenWidth),
             contentView.heightAnchor.constraint(equalToConstant: Double(min(5, contentView.deviceList.count)) * swAdaptedValue(68))
@@ -209,7 +235,7 @@ public class HomeViewController: BaseViewController, MapViewDelegate, SOSButtonD
         let top = CGRectGetMaxY(miniDeviceCardView.frame)
         let superView = UIView(frame: CGRectMake(0, top, ScreenUtil.screenWidth, ScreenUtil.screenHeight - top))
         ScreenUtil.getKeyWindow()?.addSubview(superView)
-        let popup = SWPopupView.showFromTop(contentView: contentView, in: superView)
+        let popup = SWPopupView.showFromTop(contentView: contentView, in: superView, configuration: SWPopupConfiguration(springAnimation: false))
         contentView.popupDismissBlock = {
             superView.removeFromSuperview()
             self.miniDeviceCardView.isSelected = false
@@ -221,6 +247,43 @@ public class HomeViewController: BaseViewController, MapViewDelegate, SOSButtonD
         }
     }
     
+    func selectProDevice() {
+        let savedProDevices = viewModel.getProDeviceListData()
+        guard savedProDevices.count > 0 else {
+            SWRouter.handle(RouteTable.bindDevicePageUrl)
+            return
+        }
+        
+        if miniDeviceCardView.isSelected {
+            SWPopupView.currentPopup?.dismiss(animated: false)
+        }
+        
+        if proDeviceCardView.isSelected == false {
+            SWPopupView.currentPopup?.dismiss()
+            return
+        }
+        
+        let contentView = ProDeviceListView()
+        contentView.deviceList = savedProDevices
+        NSLayoutConstraint.activate([
+            contentView.widthAnchor.constraint(equalToConstant: ScreenUtil.screenWidth),
+            contentView.heightAnchor.constraint(equalToConstant: Double(min(5, contentView.deviceList.count)) * swAdaptedValue(68))
+        ])
+        let top = CGRectGetMaxY(proDeviceCardView.frame)
+        let superView = UIView(frame: CGRectMake(0, top, ScreenUtil.screenWidth, ScreenUtil.screenHeight - top))
+        ScreenUtil.getKeyWindow()?.addSubview(superView)
+        let popup = SWPopupView.showFromTop(contentView: contentView, in: superView, configuration: SWPopupConfiguration(springAnimation: false))
+        contentView.popupDismissBlock = {
+            superView.removeFromSuperview()
+            self.proDeviceCardView.isSelected = false
+        }
+        
+        contentView.clickRightButtonBlock = { device in
+            popup.dismiss()
+            SWRouter.handle(RouteTable.proDevicePageUrl)
+        }
+    }
+    
     // MARK: - UI Components
     private let miniDeviceCardView: DeviceCardView = {
         let deviceCard = DeviceCardView()
@@ -229,12 +292,7 @@ public class HomeViewController: BaseViewController, MapViewDelegate, SOSButtonD
     }()
     private let proDeviceCardView: DeviceCardView = {
         let deviceCard = DeviceCardView()
-        deviceCard.isHidden = true
-        deviceCard.hasDevice = true
-        deviceCard.deviceName = "行者pro_125"
-        deviceCard.isConnected = true
-        deviceCard.connectionIcon = HomeModule.image(named: "device_bluetooth_linked")
-        deviceCard.satelliteIcon = HomeModule.image(named: "device_satellite_linked")
+        deviceCard.deviceName = "添加行者Pro"
         return deviceCard
     }()
     
@@ -259,11 +317,11 @@ public class HomeViewController: BaseViewController, MapViewDelegate, SOSButtonD
     }()
     
     private let reportSafetyButton: UIButton = {
-        let button = UIButton(type: .system)
+        let button = UIButton(type: .custom)
         button.setTitle("报平安", for: .normal)
+        button.setTitleColor(.white, for: .normal)
         button.titleLabel?.font = ThemeManager.bold16Font
         button.backgroundColor = ThemeManager.current.successColor
-        button.setTitleColor(.white, for: .normal)
         button.layer.cornerRadius = CornerRadius.medium.rawValue
         return button
     }()
@@ -304,20 +362,7 @@ public class HomeViewController: BaseViewController, MapViewDelegate, SOSButtonD
         ])
         return view
     }()
-    
-    
-    // MARK: - Helpers
-    private func createTabButton(title: String, isSelected: Bool = false) -> UIButton {
-        let button = UIButton(type: .system)
-        button.setTitle(title, for: .normal)
-        button.titleLabel?.font = UIFont.systemFont(ofSize: 12, weight: .regular)
-        button.setTitleColor(isSelected ? .white : .systemGray, for: .normal)
-        button.backgroundColor = isSelected ? .black : UIColor(white: 0.95, alpha: 1)
-        button.layer.cornerRadius = 14
-        button.translatesAutoresizingMaskIntoConstraints = false
-        return button
-    }
-    
+
     
     // MARK: - MapViewDelegate
     func mapViewDidTapLocationButton(_ mapView: HomeMapView) {
@@ -346,6 +391,24 @@ public class HomeViewController: BaseViewController, MapViewDelegate, SOSButtonD
             name: .didSaveOfSOSResponseMsg,
             object: nil
         )
+        NotificationCenter.default.addObserver(
+            self,
+            selector: #selector(miniDeviceDisconnected),
+            name: .bluetoothDeviceDisconnected,
+            object: nil
+        )
+        NotificationCenter.default.addObserver(
+            self,
+            selector: #selector(showSatelliteInfo(_:)),
+            name: .didReceiveSatelliteInfo,
+            object: nil
+        )
+        NotificationCenter.default.addObserver(
+            self,
+            selector: #selector(proDeviceConnectInfo(_:)),
+            name: .proDeviceConnectStatus,
+            object: nil
+        )
     }
     
     @objc private func switchSceneMapSuccess(_ notification: Notification) {
@@ -358,6 +421,26 @@ public class HomeViewController: BaseViewController, MapViewDelegate, SOSButtonD
         }
         if result == .failed {
             view.sw_showSuccessToast("发送失败")
+        }
+    }
+    
+    @objc private func miniDeviceDisconnected() {
+        self.miniDeviceCardView.isConnected = false
+    }
+    
+    @objc private func showSatelliteInfo(_ notification: Notification) {
+        guard let userInfo = notification.userInfo else { return }
+        if let satelliteInfo = userInfo["satelliteInfo"] as? String {
+            print("Mini设备卫星状态--首页--\(satelliteInfo)")
+            self.miniDeviceCardView.satelliteIcon = HomeModule.image(named: "device_mini_line_satellite\(Int(satelliteInfo))")
+        }
+    }
+    
+    @objc private func proDeviceConnectInfo(_ notification: Notification) {
+        guard let userInfo = notification.userInfo else { return }
+        if let satelliteInfo = userInfo["status"] as? Bool {
+            print("宽带设备连接状态--首页--\(satelliteInfo)")
+            
         }
     }
 }

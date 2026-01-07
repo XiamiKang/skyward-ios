@@ -13,6 +13,7 @@
 
 import TXKit
 import SWKit
+import SWNetwork
 import ModuleLogin
 
 final public class Bootstrap {
@@ -105,19 +106,62 @@ final public class Bootstrap {
     
     // MARK: - Notification
     
-    private func setupNotifications() {
+    private func setupNotifications() {        
+        // 监听登录成功通知
         NotificationCenter.default.addObserver(
             self,
-            selector: #selector(handleStatusInfoUpdate(_:)),
+            selector: #selector(handleLoginSuccess),
             name: .loginSuccess,
             object: nil
         )
+        
+        // 监听登出成功通知
+        NotificationCenter.default.addObserver(
+            self,
+            selector: #selector(handleLogout),
+            name: .logoutSuccess,
+            object: nil
+        )
     }
+}
+
+
+// MARK: - 登录登出
+extension Bootstrap {
     
-    @objc private func handleStatusInfoUpdate(_ notification: Notification) {
+    /// 处理登录成功
+    @objc private func handleLoginSuccess() {
+        
+        DBManager.shared.initDb(userId: UserManager.shared.userId)
+        
+        connectMQTT()
+        
         DispatchQueue.main.async {
             self.runMainFlow()
         }
     }
+    
+    /// 处理登出
+    @objc private func handleLogout() {
+        
+        disconnectMQTT()
+        
+        DBManager.shared.closeDb()
+    }
+    
+    /// 为当前用户连接MQTT
+    private func connectMQTT() {
+        debugPrint("[Bootstrap] 用户登录成功，重新连接MQTT")
+        MQTTManager.shared.reconnect()
+        SWRouter.handle(RouteTable.teamStartMonitorMessage)
+    }
+    
+    /// 断开MQTT连接
+    private func disconnectMQTT() {
+        debugPrint("[Bootstrap] 用户登出成功，断开连接MQTT")
+        MQTTManager.shared.disconnect()
+        MQTTManager.shared.removeAllDelegates()
+        MQTTManager.shared.removeAllSubscribes()
+        SWRouter.handle(RouteTable.teamStopMonitorMessage)
+    }
 }
-

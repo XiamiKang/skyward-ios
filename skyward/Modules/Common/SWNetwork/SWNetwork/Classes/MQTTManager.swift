@@ -12,10 +12,12 @@
  *消息处理‌：支持消息发布、订阅管理，并自动恢复重连后的订阅状态
  *配置灵活‌：支持自定义KeepAlive时间、会话保持、认证信息等参数配置
  *状态维护‌：维护连接状态、已订阅主题列表，确保业务连续性
+ *网络监听：断网到连网支持重新连接
  */
 
 import Foundation
 import CocoaMQTT
+import Network
 
 // MQTT连接状态枚举
 public enum MQTTConnectState {
@@ -97,6 +99,15 @@ public final class MQTTManager {
     /// 使用代理数组支持多个代理
     private var delegates: [WeakMQTTDelegate] = []
     
+    /// 网络监控器
+    private let networkMonitor = NWPathMonitor()
+    private let networkQueue = DispatchQueue.global(qos: .background)
+    /// 是否正在监听网络状态
+    private var isMonitoringNetwork: Bool = false
+    private var hasNetwork: Bool = false
+    /// 标志位：是否是主动断开连接
+    private var isManuallyDisconnected: Bool = false
+    
     /// 添加代理
     /// - Parameter delegate: 要添加的代理
     public func addDelegate(_ delegate: MQTTManagerDelegate) {
@@ -136,11 +147,13 @@ public final class MQTTManager {
     public init(configuration: MQTTConfiguration = MQTTConfiguration.defaultConfig) {
         self.configuration = configuration
         setupMQTTClient()
+        startNetworkMonitoring()
     }
     
     deinit {
         disconnect()
         reconnectTimer?.invalidate()
+        stopNetworkMonitoring()
     }
     
     // MARK: - 配置设置
@@ -157,7 +170,6 @@ public final class MQTTManager {
         mqtt?.autoReconnect = false // 使用自定义重连逻辑
 //        mqtt?.enableSSL = false // 根据实际情况设置是否启用SSL
 //        mqtt?.allowUntrustCACertificate = true // 允许不信任的CA证书
-//        print("[MQTT] 客户端配置：host=\(configuration.host), port=\(configuration.port), clientID=\(configuration.clientID), username=\(configuration.username ?? "nil"), keepAlive=\(configuration.keepAlive), cleanSession=\(configuration.cleanSession), autoReconnect=\(configuration.autoReconnect)")
     }
     
     // MARK: - 连接管理
@@ -174,6 +186,8 @@ public final class MQTTManager {
     
     /// 断开MQTT连接
     public func disconnect() {
+        debugPrint("[MQTT] 断开连接")
+        isManuallyDisconnected = true // 设置为主动断开
         reconnectTimer?.invalidate()
         reconnectTimer = nil
         mqtt?.disconnect()
@@ -182,10 +196,53 @@ public final class MQTTManager {
     
     /// 重新连接
     public func reconnect() {
-        guard configuration.autoReconnect else { return }
-        disconnect()
+        debugPrint("[MQTT] 重新连接")
+        connectionState = .connecting
+        isManuallyDisconnected = false // 重置手动断开标志
         setupMQTTClient()
         connect()
+    }
+    
+    // MARK: - 网络状态监听
+    
+    /// 开始监听网络状态
+    func startNetworkMonitoring() {
+        guard !isMonitoringNetwork else { return }
+        
+        networkMonitor.pathUpdateHandler = { [weak self] path in
+            let isConnected = path.status == .satisfied
+            self?.hasNetwork = isConnected
+            debugPrint("[MQTT] 网络状态变化: \(isConnected ? "有网络" : "无网络")")
+            self?.handleNetworkStatusChanged(isConnected)
+        }
+        
+        networkMonitor.start(queue: networkQueue)
+        isMonitoringNetwork = true
+        debugPrint("[MQTT] 网络状态监听已启动")
+    }
+    
+    /// 停止监听网络状态
+    public func stopNetworkMonitoring() {
+        guard isMonitoringNetwork else { return }
+        networkMonitor.cancel()
+        isMonitoringNetwork = false
+        debugPrint("[MQTT] 网络状态监听已停止")
+    }
+    
+    /// 处理网络状态变化
+    private func handleNetworkStatusChanged(_ isConnected: Bool) {
+        if isConnected {
+            // 网络恢复，尝试重连
+            if connectionState == .disconnected {
+                debugPrint("[MQTT] 网络恢复，尝试重连...")
+                if canReconnect() {
+                    reconnect()
+                }
+            }
+        } else {
+            // 网络断开，MQTT连接会自动断开，等待网络恢复
+            debugPrint("[MQTT] 网络断开，等待网络恢复...")
+        }
     }
     
     // MARK: - 消息发布
@@ -246,10 +303,32 @@ public final class MQTTManager {
         }
     }
     
+    /// 移除所有订阅
+    public func removeAllSubscribes() {
+        guard !subscribedTopics.isEmpty else { return }
+        
+        // 取消所有订阅
+        for topic in subscribedTopics {
+            mqtt?.unsubscribe(topic)
+        }
+        
+        // 清空订阅列表
+        subscribedTopics.removeAll()
+    }
+    
     // MARK: - 自动重连逻辑
     
     private func scheduleReconnect() {
-        guard configuration.autoReconnect else { return }
+        //如果主动断开连接则不需要自动重连
+        if isManuallyDisconnected {
+            currentReconnectInterval = configuration.reconnectInterval
+            return
+        }
+        //如果当前无网络,或者不支持自动给重连，则不需要自动重连
+        guard hasNetwork, configuration.autoReconnect else {
+            currentReconnectInterval = configuration.reconnectInterval
+            return
+        }
         
         reconnectTimer?.invalidate()
         
@@ -281,14 +360,13 @@ public final class MQTTManager {
         delegates.forEach { $0.delegate?.mqttManager(self, connectionDidFailWithError: error) }
         connectionState = .disconnected
         
-        if configuration.autoReconnect {
+        if canReconnect() {
             scheduleReconnect()
         }
     }
 }
 
 // MARK: - CocoaMQTT5Delegate
-
 extension MQTTManager: CocoaMQTT5Delegate {
     
     public func mqtt5(_ mqtt5: CocoaMQTT5, didConnectAck ack: CocoaMQTTCONNACKReasonCode, connAckData: MqttDecodeConnAck?) {
@@ -301,15 +379,16 @@ extension MQTTManager: CocoaMQTT5Delegate {
             handleConnectionError(NSError(domain: "MQTT", code: Int(ack.rawValue), userInfo: [NSLocalizedDescriptionKey: "连接被拒绝"]))
         }
     }
+    
     public func mqtt5(_ mqtt5: CocoaMQTT5, didStateChangeTo state: CocoaMQTTConnState) {
         print("mqtt5_didStateChangeTo : \(state.description)")
+        // 只处理连接状态的过渡，避免与didConnectAck和mqtt5DidDisconnect冲突
         switch state {
-        case .connected:
-            connectionState = .connected
         case .connecting:
             connectionState = .connecting
-        case .disconnected:
-            connectionState = .disconnected
+        default:
+            // 其他状态由didConnectAck和mqtt5DidDisconnect处理
+            break
         }
     }
     
@@ -328,7 +407,7 @@ extension MQTTManager: CocoaMQTT5Delegate {
         print("mqtt5_didPublishRec: \(String(describing: pubRecData!.reasonCode))")
     }
     
-    public func mqtt5(_ mqtt5: CocoaMQTT5, didPublishComplete id: UInt16,  pubCompData: MqttDecodePubComp?){
+    public func mqtt5(_ mqtt5: CocoaMQTT5, didPublishComplete id: UInt16,  pubCompData: MqttDecodePubComp?) {
         print("mqtt5_didPublishComplete: \(String(describing: pubCompData!.reasonCode))")
     }
     
@@ -366,8 +445,7 @@ extension MQTTManager: CocoaMQTT5Delegate {
     public func mqtt5DidDisconnect(_ mqtt5: CocoaMQTT5, withError err: (any Error)?) {
         print("mqtt5_mqtt5DidDisconnect: \(String(describing: err?.localizedDescription))")
         connectionState = .disconnected
-        if configuration.autoReconnect {
-            // 无论是否有错误，都尝试重连
+        if canReconnect() {
             scheduleReconnect()
         } else if let error = err {
             handleConnectionError(error)
@@ -422,6 +500,12 @@ extension MQTTManager {
         for topic in topics {
             unsubscribe(from: topic)
         }
+    }
+    
+    // 是否支持重连
+    func canReconnect() -> Bool {
+        //有网络、支持自动给重连和非主动断开连接
+        return hasNetwork && configuration.autoReconnect && !isManuallyDisconnected
     }
 }
 

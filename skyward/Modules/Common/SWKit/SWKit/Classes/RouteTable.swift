@@ -36,7 +36,11 @@ public struct RouteTable {
     public static let logoutUrl = "sw://auth/logout"
     // 队伍页（没有队伍去插创建队伍，有队伍去队伍列表）
     public static let teamPageUrl = "sw://team/index"
+    public static let teamStartMonitorMessage = "sw://team/message/monitor/start"
+    public static let teamStopMonitorMessage = "sw://team/message/monitor/stop"
     
+    //MARK: - 设备
     // 绑定设备页面
     public static let bindDevicePageUrl = "sw://device/bindDevicePage"
+    public static let proDevicePageUrl = "sw://device/proDevicePage"
 }

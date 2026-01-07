@@ -39,6 +39,7 @@ TODO: Add long description of the pod here.
   # 依赖其他模块
   s.dependency 'SWKit'
   s.dependency 'SWTheme'
+  s.dependency 'SWNetwork'
   s.dependency 'ModuleHome'
   s.dependency 'ModuleLogin'
   s.dependency 'ModuleMessage'

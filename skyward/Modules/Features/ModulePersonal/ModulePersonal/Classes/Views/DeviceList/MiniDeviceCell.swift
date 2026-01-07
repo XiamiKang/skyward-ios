@@ -96,13 +96,20 @@ class MiniDeviceCell: UICollectionViewCell {
         ])
     }
     
-    func configure(with device: BluetoothDeviceInfo) {
+    func configure(with device: MiniDeviceData) {
         deviceImageView.image = PersonalModule.image(named: "device_mini_logo")
-        nameLabel.text = device.displayName
+        nameLabel.text = device.name
         
         // 设置状态
-        guard let connectedPeripheral = BluetoothManager.shared.connectedPeripheral else { return }
-        if device.uuid == connectedPeripheral.identifier.uuidString {
+        guard let connectedPeripheral = BluetoothManager.shared.connectedPeripheral else {
+//            print("没有连接的设备")
+            statusView.backgroundColor = UIColor(hex: "#DFE0E2")
+            statusLabel.textColor = UIColor(hex: "#A0A3A7")
+            statusLabel.text = "•未连接"
+            return
+        }
+        guard let scannedDevice = BluetoothManager.shared.findScannedDevice(for: connectedPeripheral) else { return }
+        if device.imeiNum == scannedDevice.imei {
             statusView.backgroundColor = UIColor(hex: "#DFF5EA")
             statusLabel.textColor = UIColor(hex: "#16C282")
             statusLabel.text = "•已连接"

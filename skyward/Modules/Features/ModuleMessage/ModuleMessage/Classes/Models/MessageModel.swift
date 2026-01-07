@@ -161,9 +161,8 @@ struct UrgentMessage: TableCodable, Codable {
     let sendUserBaseInfoVO: UrgentUser?
     let receiveUserBaseInfoVO: UrgentUser?
     
-    public enum CodingKeys: String, CodingTableKey {
-        public typealias Root = UrgentMessage
-        public static let objectRelationalMapping = TableBinding(CodingKeys.self)
+    enum CodingKeys: String, CodingTableKey {
+        typealias Root = UrgentMessage
         
         case id
         case sendId
@@ -174,10 +173,8 @@ struct UrgentMessage: TableCodable, Codable {
         case sendUserBaseInfoVO
         case receiveUserBaseInfoVO
         
-        public static var columnConstraintBindings: [CodingKeys: BindColumnConstraint]? {
-            return [
-                .id: ColumnConstraintConfig(id, isPrimary: true, defaultTo: "id")
-            ]
+        static let objectRelationalMapping = TableBinding(CodingKeys.self) {
+            BindColumnConstraint(id, isPrimary: true)
         }
     }
 }

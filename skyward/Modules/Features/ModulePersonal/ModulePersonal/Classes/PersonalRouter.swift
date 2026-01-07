@@ -20,3 +20,16 @@ class BindDevicePageRouter: RoutableActionType {
         return ["\(RouteTable.bindDevicePageUrl)[^\\s]*"]
     }
 }
+
+
+class ProDevicePageRouter: RoutableActionType {
+    
+    static func handle(_ url: any URLConvertible, _ callback: ((Any?) -> Void)?) -> Bool {
+        UIWindow.topViewController()?.navigationController?.pushViewController(ProDeviceDetailViewController(), animated: true)
+        return true
+    }
+    
+    static var patterns: [String] {
+        return ["\(RouteTable.proDevicePageUrl)[^\\s]*"]
+    }
+}

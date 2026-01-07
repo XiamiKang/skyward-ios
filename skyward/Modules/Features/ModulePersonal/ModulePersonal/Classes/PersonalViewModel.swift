@@ -27,7 +27,7 @@ public class PersonalViewModel: ObservableObject {
     
     // MARK: - 输入
     public struct Input {
-        let deviceListRequest = PassthroughSubject<BaseModel, Never>()
+        public let deviceListRequest = PassthroughSubject<BaseModel, Never>()
         let deviceFirmwareRequest = PassthroughSubject<DeviceFirmwareModel, Never>()
         let emergencyRequest = PassthroughSubject<Void, Never>()
         let getUserInfoRequest = PassthroughSubject<Void, Never>()
@@ -59,6 +59,7 @@ public class PersonalViewModel: ObservableObject {
                 }
             } receiveValue: { [weak self] data in
                 self?.deviceListData = data
+                MiniDeviceDBManager.shared.insertFromMiniDeviceList(data)
             }
             .store(in: &cancellables)
         
