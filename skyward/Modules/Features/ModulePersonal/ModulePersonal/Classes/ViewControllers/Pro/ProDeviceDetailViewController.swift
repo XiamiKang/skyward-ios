@@ -20,6 +20,9 @@ class ProDeviceDetailViewController: PersonalBaseViewController {
     private let viewModel = PersonalViewModel()
     private var mode: Int = 1
     private var isHaveGetDeviceMsg: Bool = false
+    private var connect = false
+    private var collectingSuccess = false
+    
     
     private lazy var proTableView: UITableView = {
         let tableView = UITableView(frame: .zero, style: .plain)
@@ -47,11 +50,6 @@ class ProDeviceDetailViewController: PersonalBaseViewController {
         startStatusUpdates()
     }
     
-//    override func viewWillAppear(_ animated: Bool) {
-//        super.viewWillAppear(animated)
-//        startStatusUpdates()
-//    }
-//    
     override func viewWillDisappear(_ animated: Bool) {
         super.viewWillDisappear(animated)
         stopStatusUpdates()
@@ -97,11 +95,7 @@ class ProDeviceDetailViewController: PersonalBaseViewController {
         wifiDeviceManager.onStatusUpdate = { [weak self] status in
             DispatchQueue.main.async {
                 self?.deviceStatus = status
-                if let cell = self?.proTableView.cellForRow(at: IndexPath(row: 0, section: 0)) as? ProDeviceBaseMsgCell {
-                    cell.updateModeChooseAndCollecitonUI(with: status)
-                }
-                self?.proTableView.reloadRows(at: [IndexPath(row: 0, section: 0)], with: .none)
-                self?.proTableView.reloadRows(at: [IndexPath(row: 1, section: 0)], with: .none)
+                self?.proTableView.reloadData()
             }
         }
         
@@ -119,12 +113,10 @@ class ProDeviceDetailViewController: PersonalBaseViewController {
     // MARK: - 状态更新
     private func startStatusUpdates() {
         // 如果已经连接，开始定时更新状态
+        self.connect = wifiDeviceManager.isConnected
+        self.proTableView.reloadData()
+        
         if wifiDeviceManager.isConnected {
-            // 连接成功后立即获取一次状态
-            if let cell = self.proTableView.cellForRow(at: IndexPath(row: 0, section: 0)) as? ProDeviceBaseMsgCell {
-                cell.changeStatus(isConnect: true)
-            }
-
             statusUpdateTimer = Timer.scheduledTimer(withTimeInterval: 3.0, repeats: true) { [weak self] _ in
                 self?.updateDeviceStatus()
             }
@@ -188,12 +180,11 @@ class ProDeviceDetailViewController: PersonalBaseViewController {
             case .success:
                 DispatchQueue.main.async {
                     // 连接成功后立即获取一次状态
-                    if let cell = self?.proTableView.cellForRow(at: IndexPath(row: 0, section: 0)) as? ProDeviceBaseMsgCell {
-                        cell.changeStatus(isConnect: true)
-                    }
+                    self?.connect = true
+                    self?.proTableView.reloadData()
                     self?.updateConnectionStatus(true)
                 }
-            case .failure(let error):
+            case .failure(_):
                 DispatchQueue.main.async {
                     self?.view.sw_showWarningToast("连接失败: 请确认您的WiFi连接正确")
                 }
@@ -219,10 +210,7 @@ class ProDeviceDetailViewController: PersonalBaseViewController {
                 case .success(let success):
                     let message = success ? "一键收藏成功" : "一键收藏失败"
                     self?.view.sw_showSuccessToast(message)
-                    // 通知Cell更新按钮状态
-                    if let cell = self?.proTableView.cellForRow(at: IndexPath(row: 0, section: 0)) as? ProDeviceBaseMsgCell {
-                        cell.stopCollecting(with: success)
-                    }
+                    self?.collectingSuccess = success
                 case .failure(let error):
                     self?.view.sw_showWarningToast("收藏失败: \(error.localizedDescription)")
                     // 通知Cell更新按钮状态
@@ -351,6 +339,11 @@ extension ProDeviceDetailViewController: UITableViewDelegate, UITableViewDataSou
         switch indexPath.row {
         case 0:
             let cell = tableView.dequeueReusableCell(withIdentifier: "ProDeviceBaseMsgCell") as! ProDeviceBaseMsgCell
+            cell.changeStatus(isConnect: connect)
+            cell.stopCollecting(with: collectingSuccess)
+            if let deviceStatus = deviceStatus {
+                cell.updateModeChooseAndCollecitonUI(with: deviceStatus)
+            }
             cell.collectionAction = { [weak self] in
                 guard let self = self else {return}
                 self.performAutoOff()
@@ -410,10 +403,10 @@ extension ProDeviceDetailViewController: UITableViewDelegate, UITableViewDataSou
                     self.pushToUpdateVC()
                     return
                 case 4:
-                    self.pushToWebVC(with: "http://192.168.0.1", title: "192.168.0.1")
+                    self.pushToWebVC(with: "http://192.168.0.1", title: "路由器设置")
                     return
                 case 5:
-                    self.pushToWebVC(with: "http://192.168.0.8", title: "192.168.0.8")
+                    self.pushToWebVC(with: "http://192.168.0.8", title: "卫星参数")
                     return
                 default:
                     return

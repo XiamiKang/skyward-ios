@@ -264,16 +264,6 @@ extension DeviceListViewController: UICollectionViewDataSource, UICollectionView
                     return
                 }
                 let device = miniDevices[indexPath.item]
-//                print("点击设备: \(device.name ?? "")")
-//                let scannedDevices = BluetoothManager.shared.getAllScannedDevices()
-//                for scannedDevice in scannedDevices {
-//                    if device.imeiNum == scannedDevice.imei {
-//                        navigateToMiniDeviceDetail(with: scannedDevice)
-//                    }
-////                    else {
-////                        view.sw_showWarningToast("未找到该设备，请确认设备打开")
-////                    }
-//                }
                 navigateToMiniDeviceDetail(with: device)
                 BluetoothManager.shared.stopScanning()
                

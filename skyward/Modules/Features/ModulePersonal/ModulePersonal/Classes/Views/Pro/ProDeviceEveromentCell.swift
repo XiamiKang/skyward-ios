@@ -37,7 +37,7 @@ class ProDeviceEveromentCell: UITableViewCell {
         bgView.layer.cornerRadius = 8
         contentView.addSubview(bgView)
         
-        envrionmentTitle.text = "环境"
+        envrionmentTitle.text = "终端温湿度"
         envrionmentTitle.textColor = UIColor(str: "#070808")
         envrionmentTitle.font = UIFont.systemFont(ofSize: 16, weight: .medium)
         bgView.addSubview(envrionmentTitle)

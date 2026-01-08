@@ -392,6 +392,7 @@ class ProDeviceBaseMsgCell: UITableViewCell {
         if status.mode == 1 {
             modeCatTapped()
         }
+        satelliteStatusImageView.image = PersonalModule.image(named: "device_mini_line_satellite")
         stopCollecting(with: true)
     }
     

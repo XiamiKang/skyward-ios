@@ -37,7 +37,7 @@ TODO: Add long description of the pod here.
      'SWKit' => ['SWKit/Assets/*.xcassets']
    }
    
-   s.vendored_frameworks = 'SWKit/Frameworks/*.framework'
+   s.vendored_frameworks = 'SWKit/Frameworks/*'
    
   # s.public_header_files = 'Pod/Classes/**/*.h'
   # s.frameworks = 'UIKit', 'MapKit'

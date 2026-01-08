@@ -218,20 +218,20 @@ class ProDeviceDebugViewController: PersonalBaseViewController {
             controlTitle.topAnchor.constraint(equalTo: controlBGView.topAnchor, constant: 16),
             controlTitle.leadingAnchor.constraint(equalTo: controlBGView.leadingAnchor, constant: 16),
             
-            resetAUGView.topAnchor.constraint(equalTo: controlTitle.bottomAnchor, constant: 16),
-            resetAUGView.leadingAnchor.constraint(equalTo: controlBGView.leadingAnchor, constant: 16),
-            resetAUGView.widthAnchor.constraint(equalToConstant: itemWidth),
-            resetAUGView.heightAnchor.constraint(equalToConstant: 70),
+            beaconStrengthView.topAnchor.constraint(equalTo: controlTitle.bottomAnchor, constant: 16),
+            beaconStrengthView.leadingAnchor.constraint(equalTo: controlBGView.leadingAnchor, constant: 16),
+            beaconStrengthView.widthAnchor.constraint(equalToConstant: itemWidth),
+            beaconStrengthView.heightAnchor.constraint(equalToConstant: 70),
             
             shareAUGLogView.topAnchor.constraint(equalTo: controlTitle.bottomAnchor, constant: 16),
-            shareAUGLogView.leadingAnchor.constraint(equalTo: resetAUGView.trailingAnchor),
+            shareAUGLogView.leadingAnchor.constraint(equalTo: beaconStrengthView.trailingAnchor),
             shareAUGLogView.widthAnchor.constraint(equalToConstant: itemWidth),
             shareAUGLogView.heightAnchor.constraint(equalToConstant: 70),
             
-            beaconStrengthView.topAnchor.constraint(equalTo: controlTitle.bottomAnchor, constant: 16),
-            beaconStrengthView.leadingAnchor.constraint(equalTo: shareAUGLogView.trailingAnchor),
-            beaconStrengthView.widthAnchor.constraint(equalToConstant: itemWidth),
-            beaconStrengthView.heightAnchor.constraint(equalToConstant: 70),
+            resetAUGView.topAnchor.constraint(equalTo: controlTitle.bottomAnchor, constant: 16),
+            resetAUGView.leadingAnchor.constraint(equalTo: shareAUGLogView.trailingAnchor),
+            resetAUGView.widthAnchor.constraint(equalToConstant: itemWidth),
+            resetAUGView.heightAnchor.constraint(equalToConstant: 70),
             
             logGBView.topAnchor.constraint(equalTo: controlBGView.bottomAnchor, constant: 16),
             logGBView.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 16),
@@ -284,6 +284,10 @@ class ProDeviceDebugViewController: PersonalBaseViewController {
     }
     
     private func shareAUGLog() {
+        WiFiDeviceManager.shared.queryLog { result in
+            
+        }
+        
         WiFiDeviceManager.shared.queryStoredLogs { [weak self] result in
             DispatchQueue.main.async {
                 switch result {

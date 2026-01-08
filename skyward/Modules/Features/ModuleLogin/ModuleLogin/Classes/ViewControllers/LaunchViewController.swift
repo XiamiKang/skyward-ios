@@ -15,7 +15,7 @@ open class LaunchViewController: UIViewController {
 
     private lazy var txLogoImageView: UIImageView = {
         let iv = UIImageView()
-        iv.image = LoginModule.image(named: "tx_logo")
+        iv.image = LoginModule.image(named: "launch_label")
         iv.contentMode = .scaleAspectFit
         return iv
     }()
@@ -76,10 +76,8 @@ open class LaunchViewController: UIViewController {
         }
         
         txLogoImageView.snp.makeConstraints { make in
-            make.top.equalToSuperview().offset(158)
             make.centerX.equalToSuperview()
-            make.height.equalTo(218)
-            make.width.equalTo(166)
+            make.centerY.equalToSuperview().multipliedBy(0.67)
         }
         
         protectionView.snp.makeConstraints { make in

@@ -67,6 +67,8 @@ public class HomeViewModel: ObservableObject {
         
         // 天气
         getWeatherInfo()
+        
+        WiFiDeviceManager.shared.connect()
     }
     
     deinit {

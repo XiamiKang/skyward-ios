@@ -5,6 +5,7 @@
 //  Created by 赵波 on 2025/11/11.
 //
 
+import UIKit
 import TXKit
 import TXRouterKit
 import SWKit
@@ -18,6 +19,7 @@ import ModuleLogin
 import SWNetwork
 
 @main
+
 class AppDelegate: UIResponder, UIApplicationDelegate {
     
     var window: UIWindow?
@@ -45,8 +47,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
 // MARK: - Life Cycle
 extension AppDelegate {
     
-    func application(_ application: UIApplication,
-                     didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey : Any]? = nil) -> Bool {
+    func application(_ application: UIApplication, didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?) -> Bool {
         
         for service in _sortedServices {
             service.application(application, didFinishLaunchingWithOptions: launchOptions)
@@ -82,11 +83,40 @@ extension AppDelegate {
         
         let aWindow = UIWindow(frame: UIScreen.main.bounds)
         self.window = aWindow
+        self.window?.backgroundColor = .white
         Bootstrap.shared.window = aWindow
         Bootstrap.shared.runMainFlow()
-        aWindow.makeKeyAndVisible()
+        self.window?.makeKeyAndVisible()
+        
+        DispatchQueue.main.async {
+            if let win = self.window, !win.isKeyWindow {
+                print("⚠️ 窗口不是keyWindow，重新设置")
+                self.useFallbackWindowStrategy()
+            }
+        }
 
         return true
+    }
+    
+    private func useFallbackWindowStrategy() {
+        print("使用备用窗口策略...")
+        
+        // 创建全新的窗口，使用更高的windowLevel
+        let fallbackWindow = UIWindow(frame: UIScreen.main.bounds)
+        fallbackWindow.windowLevel = .alert + 1  // 非常高的层级
+        fallbackWindow.backgroundColor = .white  // 明显的测试颜色
+
+        Bootstrap.shared.window = fallbackWindow
+        Bootstrap.shared.runMainFlow()
+        
+        // 立即显示
+        fallbackWindow.isHidden = false
+        fallbackWindow.makeKey()
+        
+        // 替换原来的window
+        self.window = fallbackWindow
+        
+        print("✅ 备用窗口已激活")
     }
     
     public func applicationDidBecomeActive(_ application: UIApplication) {

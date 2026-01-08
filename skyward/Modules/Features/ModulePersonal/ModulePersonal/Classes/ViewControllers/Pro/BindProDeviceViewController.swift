@@ -17,6 +17,7 @@ class BindProDeviceViewController: PersonalBaseViewController {
     private let tipImageView = UIImageView()
     private let tipTextLabel = UILabel()
     private var wifiName: String?
+    private var bssid: String?
     
     // 添加 Loading 相关属性
     private let loadingView: UIView = {
@@ -188,10 +189,13 @@ class BindProDeviceViewController: PersonalBaseViewController {
     
     @objc private func stateBindProClick() {
         // 显示 loading
-        
         if let wifiName = wifiName,
            wifiName.contains("天行探索") {
             showLoading()
+            if let bssid = bssid {
+                let device = WiFiDevice(identifier: bssid)
+                WiFiDeviceStorageManager.shared.saveDevice(device)
+            }
             WiFiDeviceManager.shared.connect { [weak self] result in
                 guard let self = self else { return }
                 
@@ -213,6 +217,9 @@ class BindProDeviceViewController: PersonalBaseViewController {
     }
     
     private func proDeviceLineSuccess() {
+        if let bssid = bssid {
+            WiFiDeviceStorageManager.shared.updateDeviceStatus(identifier: bssid, isConnected: true)
+        }
         let bindSuccessVC = BindProSuccessViewController()
         self.navigationController?.pushViewController(bindSuccessVC, animated: true)
     }
@@ -228,7 +235,7 @@ class BindProDeviceViewController: PersonalBaseViewController {
         dataSource = [
             SettingData(
                 titleStr: titles[0],
-                contentStr: wifiName ?? "天行探索卫星地面站",
+                contentStr: wifiName ?? "未知",
                 canChange: true
             ),
             SettingData(
@@ -264,6 +271,7 @@ class BindProDeviceViewController: PersonalBaseViewController {
         WiFiDeviceManager.shared.checkWiFiPermission { [weak self] wifiInfo in
             if wifiInfo.isAvailable {
                 self?.wifiName = wifiInfo.ssid
+                self?.bssid = wifiInfo.bssid
                 self?.loadWifiData()
             }
         }

@@ -375,7 +375,16 @@ public class WiFiDeviceManager {
             return
         }
         
-        // 3. 检查是否是命令响应
+        // 3. 检查是否是状态更新
+        if let status = ProDeviceStatus(from: extractResponseContent(message)) {
+            print("设备状态更新")
+            DispatchQueue.main.async {
+                self.onStatusUpdate?(status)
+            }
+            return
+        }
+        
+        // 4. 检查是否是命令响应
         if let (commandKey, response) = parseCommandResponse(message) {
             print("命令响应[\(commandKey)]: \(response)")
             
@@ -385,15 +394,6 @@ public class WiFiDeviceManager {
                 self.responseSemaphores[commandKey]?.signal()
             }
             
-            return
-        }
-        
-        // 4. 检查是否是状态更新
-        if let status = ProDeviceStatus(from: extractResponseContent(message)) {
-            print("设备状态更新")
-            DispatchQueue.main.async {
-                self.onStatusUpdate?(status)
-            }
             return
         }
         
