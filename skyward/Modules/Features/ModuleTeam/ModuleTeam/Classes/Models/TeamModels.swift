@@ -274,8 +274,13 @@ struct Team: TableCodable {
     let conversationId: String?
     let isDisband: Bool?
     
+<<<<<<< HEAD
     enum CodingKeys: String, CodingTableKey {
         typealias Root = Team
+=======
+    public enum CodingKeys: String, CodingTableKey {
+        public typealias Root = Team
+>>>>>>> 20fc44d5ab4219634e38220ee9e33bbea66d58a8
 
         case id
         case number

@@ -125,6 +125,10 @@ class TeamSettingViewController: BaseViewController {
             guard let team = self.team else {
                 return
             }
+<<<<<<< HEAD
+=======
+            DBManager.shared.insertToDb(objects: [team], intoTable: DBTableName.team.rawValue)
+>>>>>>> 20fc44d5ab4219634e38220ee9e33bbea66d58a8
             
             DispatchQueue.main.async {[weak self] in
                 
