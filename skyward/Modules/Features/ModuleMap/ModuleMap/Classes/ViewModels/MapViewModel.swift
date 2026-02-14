@@ -24,7 +24,7 @@ public class MapViewModel: ObservableObject {
     private let locationManager = LocationManager()
     
     // MARK: - 输出属性（使用 @Published 直接定义）
-    @Published public var routeListData: RouteListData?
+    @Published public var routeListData: [RouteData]?
     @Published public var userPoiListData: [UserPOIData]?
     @Published public var weatherData: WeatherAPIResponse?
     @Published public var customPointData: [MapSearchPointMsgData]?
@@ -33,7 +33,7 @@ public class MapViewModel: ObservableObject {
     
     // MARK: - 输入
     public struct Input {
-        let routeListRequest = PassthroughSubject<RouteListModel, Never>()
+        let routeListRequest = PassthroughSubject<RouteListReq, Never>()
         let userPoiListRequest = PassthroughSubject<PublicPOIListModel, Never>()
         let weatherRequest = PassthroughSubject<Void, Never>()
         let locationRequest = PassthroughSubject<Void, Never>()
@@ -57,7 +57,7 @@ public class MapViewModel: ObservableObject {
     private func bind() {
         // 绑定路线列表请求
         input.routeListRequest
-            .flatMap { [weak self] model -> AnyPublisher<RouteListData, MapError> in
+            .flatMap { [weak self] model -> AnyPublisher<[RouteData], MapError> in
                 guard let self = self else {
                     return Fail(error: .networkError("ViewModel 已释放")).eraseToAnyPublisher()
                 }
@@ -263,10 +263,10 @@ public class MapViewModel: ObservableObject {
 // MARK: - 网络请求
 extension MapViewModel {
     // 
-    private func fetchRouteList(model: RouteListModel) -> AnyPublisher<RouteListData, MapError> {
+    private func fetchRouteList(model: RouteListReq) -> AnyPublisher<[RouteData], MapError> {
         isLoading = true
         
-        return Future<RouteListData, MapError> { [weak self] promise in
+        return Future<[RouteData], MapError> { [weak self] promise in
             guard let self = self else { return }
             
             self.mapService.getRouteList(model) { result in
@@ -276,7 +276,7 @@ extension MapViewModel {
                     switch result {
                     case .success(let response):
                         do {
-                            let baseResponse = try JSONDecoder().decode(BaseResponse<RouteListData>.self, from: response.data)
+                            let baseResponse = try JSONDecoder().decode(BaseResponse<[RouteData]>.self, from: response.data)
                             
                             if baseResponse.success, let data = baseResponse.data {
                                 promise(.success(data))
@@ -586,11 +586,6 @@ extension MapViewModel {
     
     func checkValidTrackName(_ name: String?, completion:((String?) ->Void)?) {
         guard let name = name?.trimmingCharacters(in: .whitespacesAndNewlines), !name.isEmpty else {
-            completion?("请输入轨迹名称")
-            return
-        }
-        if name.count > 30 {
-            completion?("最多输入30个字符")
             return
         }
         // 无网络没法敏感词校验

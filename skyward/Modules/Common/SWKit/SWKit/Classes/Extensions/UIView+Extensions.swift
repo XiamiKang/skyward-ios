@@ -18,8 +18,8 @@ public extension UIView {
         makeToast(message, image: SWKitModule.image(named: "toast_success"))
     }
     
-    func sw_showWarningToast(_ message: String) {
-        guard !message.isEmpty else {
+    func sw_showWarningToast(_ message: String?) {
+        guard let message = message, !message.isEmpty else {
             return
         }
         makeToast(message, image: SWKitModule.image(named: "toast_warning"))

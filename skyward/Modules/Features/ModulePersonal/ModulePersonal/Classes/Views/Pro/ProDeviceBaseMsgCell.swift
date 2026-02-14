@@ -20,13 +20,8 @@ class ProDeviceBaseMsgCell: UITableViewCell {
     private let deviceImageView = UIImageView()
     private let deviceNameLabel = UILabel()
     private let connectionStatusLabel = UILabel()
+    private let nowModelLabel = UILabel()
     private let wifiStatusImageView = UIImageView()
-    private let modeCatImageView = UIImageView()
-    private let modeGroundImageView = UIImageView()
-    private let modeCatLabel = UILabel()
-    private let modeGroundLabel = UILabel()
-    private let modeCatButton = UIButton(type: .custom)
-    private let modeGroundButton = UIButton(type: .custom)
     private let satelliteStatusImageView = UIImageView()
     private let collectButton = UIButton(type: .custom)
     private let lineStarButton = UIButton(type: .custom)
@@ -43,7 +38,6 @@ class ProDeviceBaseMsgCell: UITableViewCell {
     var collectionAction: (() -> Void)?
     var lineStarAction: (() -> Void)?
     var quintupleTapAction: (() -> Void)? // 新增：连续点击5次的回调
-    var resendModlAction: ((Int) -> Void)?
     
     // 按钮状态
     private var isCollecting: ProDeviceButtonState = .incomplete {
@@ -115,34 +109,12 @@ class ProDeviceBaseMsgCell: UITableViewCell {
         satelliteStatusImageView.contentMode = .scaleAspectFit
         bgView.addSubview(satelliteStatusImageView)
         
-        
         // 车载状态
-        modeCatImageView.translatesAutoresizingMaskIntoConstraints = false
-        modeCatImageView.image = PersonalModule.image(named: "device_pro_mode_sel")
-        bgView.addSubview(modeCatImageView)
-        modeCatLabel.translatesAutoresizingMaskIntoConstraints = false
-        modeCatLabel.text = "车载模式"
-        modeCatLabel.textColor = .black
-        modeCatLabel.font = .systemFont(ofSize: 12, weight: .regular)
-        bgView.addSubview(modeCatLabel)
-        modeCatButton.translatesAutoresizingMaskIntoConstraints = false
-        modeCatButton.backgroundColor = .clear
-        modeCatButton.addTarget(self, action: #selector(modeCatTapped), for: .touchUpInside)
-        bgView.addSubview(modeCatButton)
-        
-        // 地面状态
-        modeGroundImageView.translatesAutoresizingMaskIntoConstraints = false
-        modeGroundImageView.image = PersonalModule.image(named: "device_pro_mode")
-        bgView.addSubview(modeGroundImageView)
-        modeGroundLabel.translatesAutoresizingMaskIntoConstraints = false
-        modeGroundLabel.text = "地面模式"
-        modeGroundLabel.textColor = .black
-        modeGroundLabel.font = .systemFont(ofSize: 12, weight: .regular)
-        bgView.addSubview(modeGroundLabel)
-        modeGroundButton.translatesAutoresizingMaskIntoConstraints = false
-        modeGroundButton.backgroundColor = .clear
-        modeGroundButton.addTarget(self, action: #selector(modeGroundTapped), for: .touchUpInside)
-        bgView.addSubview(modeGroundButton)
+        nowModelLabel.translatesAutoresizingMaskIntoConstraints = false
+        nowModelLabel.text = "当前模式：车载模式"
+        nowModelLabel.textColor = .black
+        nowModelLabel.font = .systemFont(ofSize: 12, weight: .regular)
+        bgView.addSubview(nowModelLabel)
         
         // 收藏按钮
         collectButton.translatesAutoresizingMaskIntoConstraints = false
@@ -205,8 +177,12 @@ class ProDeviceBaseMsgCell: UITableViewCell {
             connectionStatusLabel.widthAnchor.constraint(equalToConstant: 55),
             connectionStatusLabel.heightAnchor.constraint(equalToConstant: 30),
             
+            // 当前模式
+            nowModelLabel.topAnchor.constraint(equalTo: deviceNameLabel.bottomAnchor, constant: 10),
+            nowModelLabel.leadingAnchor.constraint(equalTo: deviceImageView.trailingAnchor, constant: 16),
+            
             // 蓝牙状态
-            wifiStatusImageView.topAnchor.constraint(equalTo: deviceNameLabel.bottomAnchor, constant: 10),
+            wifiStatusImageView.topAnchor.constraint(equalTo: nowModelLabel.bottomAnchor, constant: 10),
             wifiStatusImageView.leadingAnchor.constraint(equalTo: deviceImageView.trailingAnchor, constant: 16),
             wifiStatusImageView.widthAnchor.constraint(equalToConstant: 16),
             wifiStatusImageView.heightAnchor.constraint(equalToConstant: 16),
@@ -217,32 +193,8 @@ class ProDeviceBaseMsgCell: UITableViewCell {
             satelliteStatusImageView.widthAnchor.constraint(equalToConstant: 16),
             satelliteStatusImageView.heightAnchor.constraint(equalToConstant: 16),
             
-            // 车载模式
-            modeCatImageView.topAnchor.constraint(equalTo: wifiStatusImageView.bottomAnchor, constant: 16),
-            modeCatImageView.leadingAnchor.constraint(equalTo: deviceImageView.trailingAnchor, constant: 16),
-            modeCatImageView.widthAnchor.constraint(equalToConstant: 12),
-            modeCatImageView.heightAnchor.constraint(equalToConstant: 12),
-            modeCatLabel.centerYAnchor.constraint(equalTo: modeCatImageView.centerYAnchor),
-            modeCatLabel.leadingAnchor.constraint(equalTo: modeCatImageView.trailingAnchor, constant: 5),
-            modeCatButton.centerYAnchor.constraint(equalTo: modeCatImageView.centerYAnchor),
-            modeCatButton.leadingAnchor.constraint(equalTo: deviceImageView.trailingAnchor, constant: 15),
-            modeCatButton.widthAnchor.constraint(equalToConstant: 80),
-            modeCatButton.heightAnchor.constraint(equalToConstant: 22),
-            
-            // 地面模式
-            modeGroundImageView.topAnchor.constraint(equalTo: wifiStatusImageView.bottomAnchor, constant: 16),
-            modeGroundImageView.leadingAnchor.constraint(equalTo: modeCatButton.trailingAnchor, constant: 16),
-            modeGroundImageView.widthAnchor.constraint(equalToConstant: 12),
-            modeGroundImageView.heightAnchor.constraint(equalToConstant: 12),
-            modeGroundLabel.centerYAnchor.constraint(equalTo: modeGroundImageView.centerYAnchor),
-            modeGroundLabel.leadingAnchor.constraint(equalTo: modeGroundImageView.trailingAnchor, constant: 5),
-            modeGroundButton.centerYAnchor.constraint(equalTo: modeGroundImageView.centerYAnchor),
-            modeGroundButton.leadingAnchor.constraint(equalTo: modeCatButton.trailingAnchor, constant: 15),
-            modeGroundButton.widthAnchor.constraint(equalToConstant: 80),
-            modeGroundButton.heightAnchor.constraint(equalToConstant: 22),
-            
             // 收藏按钮
-            collectButton.topAnchor.constraint(equalTo: modeCatButton.bottomAnchor, constant: 15),
+            collectButton.topAnchor.constraint(equalTo: wifiStatusImageView.bottomAnchor, constant: 15),
             collectButton.leadingAnchor.constraint(equalTo: deviceImageView.trailingAnchor, constant: 16),
             collectButton.widthAnchor.constraint(equalToConstant: 90), // 增加宽度容纳指示器
             collectButton.heightAnchor.constraint(equalToConstant: 32),
@@ -372,16 +324,12 @@ class ProDeviceBaseMsgCell: UITableViewCell {
     // MARK: - Actions
     @objc private func modeCatTapped() {
         print("车载按钮点击")
-        resendModlAction?(1)
-        modeCatImageView.image = PersonalModule.image(named: "device_pro_mode_sel")
-        modeGroundImageView.image = PersonalModule.image(named: "device_pro_mode")
+        nowModelLabel.text = "当前模式：车载模式"
     }
     
     @objc private func modeGroundTapped() {
         print("地面按钮点击")
-        resendModlAction?(0)
-        modeCatImageView.image = PersonalModule.image(named: "device_pro_mode")
-        modeGroundImageView.image = PersonalModule.image(named: "device_pro_mode_sel")
+        nowModelLabel.text = "当前模式：地面模式"
     }
     
     // 对星完成更新模式
@@ -392,8 +340,18 @@ class ProDeviceBaseMsgCell: UITableViewCell {
         if status.mode == 1 {
             modeCatTapped()
         }
-        satelliteStatusImageView.image = PersonalModule.image(named: "device_mini_line_satellite")
-        stopCollecting(with: true)
+        if status.antennaStatus == .stableTracking {
+            satelliteStatusImageView.image = PersonalModule.image(named: "device_mini_line_satellite")
+        }else {
+            satelliteStatusImageView.image = PersonalModule.image(named: "device_mini_noLine_satellite")
+        }
+        
+        if status.antennaStatus == .stored {
+            stopCollecting(with: false)
+        }else {
+            stopCollecting(with: true)
+        }
+        
     }
     
     @objc private func collectionButtonTapped() {

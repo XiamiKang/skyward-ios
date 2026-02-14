@@ -28,7 +28,7 @@ public class PersonalViewModel: ObservableObject {
     // MARK: - 输入
     public struct Input {
         public let deviceListRequest = PassthroughSubject<BaseModel, Never>()
-        let deviceFirmwareRequest = PassthroughSubject<DeviceFirmwareModel, Never>()
+        public let deviceFirmwareRequest = PassthroughSubject<DeviceFirmwareModel, Never>()
         let emergencyRequest = PassthroughSubject<Void, Never>()
         let getUserInfoRequest = PassthroughSubject<Void, Never>()
     }
@@ -316,6 +316,43 @@ extension PersonalViewModel {
         .eraseToAnyPublisher()
     }
     
+    // MARK: - 获取紧急联系人列表
+    public func getEmergencyList() -> AnyPublisher<[EmergencyInfoData], PersonalError> {
+        isLoading = true
+        
+        return Future<[EmergencyInfoData], PersonalError> { [weak self] promise in
+            guard let self = self else { return }
+            
+            self.personalService.getEmergencyContactList { result in
+                DispatchQueue.main.async {
+                    self.isLoading = false
+                    
+                    switch result {
+                    case .success(let response):
+                        do {
+                            let baseResponse = try JSONDecoder().decode(BaseResponse<[EmergencyInfoData]>.self, from: response.data)
+                            
+                            if baseResponse.success, let data = baseResponse.data {
+                                promise(.success(data))
+                            } else {
+                                promise(.failure(.businessError(
+                                    message: baseResponse.msg,
+                                    code: baseResponse.code
+                                )))
+                            }
+                        } catch {
+                            promise(.failure(.parseError("数据解析失败")))
+                        }
+                        
+                    case .failure(let error):
+                        promise(.failure(.networkError(error.localizedDescription)))
+                    }
+                }
+            }
+        }
+        .eraseToAnyPublisher()
+    }
+    
     // MARK: - 更新紧急联系人
     public func updateEmergencyContact(model: EmergencyContactModel) -> AnyPublisher<Bool, PersonalError> {
         isLoading = true
@@ -347,6 +384,43 @@ extension PersonalViewModel {
             guard let self = self else { return }
             
             self.personalService.addEmergencyContact(model) { result in
+                DispatchQueue.main.async {
+                    self.isLoading = false
+                    
+                    switch result {
+                    case .success(let response):
+                        do {
+                            let baseResponse = try JSONDecoder().decode(BaseResponse<Bool>.self, from: response.data)
+                            
+                            if baseResponse.success, let data = baseResponse.data {
+                                promise(.success(data))
+                            } else {
+                                promise(.failure(.businessError(
+                                    message: baseResponse.msg,
+                                    code: baseResponse.code
+                                )))
+                            }
+                        } catch {
+                            promise(.failure(.parseError("数据解析失败")))
+                        }
+                        
+                    case .failure(let error):
+                        promise(.failure(.networkError(error.localizedDescription)))
+                    }
+                }
+            }
+        }
+        .eraseToAnyPublisher()
+    }
+    
+    // 删除紧急联系人
+    public func deleteEmergencyContact(id: String) -> AnyPublisher<Bool, PersonalError> {
+        isLoading = true
+        
+        return Future<Bool, PersonalError> { [weak self] promise in
+            guard let self = self else { return }
+            
+            self.personalService.deleteEmergencyContact(id) { result in
                 DispatchQueue.main.async {
                     self.isLoading = false
                     

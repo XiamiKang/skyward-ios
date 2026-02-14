@@ -1,17 +1,17 @@
 {
   "images" : [
     {
-      "filename" : "20px-line-电话联系.png",
+      "filename" : "24px-line-电话联系.png",
       "idiom" : "universal",
       "scale" : "1x"
     },
     {
-      "filename" : "20px-line-电话联系@2x.png",
+      "filename" : "24px-line-电话联系@2x.png",
       "idiom" : "universal",
       "scale" : "2x"
     },
     {
-      "filename" : "20px-line-电话联系@3x.png",
+      "filename" : "24px-line-电话联系@3x.png",
       "idiom" : "universal",
       "scale" : "3x"
     }

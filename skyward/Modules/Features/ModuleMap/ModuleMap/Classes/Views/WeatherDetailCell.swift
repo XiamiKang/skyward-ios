@@ -55,7 +55,7 @@ class WeatherDetailCell: UITableViewCell {
         currentWeatherView.translatesAutoresizingMaskIntoConstraints = false
         
         // 天气图标
-        weatherIconImageView.image = MapModule.image(named: "100")
+        weatherIconImageView.image = MapModule.image(named: "999")
         weatherIconImageView.contentMode = .scaleAspectFit
         weatherIconImageView.translatesAutoresizingMaskIntoConstraints = false
         

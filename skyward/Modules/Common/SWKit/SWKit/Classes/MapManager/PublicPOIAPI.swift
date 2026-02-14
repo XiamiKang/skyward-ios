@@ -109,7 +109,7 @@ public struct PublicPOIListModel {
     }
     
     public func toDictionary() -> [String: Any] {
-        var dictionary: [String: Any] = [
+        let dictionary: [String: Any] = [
             "pageNum": pageNum,
             "pageSize": pageSize
         ]
@@ -131,8 +131,8 @@ public struct PublicPOIData: Codable {
     public let wgsLon: Double?
     public let wgsLat: Double?
     public let images: String?
-    public let isCollection: Bool?
-    public let isIsCheck: Bool?
+    public var isCollection: Bool?
+    public var isIsCheck: Bool?
 }
 
 extension PublicPOIData: TableCodable {

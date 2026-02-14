@@ -18,6 +18,9 @@ public class MessageModule: ModuleType {
     
     /// 当前模块的路由
     public var routeSettings: [any RoutableType.Type] {
-        return [ConvPageRouter.self, UrgentMessagePageRouter.self]
+        return [ConvPageRouter.self,
+                UrgentMessagePageRouter.self,
+                StartMonitorMessageRouter.self,
+                StopMonitorMessageRouter.self]
     }
 }

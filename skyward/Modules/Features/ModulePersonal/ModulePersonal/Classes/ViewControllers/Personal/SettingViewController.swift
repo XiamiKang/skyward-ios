@@ -57,6 +57,15 @@ class SettingViewController: PersonalBaseViewController {
         view.addSubview(tableView)
         view.addSubview(bottomButton)
         
+#if DEBUG
+        let tap = UITapGestureRecognizer(target: self, action: #selector(goLogManager))
+        tap.numberOfTapsRequired = 3
+        view.addGestureRecognizer(tap)
+#endif
+    }
+    
+    @objc private func goLogManager(){
+        navigationController?.pushViewController(LogExportViewController(), animated: true)
     }
     
     private func setupConstraints() {

@@ -7,6 +7,7 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		B41746DE2F162DEA0026C6CF /* AppLaunchManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = B41746DD2F162DEA0026C6CF /* AppLaunchManager.swift */; };
 		B4886CCD2EFA95D60013C412 /* Citys.plist in Resources */ = {isa = PBXBuildFile; fileRef = B4886CCC2EFA95D60013C412 /* Citys.plist */; };
 		B4886CDA2EFB950F0013C412 /* PrivacyPolicy.html in Resources */ = {isa = PBXBuildFile; fileRef = B4886CD82EFB950F0013C412 /* PrivacyPolicy.html */; };
 		B4886CDB2EFB950F0013C412 /* UserAgreement.html in Resources */ = {isa = PBXBuildFile; fileRef = B4886CD92EFB950F0013C412 /* UserAgreement.html */; };
@@ -24,6 +25,7 @@
 		1CD17FB7FB8F7D90131AB7D9 /* Pods-skyward.debug.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-skyward.debug.xcconfig"; path = "Target Support Files/Pods-skyward/Pods-skyward.debug.xcconfig"; sourceTree = "<group>"; };
 		889022F314AC7D1EDC63439F /* Pods_skyward.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; includeInIndex = 0; path = Pods_skyward.framework; sourceTree = BUILT_PRODUCTS_DIR; };
 		88EBD98ADA6305CAAD57F062 /* Pods-skyward.release.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-skyward.release.xcconfig"; path = "Target Support Files/Pods-skyward/Pods-skyward.release.xcconfig"; sourceTree = "<group>"; };
+		B41746DD2F162DEA0026C6CF /* AppLaunchManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppLaunchManager.swift; sourceTree = "<group>"; };
 		B4886CCC2EFA95D60013C412 /* Citys.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Citys.plist; sourceTree = "<group>"; };
 		B4886CD82EFB950F0013C412 /* PrivacyPolicy.html */ = {isa = PBXFileReference; lastKnownFileType = text.html; path = PrivacyPolicy.html; sourceTree = "<group>"; };
 		B4886CD92EFB950F0013C412 /* UserAgreement.html */ = {isa = PBXFileReference; lastKnownFileType = text.html; path = UserAgreement.html; sourceTree = "<group>"; };
@@ -92,6 +94,7 @@
 			children = (
 				F261450A2ECB19510018F242 /* Info.plist */,
 				F26143AD2EC31A020018F242 /* AppDelegate.swift */,
+				B41746DD2F162DEA0026C6CF /* AppLaunchManager.swift */,
 				B4D3CBE62ED3EAD7006D0305 /* scanning.json */,
 				B4A323772EE18AF400A5EEEF /* DroidSansFallback.ttf */,
 				B4B702812EE82DB5006C618B /* scene3d.yaml */,
@@ -211,13 +214,9 @@
 			inputFileListPaths = (
 				"${PODS_ROOT}/Target Support Files/Pods-skyward/Pods-skyward-frameworks-${CONFIGURATION}-input-files.xcfilelist",
 			);
-			inputPaths = (
-			);
 			name = "[CP] Embed Pods Frameworks";
 			outputFileListPaths = (
 				"${PODS_ROOT}/Target Support Files/Pods-skyward/Pods-skyward-frameworks-${CONFIGURATION}-output-files.xcfilelist",
-			);
-			outputPaths = (
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
@@ -231,6 +230,7 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				B41746DE2F162DEA0026C6CF /* AppLaunchManager.swift in Sources */,
 				F26143BA2EC31A020018F242 /* AppDelegate.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -362,7 +362,7 @@
 				CODE_SIGN_IDENTITY = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 2;
-				DEVELOPMENT_TEAM = 2N2M8NL7AJ;
+				DEVELOPMENT_TEAM = 7S86Y9Q83J;
 				ENABLE_PREVIEWS = YES;
 				ENABLE_USER_SCRIPT_SANDBOXING = NO;
 				FRAMEWORK_SEARCH_PATHS = (
@@ -371,7 +371,7 @@
 				);
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = skyward/Info.plist;
-				INFOPLIST_KEY_CFBundleDisplayName = "行者 Adventure";
+				INFOPLIST_KEY_CFBundleDisplayName = "行者Dev";
 				INFOPLIST_KEY_NSBluetoothAlwaysUsageDescription = "需要蓝牙权限来连接您的设备";
 				INFOPLIST_KEY_NSBluetoothPeripheralUsageDescription = "需要蓝牙权限来连接您的设备";
 				INFOPLIST_KEY_NSCameraUsageDescription = "需要使用您的相机获取图片用于头像更新";
@@ -399,7 +399,7 @@
 				LD_RUNPATH_SEARCH_PATHS = "@executable_path/Frameworks\"";
 				"LD_RUNPATH_SEARCH_PATHS[sdk=macosx*]" = "@executable_path/../Frameworks";
 				MARKETING_VERSION = 1.0.0;
-				PRODUCT_BUNDLE_IDENTIFIER = com.bjtxts.skyward;
+				PRODUCT_BUNDLE_IDENTIFIER = com.txts.skyward;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				PROVISIONING_PROFILE_SPECIFIER = "";
 				REGISTER_APP_GROUPS = YES;
@@ -423,7 +423,7 @@
 				CODE_SIGN_IDENTITY = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 2;
-				DEVELOPMENT_TEAM = 2N2M8NL7AJ;
+				DEVELOPMENT_TEAM = 7S86Y9Q83J;
 				ENABLE_PREVIEWS = YES;
 				ENABLE_USER_SCRIPT_SANDBOXING = NO;
 				FRAMEWORK_SEARCH_PATHS = (
@@ -432,7 +432,7 @@
 				);
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = skyward/Info.plist;
-				INFOPLIST_KEY_CFBundleDisplayName = "行者 Adventure";
+				INFOPLIST_KEY_CFBundleDisplayName = "行者Dev";
 				INFOPLIST_KEY_NSBluetoothAlwaysUsageDescription = "需要蓝牙权限来连接您的设备";
 				INFOPLIST_KEY_NSBluetoothPeripheralUsageDescription = "需要蓝牙权限来连接您的设备";
 				INFOPLIST_KEY_NSCameraUsageDescription = "需要使用您的相机获取图片用于头像更新";
@@ -460,7 +460,7 @@
 				LD_RUNPATH_SEARCH_PATHS = "@executable_path/Frameworks\"";
 				"LD_RUNPATH_SEARCH_PATHS[sdk=macosx*]" = "@executable_path/../Frameworks";
 				MARKETING_VERSION = 1.0.0;
-				PRODUCT_BUNDLE_IDENTIFIER = com.bjtxts.skyward;
+				PRODUCT_BUNDLE_IDENTIFIER = com.txts.skyward;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				PROVISIONING_PROFILE_SPECIFIER = "";
 				REGISTER_APP_GROUPS = YES;

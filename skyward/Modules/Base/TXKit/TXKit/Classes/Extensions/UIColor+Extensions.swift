@@ -278,6 +278,44 @@ extension UIColor {
         
         return 1.6 < contrast
     }
+    
+    
+    /// 生成渐变颜色（静态图像）
+    ///
+    /// - Parameters:
+    ///   - colors: 渐变色数组
+    ///   - size: 渐变尺寸（默认 1x1）
+    ///   - startPoint: 渐变起始点 (0,0) 到 (1,1)
+    ///   - endPoint: 渐变结束点 (0,0) 到 (1,1)
+    /// - Returns: 渐变色的 UIColor
+    public static func gradient(
+        colors: [UIColor],
+        size: CGSize = CGSize(width: 1, height: 1),
+        startPoint: CGPoint = CGPoint(x: 0.5, y: 1),
+        endPoint: CGPoint = CGPoint(x: 0.5, y: 0)
+    ) -> UIColor {
+        let gradientLayer = CAGradientLayer()
+        gradientLayer.frame = CGRect(origin: .zero, size: size)
+        gradientLayer.colors = colors.map { $0.cgColor }
+        gradientLayer.startPoint = startPoint
+        gradientLayer.endPoint = endPoint
+        gradientLayer.locations = nil
+        
+        UIGraphicsBeginImageContextWithOptions(size, false, 0)
+        guard let context = UIGraphicsGetCurrentContext() else {
+            return UIColor.clear
+        }
+        
+        gradientLayer.render(in: context)
+        guard let gradientImage = UIGraphicsGetImageFromCurrentImageContext() else {
+            UIGraphicsEndImageContext()
+            return UIColor.clear
+        }
+        
+        UIGraphicsEndImageContext()
+        
+        return UIColor(patternImage: gradientImage)
+    }
 }
 
 // MARK: - Gradient

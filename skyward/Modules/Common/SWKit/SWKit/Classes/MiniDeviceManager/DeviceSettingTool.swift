@@ -80,7 +80,6 @@ public class PositionReportHelper {
         case 900: return "15分钟"
         case 1800: return "30分钟"
         case 3600: return "1小时"
-        case 7200: return "2小时"
         default:
             let minutes = value / 60
             return minutes >= 60 ? "\(minutes/60)小时" : "\(minutes)分钟"
@@ -93,13 +92,12 @@ public class PositionReportHelper {
         case "15分钟": return 900
         case "30分钟": return 1800
         case "1小时": return 3600
-        case "2小时": return 7200
-        default: return 1800
+        default: return 0
         }
     }
     
     public static var allOptions: [String] {
-        return ["不上报", "15分钟", "30分钟", "1小时", "2小时"]
+        return ["不上报", "15分钟", "30分钟", "1小时"]
     }
 }
 
@@ -107,25 +105,25 @@ public class PositionReportHelper {
 public class SavePointTimeHelper {
     public static func reportString(from value: UInt32) -> String {
         switch value {
-        case 600: return "10分钟"
-        case 1200: return "20分钟"
-        case 1800: return "30分钟"
+        case 180: return "3分钟"
+        case 300: return "5分钟"
+        case 900: return "15分钟"
         default:
-            return "30分钟"
+            return "15分钟"
         }
     }
     
     public static func reportValue(from string: String) -> UInt32 {
         switch string {
-        case "10分钟": return 600
-        case "20分钟": return 1200
-        case "30分钟": return 1800
-        default: return 1800
+        case "3分钟": return 180
+        case "5分钟": return 300
+        case "15分钟": return 900
+        default: return 900
         }
     }
     
     public static var allOptions: [String] {
-        return ["10分钟", "20分钟", "30分钟"]
+        return ["3分钟", "5分钟", "15分钟"]
     }
 }
 

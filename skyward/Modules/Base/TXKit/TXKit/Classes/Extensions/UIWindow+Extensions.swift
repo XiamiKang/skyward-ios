@@ -27,6 +27,44 @@ extension UIWindow {
         return topMost(of: rootViewController)
     }
     
+    /// Returns the current navigation controller
+    public class func currentNavigationController() -> UINavigationController? {
+        let topViewController = self.topViewController()
+        return navigationController(of: topViewController)
+    }
+    
+    /// Returns the navigation controller from given view controller's hierarchy.
+    public class func navigationController(of viewController: UIViewController?) -> UINavigationController? {
+        guard let viewController = viewController else {
+            return nil
+        }
+        
+        if let navigationController = viewController as? UINavigationController {
+            return navigationController
+        }
+        
+        return navigationController(of: viewController.parent)
+    }
+    
+    /// Finds a specific view controller type in the current navigation controller's stack
+    public class func findViewController<T: UIViewController>(ofType type: T.Type) -> T? {
+        guard let navigationController = self.currentNavigationController() else {
+            return nil
+        }
+        
+        return findViewController(ofType: type, in: navigationController)
+    }
+    
+    /// Finds a specific view controller type in the given navigation controller's stack
+    public class func findViewController<T: UIViewController>(ofType type: T.Type, in navigationController: UINavigationController) -> T? {
+        for viewController in navigationController.viewControllers {
+            if let targetViewController = viewController as? T {
+                return targetViewController
+            }
+        }
+        return nil
+    }
+    
     /// Returns the top most view controller from given view controller's stack.
     public class func topMost(of viewController: UIViewController?) -> UIViewController? {
         // presented view controller

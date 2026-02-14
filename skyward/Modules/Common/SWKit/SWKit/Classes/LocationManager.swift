@@ -12,6 +12,7 @@ import UIKit
 /// 定位管理类
 public typealias LocationPermissionCompletion = (CLAuthorizationStatus) -> Void
 public typealias LocationUpdateCompletion = (CLLocation?, Error?) -> Void
+public typealias ReverseGeocodeCompletion = (CLPlacemark?, Error?) -> Void
 
 let lastLocationKey = "lastLocationKey"
 
@@ -142,6 +143,55 @@ public class LocationManager: NSObject {
             return nil
         }
         return CLLocation(latitude: lastLocationDict["latitude"]!, longitude: lastLocationDict["longitude"]!)
+    }
+
+    // MARK: - Reverse Geocoding
+
+    /// 获取地址信息（便捷方法，带超时，使用独立的 geocoder 实例）
+    /// - Parameters:
+    ///   - location: 要转换的坐标位置
+    ///   - timeout: 超时时间（秒），默认 2 秒
+    ///   - completion: 完成回调，返回 CLPlacemark（包含地址信息）
+    public func reverseGeocode(location: CLLocation, timeout: TimeInterval = 2.0, completion: @escaping (CLPlacemark?) -> Void) {
+        // 为每个请求创建独立的 geocoder 实例，避免并发请求相互取消
+        let independentGeocoder = CLGeocoder()
+        var hasCompleted = false
+
+        // 超时处理
+        let timeoutWorkItem = DispatchWorkItem {
+            guard !hasCompleted else { return }
+            hasCompleted = true
+            debugPrint("反地理编码超时")
+            independentGeocoder.cancelGeocode()
+            completion(nil)
+        }
+
+        // 执行超时任务
+        DispatchQueue.main.asyncAfter(deadline: .now() + timeout, execute: timeoutWorkItem)
+
+        debugPrint("反地理编码经度：\(location.coordinate.longitude),纬度: \(location.coordinate.latitude)")
+
+        // 执行反地理编码
+        independentGeocoder.reverseGeocodeLocation(location) { placemarks, error in
+            guard !hasCompleted else { return }
+            hasCompleted = true
+            timeoutWorkItem.cancel()
+
+            if let error = error {
+                debugPrint("反地理编码失败: \(error.localizedDescription)")
+                completion(nil)
+                return
+            }
+
+            guard let placemark = placemarks?.first else {
+                debugPrint("反地理编码失败: 未找到地址信息")
+                completion(nil)
+                return
+            }
+
+            debugPrint("反地理编码成功: \(placemark.subLocality ?? "未知位置"), \(placemark.locality ?? "")")
+            completion(placemark)
+        }
     }
 }
 

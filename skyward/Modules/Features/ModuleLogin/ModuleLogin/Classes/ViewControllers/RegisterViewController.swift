@@ -379,7 +379,8 @@ extension RegisterViewController {
             
             DispatchQueue.main.asyncAfter(deadline: .now() + 1) {
                 // 注册成功后的操作，比如跳转到登录页面
-                self.navigationController?.popViewController(animated: true)
+                let LoginEmergencyContactVC = LoginEmergencyContactViewController()
+                self.navigationController?.pushViewController(LoginEmergencyContactVC, animated: true)
             }
             
         case .failure(let error):

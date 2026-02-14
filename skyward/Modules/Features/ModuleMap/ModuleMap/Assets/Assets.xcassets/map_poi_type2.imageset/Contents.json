@@ -1,17 +1,17 @@
 {
   "images" : [
     {
-      "filename" : "风景名胜.png",
+      "filename" : "poi_scenery.png",
       "idiom" : "universal",
       "scale" : "1x"
     },
     {
-      "filename" : "风景名胜@2x.png",
+      "filename" : "poi_scenery@2x.png",
       "idiom" : "universal",
       "scale" : "2x"
     },
     {
-      "filename" : "风景名胜@3x.png",
+      "filename" : "poi_scenery@3x.png",
       "idiom" : "universal",
       "scale" : "3x"
     }

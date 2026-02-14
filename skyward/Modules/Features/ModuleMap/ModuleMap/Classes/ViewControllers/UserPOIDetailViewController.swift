@@ -198,7 +198,7 @@ class UserPOIDetailViewController: UIViewController {
         print("删除按钮点击")
         SWAlertView.showAlert(title: "删除兴趣点", message: "你确定要删除该兴趣点吗？") { [weak self] in
             guard let self = self else { return }
-            if let poiId = self.poiData?.id {
+            if let poiId = self.poiData?.poiId {
                 self.mapViewModel.deleteUserPoi(poiId)
                     .receive(on: DispatchQueue.main)
                     .sink { [weak self] completion in

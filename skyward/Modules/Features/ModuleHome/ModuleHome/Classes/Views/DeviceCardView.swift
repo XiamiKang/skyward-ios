@@ -152,6 +152,10 @@ class DeviceCardView: UIView {
     }
     
     @objc private func handleTap() {
+        isUserInteractionEnabled = false
+        delay(0.4, block: {
+            self.isUserInteractionEnabled = true
+        })
         // 点击时切换选中状态（只有在有设备时才切换）
         if hasDevice {
             isSelected.toggle()

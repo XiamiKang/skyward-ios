@@ -14,6 +14,15 @@ class ProfileFunctionOneCell: UITableViewCell {
     static let identifier = "ProfileFunctionOneCell"
     
     // MARK: - UI组件
+    private let canvasView: UIView = {
+        let view = UIView()
+        view.translatesAutoresizingMaskIntoConstraints = false
+        view.backgroundColor = .white
+        view.layer.cornerRadius = 10
+        view.layer.maskedCorners = [.layerMinXMinYCorner, .layerMaxXMinYCorner] // 左上和右上
+        return view
+    }()
+    
     private let iconImageView: UIImageView = {
         let imageView = UIImageView()
         imageView.image = PersonalModule.image(named: "profile_cell_sosPhone")
@@ -60,7 +69,7 @@ class ProfileFunctionOneCell: UITableViewCell {
     // MARK: - UI设置
     private func setupUI() {
         self.selectionStyle = .none
-        self.backgroundColor = .white
+        self.backgroundColor = .clear
         
         if let phone = UserManager.shared.emergencyContact?.phone {
             infoLabel.text = phone.hidePhoneNumber()
@@ -68,27 +77,33 @@ class ProfileFunctionOneCell: UITableViewCell {
             infoLabel.text = "未设置"
         }
         
-        contentView.addSubview(iconImageView)
-        contentView.addSubview(titleLabel)
-        contentView.addSubview(infoLabel)
-        contentView.addSubview(arrowImageView)
+        contentView.addSubview(canvasView)
+        canvasView.addSubview(iconImageView)
+        canvasView.addSubview(titleLabel)
+        canvasView.addSubview(infoLabel)
+        canvasView.addSubview(arrowImageView)
         
         NSLayoutConstraint.activate([
-            iconImageView.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 16),
-            iconImageView.centerYAnchor.constraint(equalTo: contentView.centerYAnchor),
+            canvasView.topAnchor.constraint(equalTo: contentView.topAnchor),
+            canvasView.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 16),
+            canvasView.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -16),
+            canvasView.bottomAnchor.constraint(equalTo: contentView.bottomAnchor),
+            
+            iconImageView.leadingAnchor.constraint(equalTo: canvasView.leadingAnchor, constant: 16),
+            iconImageView.centerYAnchor.constraint(equalTo: canvasView.centerYAnchor),
             iconImageView.widthAnchor.constraint(equalToConstant: 24),
             iconImageView.heightAnchor.constraint(equalToConstant: 24),
             
             titleLabel.leadingAnchor.constraint(equalTo: iconImageView.trailingAnchor, constant: 12),
-            titleLabel.centerYAnchor.constraint(equalTo: contentView.centerYAnchor),
+            titleLabel.centerYAnchor.constraint(equalTo: canvasView.centerYAnchor),
             
-            arrowImageView.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -16),
-            arrowImageView.centerYAnchor.constraint(equalTo: contentView.centerYAnchor),
+            arrowImageView.trailingAnchor.constraint(equalTo: canvasView.trailingAnchor, constant: -16),
+            arrowImageView.centerYAnchor.constraint(equalTo: canvasView.centerYAnchor),
             arrowImageView.widthAnchor.constraint(equalToConstant: 12),
             arrowImageView.heightAnchor.constraint(equalToConstant: 12),
             
             infoLabel.trailingAnchor.constraint(equalTo: arrowImageView.leadingAnchor, constant: -8),
-            infoLabel.centerYAnchor.constraint(equalTo: contentView.centerYAnchor)
+            infoLabel.centerYAnchor.constraint(equalTo: canvasView.centerYAnchor)
         ])
     }
     

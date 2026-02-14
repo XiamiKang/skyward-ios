@@ -8,6 +8,7 @@
 import Foundation
 
 public struct EmergencyInfoData: Codable {
+    public let id: String?                        // id
     public let name: String?                      // 名称
     public let phone: String?                     // 手机号
 }

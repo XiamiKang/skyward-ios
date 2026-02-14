@@ -25,6 +25,7 @@ public enum DBTableName: String {
     case route = "routeTable"
     case routePoint = "routePointTable"
     case miniDevice = "miniDeviceTable"
+    case userPOI = "userPOITable"
 }
 
 
@@ -77,23 +78,26 @@ public class DBManager: NSObject {
     // MARK: - 增删改查
     
     /// 插入或替换（处理重复数据）
-    public func insertToDb<T: TableEncodable>(objects: [T] ,intoTable table: String) -> Void {
+    @discardableResult
+    public func insertToDb<T: TableEncodable>(objects: [T] ,intoTable table: String) -> Bool {
         guard let dataBase = dataBase else {
             debugPrint("[DataBase] 数据库未初始化，无法向表\(table)插入数据")
-            return
+            return false
         }
         
         guard !objects.isEmpty else {
             debugPrint("[DataBase] 插入数据为空，跳过插入操作")
-            return
+            return false
         }
         
         do {
             // 使用insertOrReplace来处理重复数据，如果主键已存在则更新
             try dataBase.insertOrReplace(objects, intoTable: table)
             debugPrint("[DataBase] 向表\(table)插入\(objects.count)条数据成功")
+            return true
         } catch let error {
             debugPrint("[DataBase] 向表\(table)插入数据错误 \(error.localizedDescription)")
+            return false
         }
     }
     

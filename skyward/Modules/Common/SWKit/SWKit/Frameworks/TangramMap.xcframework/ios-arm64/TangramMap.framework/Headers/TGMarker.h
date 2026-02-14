@@ -26,7 +26,9 @@ NS_ASSUME_NONNULL_BEGIN
 TG_EXPORT
 @interface TGMarker : NSObject
 
-// 使用 unsigned int 以匹配 uint32_t
+/**
+ This is the marker's ID, used to distinguish marker objects. It has read-only access.
+ */
 @property (readonly, nonatomic) unsigned int identifier;
 
 /**

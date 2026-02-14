@@ -30,3 +30,25 @@ class MapRouter: RoutableActionType {
         return ["\(RouteTable.mapPageUrl)[^\\s]*"]
     }
 }
+
+class RouteListRouter: RoutableActionType {
+
+    static func handle(_ url: any URLConvertible, _ callback: ((Any?) -> Void)?) -> Bool {
+        var params: [String : String] = [:]
+        if let queryParameters = url.urlValue?.queryParameters {
+            params = queryParameters
+        }
+        guard let typeStr = params["type"], let type = RouteType(rawValue: Int(typeStr) ?? 0) else {
+            return false
+        }
+        
+        let vc = RouteListViewController(type: type)
+        UIWindow.topViewController()?.navigationController?.pushViewController(vc, animated: true)
+        
+        return true
+    }
+    
+    static var patterns: [String] {
+        return ["\(RouteTable.routeListPageUrl)[^\\s]*"]
+    }
+}

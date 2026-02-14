@@ -224,8 +224,17 @@ extension BluetoothManager: CBCentralManagerDelegate {
             guard let self = self else { return }
             print("连接稳定，请求设备状态信息")
             self.requestStatusInfo()
-            self.requestDeviceInfo()
-            self.getSatelliteSignal()
+            // 第二个延迟0.1秒
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) { [weak self] in
+                guard let self = self else { return }
+                self.requestDeviceInfo()
+            }
+            
+            // 第三个延迟0.2秒
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) { [weak self] in
+                guard let self = self else { return }
+                self.getSatelliteSignal()
+            }
         }
     }
     

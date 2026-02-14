@@ -267,9 +267,16 @@ public class MiniDeviceDetailViewController: PersonalBaseViewController {
     }
     
     private func refreshMiniDeviceData() {
-        BluetoothManager.shared.requestDeviceInfo()
         BluetoothManager.shared.requestStatusInfo()
-        BluetoothManager.shared.getSatelliteSignal()
+        // 第二个延迟0.1秒
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+            BluetoothManager.shared.requestDeviceInfo()
+        }
+        
+        // 第三个延迟0.2秒
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
+            BluetoothManager.shared.getSatelliteSignal()
+        }
     }
 }
 

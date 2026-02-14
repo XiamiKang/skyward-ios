@@ -6,6 +6,7 @@
 //
 
 import UIKit
+import SWKit
 
 class BottomToolView: UIView {
 
@@ -24,6 +25,10 @@ class BottomToolView: UIView {
     private var navigationImageView = UIImageView()
     private let navigationLabel = UILabel()
     private let navigationButton = UIButton()
+    
+    private var isChecked: Bool = false
+    private var isCollected: Bool = false
+    private var poiData: PublicPOIData?
     
     // 按钮点击回调
     var onCheckTapped: (() -> Void)?
@@ -97,10 +102,42 @@ class BottomToolView: UIView {
     }
     
     @objc private func checkButtonTapped() {
+        if isChecked {
+            UIWindow.topWindow?.sw_showSuccessToast("取消打卡成功")
+            checkImageView.image = MapModule.image(named: "map_poi_checkin_unsel")
+        }else {
+            UIWindow.topWindow?.sw_showSuccessToast("打卡成功")
+            checkImageView.image = MapModule.image(named: "map_poi_checkin_sel")
+        }
+        isChecked = !isChecked
+        if var poi = self.poiData {
+            poi.isIsCheck = isChecked
+            POIDatabaseManager.shared.updatePOIWithObject(poi) { success, error in
+                if success {
+                    print("更新成功")
+                }
+            }
+        }
         onCheckTapped?()
     }
     
     @objc private func collectionButtonTapped() {
+        if isCollected {
+            UIWindow.topWindow?.sw_showSuccessToast("取消收藏成功")
+            collectionImageView.image = MapModule.image(named: "map_poi_collection_unsel")
+        }else {
+            UIWindow.topWindow?.sw_showSuccessToast("收藏成功")
+            collectionImageView.image = MapModule.image(named: "map_poi_collection_sel")
+        }
+        isCollected = !isCollected
+        if var poi = self.poiData {
+            poi.isCollection = isCollected
+            POIDatabaseManager.shared.updatePOIWithObject(poi) { success, error in
+                if success {
+                    print("更新成功")
+                }
+            }
+        }
         onCollectionTapped?()
     }
     
@@ -177,5 +214,15 @@ class BottomToolView: UIView {
             navigationButton.trailingAnchor.constraint(equalTo: navigationView.trailingAnchor),
             navigationButton.bottomAnchor.constraint(equalTo: navigationView.bottomAnchor),
         ])
+    }
+    
+    func updateWithPOIData(poiData: PublicPOIData) {
+        self.poiData = poiData
+        guard let isCheck = poiData.isIsCheck, let isCollection = poiData.isCollection else { return }
+        checkImageView.image = isCheck ? MapModule.image(named: "map_poi_checkin_sel") : MapModule.image(named: "map_poi_checkin_unsel")
+        collectionImageView.image = isCollection ? MapModule.image(named: "map_poi_collection_sel") : MapModule.image(named: "map_poi_collection_unsel")
+        isChecked = isCheck
+        isCollected = isCollection
+        
     }
 }

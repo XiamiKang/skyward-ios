@@ -112,6 +112,7 @@ public class UserManager {
                 do {
                     let networkResponse = try rsp.map(NetworkResponse<EmergencyContact>.self)
                     self.emergencyContact = networkResponse.data
+                    self.userInfo?.isSetEmergency = true
                     completion(self.emergencyContact)
                 } catch {
                     completion(nil)
@@ -148,6 +149,9 @@ public class UserManager {
     /// 清空用户信息
     private func cleanUserInfo() {
         UserDefaults.standard.removeObject(forKey: storageUserId())
+        userInfo = nil
+        emergencyContact = nil
+        TokenManager.shared.clearTokens()
     }
     
     /// 保存用户信息

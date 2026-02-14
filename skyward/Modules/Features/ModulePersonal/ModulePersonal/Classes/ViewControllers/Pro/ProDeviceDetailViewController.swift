@@ -230,6 +230,18 @@ class ProDeviceDetailViewController: PersonalBaseViewController {
             return
         }
         
+        let customView = ProDeviceModelChooseView()
+        customView.modeChooleWithIndex = { index in
+            self.mode = index
+        }
+        SWAlertView.showCustomAlert(title: "选择模式", customView: customView, confirmTitle: "确定", cancelTitle: "取消", confirmHandler: { [weak self] in
+            self?.satelliteClick()
+        })
+        
+        
+    }
+    
+    private func satelliteClick() {
         guard let location = LocationManager.lastLocation() else { return }
         // 对中国经纬度进行限制处理
         var longitude = location.coordinate.longitude
@@ -282,6 +294,7 @@ class ProDeviceDetailViewController: PersonalBaseViewController {
             }
         }
     }
+    
     
     private func performDeepSleep(enable: Bool) {
         guard wifiDeviceManager.isConnected else {
@@ -356,10 +369,7 @@ extension ProDeviceDetailViewController: UITableViewDelegate, UITableViewDataSou
                 guard let self = self else {return}
                 self.pushToDebugVC()
             }
-            cell.resendModlAction = { [weak self] mode in
-                guard let self = self else {return}
-                self.mode = mode
-            }
+            
             return cell
         case 1:
             let cell = tableView.dequeueReusableCell(withIdentifier: "ProDeviceStatusCell") as! ProDeviceStatusCell

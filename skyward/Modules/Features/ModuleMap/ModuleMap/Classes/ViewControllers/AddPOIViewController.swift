@@ -26,6 +26,7 @@ class AddPOIViewController: UIViewController {
     var selectedType: POIType?
     var selectedImages: [UIImage] = []
     var imgUrlList: [String] = []
+    var imgDataList: [Data] = []
     private let maxImageCount = 3
     
     // 添加变量跟踪当前编辑的控件
@@ -535,8 +536,17 @@ class AddPOIViewController: UIViewController {
     }
     
     @objc private func cancelButtonTapped() {
-        deleteCustomMarker?()
-        dismiss(animated: true)
+        guard let name = nameTextField.text?.trimmingCharacters(in: .whitespacesAndNewlines),
+              !name.isEmpty else {
+            deleteCustomMarker?()
+            dismiss(animated: true)
+            return
+        }
+        SWAlertView.showAlert(title: nil, message: "确定不保存兴趣点吗？", confirmTitle: "继续编辑" , cancelTitle: "不保存") { [weak self] in
+            guard let self = self else { return }
+            self.deleteCustomMarker?()
+            self.dismiss(animated: true)
+        }
     }
     
     @objc private func addButtonTapped() {
@@ -641,12 +651,28 @@ class AddPOIViewController: UIViewController {
                 .store(in: &viewModel.cancellables)
         }
         
+        var userPOILocalData = UserPOILocalData(name: poiName, lon: poiLon, lat: poiLat, category: poiCategory)
+        for (index, imageData) in imgDataList.enumerated() {
+            if index == 0 {
+                userPOILocalData.imageData1 = imageData
+            }
+            if index == 1 {
+                userPOILocalData.imageData2 = imageData
+            }
+            if index == 2 {
+                userPOILocalData.imageData3 = imageData
+            }
+        }
+        UserPOILocalDBManager.shared.insertOrUpdate(poiData: userPOILocalData)
+        
         print("保存兴趣点:")
         print("名称: \(poiName)")
         print("类型: \(poiCategory)")
         print("坐标: \(poiLon)--\(poiLat)")
         print("简介: \(poiDescription)")
         print("图片数量: \(poiUrlList.count)")
+        
+        
     }
     
     private func showAlert(title: String, message: String, completion: (() -> Void)? = nil) {
@@ -805,6 +831,10 @@ extension AddPOIViewController: PHPickerViewControllerDelegate {
                     DispatchQueue.main.async {
                         
                         self?.selectedImages.append(image)
+                        
+                        if let imageData = image.jpegData(compressionQuality: 0.8) {
+                            self?.imgDataList.append(imageData)
+                        }
                         
                         self?.uploadImage(image: image)
                         

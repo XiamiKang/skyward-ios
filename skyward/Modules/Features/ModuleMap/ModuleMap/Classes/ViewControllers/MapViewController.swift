@@ -14,11 +14,13 @@ import SnapKit
 import SWTheme
 import SWNetwork
 import Combine
+import WCDBSwift
 
 public class MapViewController: UIViewController {
     
     // MARK: - ViewModel
     private let viewModel = MapViewModel()
+    private let weatherViewModel = WeatherViewModel()
     private var cancellables = Set<AnyCancellable>()
     
     // MARK: - UI Components
@@ -26,6 +28,10 @@ public class MapViewController: UIViewController {
     private var searchTextField: UITextField!
     private var rightButtonStack: UIStackView!
     private var bottomButtonStack: UIStackView!
+    private var middleButtonStack: UIStackView!
+    private var topButtonStack: UIStackView!
+    private var rightButtonsBottomConstraint: NSLayoutConstraint!
+    private var mapSourceImageView: UIImageView!
     
     // 下边弹出框
     private var bottomSheet: BottomSheetView!
@@ -35,9 +41,11 @@ public class MapViewController: UIViewController {
     private var layerButton: UIButton!
     private var poiButton: UIButton!
     private var teamButton: UIButton!
+    private var weatherButton: UIButton!
     private var locationButton: UIButton!
     private var compassButton: UIButton!
     private var trajectoryButton: UIButton!
+    private var trackHistoryButton: UIButton!
     private var safeButton: UIButton!
     private var sosButton: UIButton!
     
@@ -54,10 +62,50 @@ public class MapViewController: UIViewController {
     private var isAddPOIing = false
     private var isAddRoute  = false {
         didSet {
-            routeBottomView.isHidden = !isAddRoute
-            if isAddRoute == false {
+            if isAddRoute {
+                navigationBar.setTitle("绘制路线", color: .white)
+                navigationBar.isHidden = false
+                searchView.isHidden = true
+                topButtonStack.isHidden = true
+                middleButtonStack.isHidden = true
+                routeManager.startRecord()
+            } else {
+                routeBottomView.isHidden = true
+                navigationBar.setTitle(nil)
+                navigationBar.isHidden = true
+                searchView.isHidden = false
+                topButtonStack.isHidden = false
+                middleButtonStack.isHidden = false
+                routeManager.endRecord()
                 distanceManager.clear()
-                routeManager.closeRecord()
+            }
+        }
+    }
+    
+    private var isAddTrack = false {
+        didSet {
+            if isAddTrack {
+                navigationBar.setTitle("记录轨迹", color: .white)
+                navigationBar.isHidden = false
+                trackBottomView.isHidden = false
+                trackHistoryButton.isHidden = false
+                searchView.isHidden = true
+                topButtonStack.isHidden = true
+                middleButtonStack.isHidden = true
+                
+                rightButtonsBottomConstraint.constant = -120
+                // tabbar 需要隐藏，动画淡化
+                //self.view 铺满整个屏幕
+            } else {
+                navigationBar.setTitle(nil)
+                navigationBar.isHidden = true
+                trackBottomView.isHidden = true
+                trackHistoryButton.isHidden = true
+                searchView.isHidden = false
+                topButtonStack.isHidden = false
+                middleButtonStack.isHidden = false
+                
+                rightButtonsBottomConstraint.constant = -61
             }
         }
     }
@@ -71,7 +119,9 @@ public class MapViewController: UIViewController {
     private var publicPoiDatas: [PublicPOIData]?
     private var customPoint: CGPoint = CGPoint(x: 0, y: 0)
     private var customPointView = CustomPointView()
+    private var pointWeatherView = PointWeatherView()
     private var addPointData: MapSearchPointMsgData?
+    private var singlePointCoordinate: CLLocationCoordinate2D?
     
     // MARK: - SOS Properties
     private var sosLongPressTimer: Timer?
@@ -97,6 +147,24 @@ public class MapViewController: UIViewController {
     
     private lazy var trackManager: TrackManager = {
         let mgr = TrackManager()
+        mgr.locationUpdateCompletion = { [weak self] location in
+            if let coordinate = location?.coordinate {
+                self?.distanceManager.trackLine(coordinate: coordinate)
+            }
+            
+            if let altitude = location?.altitude {
+                self?.trackBottomView.updateAltitude(String(format: "%.2fm", altitude))
+            }
+        }
+        mgr.routeUpdateHandler = { [weak self] route in
+            if let distance = route?.distance {
+                self?.trackBottomView.updateDistance(String(format: "%.2fkm", distance))
+            }
+            
+            if let duration = route?.travelTime {
+                self?.trackBottomView.updateDuration(duration.formatHMSDuration())
+            }
+        }
         return mgr
     }()
     
@@ -124,13 +192,9 @@ public class MapViewController: UIViewController {
         view.deleteButton.addAction(UIAction {[weak self] _ in
             self?.distanceManager.clear()
         }, for: .touchUpInside)
-        view.exitButton.addAction(UIAction {[weak self] _ in
-            self?.isMeasuring = false
-        }, for: .touchUpInside)
         
         self.view.addSubview(view)
         view.snp.makeConstraints { make in
-            make.width.equalTo(swAdaptedValue(216))
             make.height.equalTo(swAdaptedValue(40))
             make.centerX.equalToSuperview()
             make.bottom.equalToSuperview().inset(swAdaptedValue(36))
@@ -143,22 +207,66 @@ public class MapViewController: UIViewController {
        let view = RouteBottomView()
         view.revocationButton.addAction(UIAction {[weak self] _ in
             self?.distanceManager.revocation()
+            if self?.distanceManager.coordinates.count == 0 {
+                self?.routeBottomView.isHidden = true
+            }
         }, for: .touchUpInside)
         view.confirmButton.addAction(UIAction {[weak self] _ in
             self?.presentAddRouteVC()
         }, for: .touchUpInside)
-        view.exitButton.addAction(UIAction {[weak self] _ in
-            self?.isAddRoute = false
+        view.deleteButton.addAction(UIAction {[weak self] _ in
+            self?.distanceManager.clear()
+            self?.routeBottomView.isHidden = true
         }, for: .touchUpInside)
         
         self.view.addSubview(view)
         view.snp.makeConstraints { make in
-            make.width.equalTo(swAdaptedValue(216))
             make.height.equalTo(swAdaptedValue(40))
             make.centerX.equalToSuperview()
             make.bottom.equalToSuperview().inset(swAdaptedValue(36))
         }
         return view
+    }()
+    
+    private lazy var trackBottomView: RecordTrackBottomView = {
+        let bottomView = RecordTrackBottomView()
+        bottomView.endRecordHandler = { [weak self] in
+            self?.trackManager.stopRecord()
+            self?.presentAddTrackVC()
+        }
+        UIWindow.currentNavigationController()?.view.addSubview(bottomView)
+        bottomView.snp.makeConstraints { make in
+            make.height.equalTo(swAdaptedValue(148) + ScreenUtil.safeAreaBottom)
+            make.bottom.left.right.equalToSuperview()
+        }
+        return bottomView
+    }()
+    
+    private lazy var navigationBar: SWNavigationBar = {
+        let bar = SWNavigationBar()
+        bar.backgroundColor = .clear
+        bar.translatesAutoresizingMaskIntoConstraints = false
+        bar.setLeftButton(image: SWKitModule.image(named: "nav_arrow")?.withTintColor(.white)) { [weak self] in
+            if self?.isMeasuring == true {
+                self?.isMeasuring = false
+            }
+            if self?.isAddRoute == true {
+                self?.isAddRoute = false
+            }
+            if self?.isAddTrack == true {
+                self?.isAddTrack = false
+                if self?.trackManager.recording == false {
+                    self?.trajectoryButton.isSelected = false
+                }
+            }
+        }
+        view.addSubview(bar)
+        bar.snp.makeConstraints { make in
+            make.height.equalTo(44)
+            make.left.right.equalToSuperview()
+            make.top.equalToSuperview().inset(ScreenUtil.statusBarHeight)
+        }
+        return bar
     }()
     
     // MARK: - 生命周期
@@ -192,8 +300,11 @@ public class MapViewController: UIViewController {
 // MARK: - Setup
 extension MapViewController {
     
+    // MARK: - 地图初始化
     private func setupMap() {
         
+        MapConfig.shared.defaultZoom = 16
+        MapConfig.shared.saveConfig()
         let mapView = mapManager.createMapView(in: self.view, frame: self.view.frame)
         view.addSubview(mapView)
         
@@ -210,21 +321,42 @@ extension MapViewController {
             print("\(markerId)----点--被点击")
             if markerId.contains("custom") {
                 print("点击的----------------\(data.id)")
+                self?.pointWeatherView.isHidden = true
                 let pointId = String(markerId.dropFirst(7))
                 self?.getUserPointData(pointId: pointId)
-            }else if markerId.contains("campsite") || markerId.contains("scenicSpots") || markerId.contains("gasStation") {
-                let coordinate = CLLocationCoordinate2D(latitude: data.coordinate.latitude, longitude: data.coordinate.longitude)
-                self?.showWeatherDetail(with: data.title, address: data.subtitle ?? "", coordinate: coordinate)
+                return
+            }else if markerId.contains("campsite") || markerId.contains("scenicSpots") || markerId.contains("gasStation") || markerId.contains("medical") {
+                if let result = markerId.components(separatedBy: "_").last {
+                    self?.pointWeatherView.isHidden = true
+                    self?.showWeatherDetail(with: result)
+                }
+                return
+            } else if layerId == "myRoutesLine" {
+                self?.pointWeatherView.isHidden = true
+                self?.presentRouteDetail(data: data)
+                return
             }
         }
-        mapManager.onMapSingleTapHandler = {[weak self] coordinate in
-            if self?.isMeasuring == true {
-                self?.distanceManager.handleMapTap(at: coordinate)
+        mapManager.onMapSingleTapHandler = {[weak self] (coordinate, point) in
+            guard let self = self else { return }
+            if self.isMeasuring == true {
+                self.distanceManager.handleMapTap(at: coordinate)
+                return
             }
-            if self?.isAddRoute == true {
-                self?.distanceManager.addRouteLine(at: coordinate)
-                self?.routeManager.writePoint(coordinate)
+            if self.isAddRoute == true {
+                self.distanceManager.addRouteLine(at: coordinate)
+                self.routeManager.writePoint(coordinate)
+                self.routeBottomView.isHidden = false
+                return
             }
+            if self.isAddPOIing == true {
+                return
+            }
+            print("地图单点----点--被点击")
+            self.pointWeatherView.isHidden = false
+            self.singlePointCoordinate = coordinate
+            self.weatherViewModel.input.pointWeatherRequest.send(coordinate)
+            self.customPoint = point
         }
         
         mapManager.onAddCustomMarker = { [weak self] (coordinate, point) in
@@ -239,6 +371,7 @@ extension MapViewController {
             if let addPointData = self.addPointData {
                 self.closeCustomPointView(with: addPointData)
             }
+            self.closePointWeatherView()
         }
     }
     
@@ -251,6 +384,7 @@ extension MapViewController {
     
     private func setupNotifications() {
         NotificationCenter.default.addObserver(self, selector: #selector(changeMapSource(_:)), name: .updateMapSource, object: nil)
+        NotificationCenter.default.addObserver(self, selector: #selector(showNote(_:)), name: .updateMapNotes, object: nil)
         NotificationCenter.default.addObserver(self, selector: #selector(showSelectPoi(_:)), name: .updatePOILayers, object: nil)
     }
     
@@ -296,20 +430,6 @@ extension MapViewController {
     }
     
     private func setupRightButtons() {
-        // 描绘功能项
-        measureButton = createIconButton(
-            imageName: "map_distance",
-            title: "测距",
-            action: #selector(onMeasure)
-        )
-        
-        // 图层功能项
-        layerButton = createIconButton(
-            imageName: "map_layers",
-            title: "图层",
-            action: #selector(onBasemapPopup)
-        )
-        
         // 兴趣点功能项
         poiButton = createIconButton(
             imageName: "map_addPoint",
@@ -324,20 +444,42 @@ extension MapViewController {
             action: #selector(onTeam)
         )
         
-        // 右侧按钮堆栈
-        let functionStack = UIStackView(arrangedSubviews: [measureButton, layerButton, poiButton, teamButton])
-        functionStack.axis = .vertical
-        functionStack.spacing = 12
-        functionStack.distribution = .fillEqually
-        functionStack.backgroundColor = .white
-        functionStack.layer.cornerRadius = 12
-        functionStack.layoutMargins = UIEdgeInsets(top: 10, left: 0, bottom: 10, right: 0)
-        functionStack.isLayoutMarginsRelativeArrangement = true
+        // 轨迹按钮
+        trajectoryButton = createIconButton(
+            imageName: "map_trajectory",
+            title: "轨迹",
+            action: #selector(onStartRecordTrajectory)
+        )
+        trajectoryButton.setTitle("记录中", for: .selected)
+        trajectoryButton.setTitleColor(ThemeManager.current.mainColor, for: .selected)
+        trajectoryButton.setImage(MapModule.image(named: "map_trajectory_ing"), for: .selected)
         
-        // 定位按钮
-        locationButton = createCircleButton(
-            imageName: "map_myLocation",
-            action: #selector(onStartLocation)
+        // 顶部按钮堆栈
+        topButtonStack = UIStackView(arrangedSubviews: [poiButton, teamButton, trajectoryButton])
+        topButtonStack.axis = .vertical
+        topButtonStack.spacing = 12
+        topButtonStack.distribution = .fillEqually
+        topButtonStack.backgroundColor = .white
+        topButtonStack.layer.cornerRadius = 12
+        topButtonStack.layoutMargins = UIEdgeInsets(top: 10, left: 0, bottom: 10, right: 0)
+        topButtonStack.isLayoutMarginsRelativeArrangement = true
+        
+        // 天气按钮
+        weatherButton = createCircleButton(
+            imageName: "map_weather",
+            action: #selector(onWeather)
+        )
+        
+        // 测距功能项
+        measureButton = createCircleButton(
+            imageName: "map_distance",
+            action: #selector(onMeasure)
+        )
+        
+        // 图层功能项
+        layerButton = createCircleButton(
+            imageName: "map_layers",
+            action: #selector(onBasemapPopup)
         )
         
         // 指北按钮
@@ -346,10 +488,22 @@ extension MapViewController {
             action: #selector(onCompass)
         )
         
-        // 轨迹按钮
-        trajectoryButton = createCircleButton(
+        // 底部按钮堆栈
+        middleButtonStack = UIStackView(arrangedSubviews: [weatherButton, measureButton, layerButton, compassButton])
+        middleButtonStack.axis = .vertical
+        middleButtonStack.spacing = 12
+        
+        // 历史轨迹
+        trackHistoryButton = createCircleButton(
             imageName: "map_trajectory",
-            action: #selector(onStartRecordTrajectory)
+            action: #selector(onTrackHistory)
+        )
+        trackHistoryButton.isHidden = true
+        
+        // 定位按钮
+        locationButton = createCircleButton(
+            imageName: "map_myLocation",
+            action: #selector(onStartLocation)
         )
         
         // 报平安按钮
@@ -367,12 +521,12 @@ extension MapViewController {
         )
         
         // 底部按钮堆栈
-        bottomButtonStack = UIStackView(arrangedSubviews: [locationButton, compassButton, trajectoryButton, safeButton, sosButton])
+        bottomButtonStack = UIStackView(arrangedSubviews: [trackHistoryButton, locationButton, safeButton, sosButton])
         bottomButtonStack.axis = .vertical
         bottomButtonStack.spacing = 12
         
         // 主右侧堆栈
-        rightButtonStack = UIStackView(arrangedSubviews: [functionStack, bottomButtonStack])
+        rightButtonStack = UIStackView(arrangedSubviews: [topButtonStack, middleButtonStack, bottomButtonStack])
         rightButtonStack.axis = .vertical
         rightButtonStack.spacing = 12
         rightButtonStack.translatesAutoresizingMaskIntoConstraints = false
@@ -390,9 +544,22 @@ extension MapViewController {
             tapMaskView.trailingAnchor.constraint(equalTo: view.trailingAnchor),
             tapMaskView.bottomAnchor.constraint(equalTo: view.bottomAnchor)
         ])
+        
+        mapSourceImageView = UIImageView()
+        mapSourceImageView.translatesAutoresizingMaskIntoConstraints = false
+        mapSourceImageView.contentMode = .scaleAspectFit
+        mapSourceImageView.image = MapModule.image(named: "ic_layer_changguang")
+        view.addSubview(mapSourceImageView)
+        
+        NSLayoutConstraint.activate([
+            mapSourceImageView.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 12),
+            mapSourceImageView.bottomAnchor.constraint(equalTo: view.bottomAnchor, constant: -8),
+        ])
     }
     
     private func setupConstraints() {
+        
+        rightButtonsBottomConstraint = rightButtonStack.bottomAnchor.constraint(equalTo: view.bottomAnchor, constant: -61)
         NSLayoutConstraint.activate([
             
             // 搜索视图
@@ -402,55 +569,22 @@ extension MapViewController {
             searchView.heightAnchor.constraint(equalToConstant: 50),
             
             // 右侧按钮堆栈
-            rightButtonStack.topAnchor.constraint(equalTo: searchView.bottomAnchor, constant: 24),
+            rightButtonsBottomConstraint,
             rightButtonStack.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -16),
         ])
     }
     
     private func createIconButton(imageName: String, title: String, action: Selector) -> UIButton {
-        let button = UIButton(type: .system)
-        button.backgroundColor = .white
+        let button = UIButton(frame: CGRect(x: 0, y: 0, width: 44, height: 44))
+        button.titleLabel?.font = .pingFangFontMedium(ofSize: 12)
+        button.setTitle(title, for: .normal)
+        button.setTitleColor(ThemeManager.current.titleColor, for: .normal)
+        button.setImage(MapModule.image(named: imageName), for: .normal)
+        button.imageUpTitleDown()
         button.translatesAutoresizingMaskIntoConstraints = false
-        
-        // 创建垂直堆栈
-        let stackView = UIStackView()
-        stackView.axis = .vertical
-        stackView.spacing = 0
-        stackView.alignment = .center
-        stackView.isUserInteractionEnabled = false
-        stackView.translatesAutoresizingMaskIntoConstraints = false
-        
-        // 图标
-        let icon = UIImageView(image: MapModule.image(named: imageName))
-        icon.tintColor = .black
-        icon.contentMode = .scaleAspectFit
-        icon.translatesAutoresizingMaskIntoConstraints = false
-        
-        // 标题
-        let label = UILabel()
-        label.text = title
-        label.font = .systemFont(ofSize: 12, weight: .regular)
-        label.textColor = UIColor(str: "#070808")
-        label.translatesAutoresizingMaskIntoConstraints = false
-        
-        stackView.addArrangedSubview(icon)
-        stackView.addArrangedSubview(label)
-        
-        button.addSubview(stackView)
-        
         NSLayoutConstraint.activate([
-            icon.widthAnchor.constraint(equalToConstant: 24),
-            icon.heightAnchor.constraint(equalToConstant: 24),
-            
-            label.heightAnchor.constraint(equalToConstant: 17),
-            
-            // 堆栈视图居中
-            stackView.centerXAnchor.constraint(equalTo: button.centerXAnchor),
-            stackView.centerYAnchor.constraint(equalTo: button.centerYAnchor),
-            
-            // 按钮固定大小 - 移除冲突的约束
-            button.widthAnchor.constraint(equalToConstant: 41), // 增加宽度避免冲突
-            button.heightAnchor.constraint(equalToConstant: 41)
+            button.widthAnchor.constraint(equalToConstant: 44),
+            button.heightAnchor.constraint(equalToConstant: 44)
         ])
         
         button.addTarget(self, action: action, for: .touchUpInside)
@@ -479,11 +613,11 @@ extension MapViewController {
         NSLayoutConstraint.activate([
             icon.centerXAnchor.constraint(equalTo: button.centerXAnchor),
             icon.centerYAnchor.constraint(equalTo: button.centerYAnchor),
-            icon.widthAnchor.constraint(equalToConstant: isRadius ? 50 : 24),
-            icon.heightAnchor.constraint(equalToConstant: isRadius ? 50 : 24),
+            icon.widthAnchor.constraint(equalToConstant: isRadius ? 44 : 24),
+            icon.heightAnchor.constraint(equalToConstant: isRadius ? 44 : 24),
             
-            button.widthAnchor.constraint(equalToConstant: 50),
-            button.heightAnchor.constraint(equalToConstant: 50)
+            button.widthAnchor.constraint(equalToConstant: 44),
+            button.heightAnchor.constraint(equalToConstant: 44)
         ])
         
         return button
@@ -502,7 +636,7 @@ extension MapViewController {
                     self.addUserMarkers(with: data)
                 }
             }
-            .store(in: &viewModel.cancellables)
+            .store(in: &cancellables)
         
         viewModel.$customPointData
             .receive(on: DispatchQueue.main)
@@ -513,7 +647,15 @@ extension MapViewController {
                     self.addCustomMarkers(with: customPointData)
                 }
             }
-            .store(in: &viewModel.cancellables)
+            .store(in: &cancellables)
+        
+        weatherViewModel.$pointWeatherData
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] data in
+                guard let self = self, let data = data else { return }
+                self.showWeatherPointView(with: data)
+            }
+            .store(in: &cancellables)
         
         // 监听错误
         viewModel.$error
@@ -521,7 +663,7 @@ extension MapViewController {
             .sink { error in
                 guard let _ = error else { return }
             }
-            .store(in: &viewModel.cancellables)
+            .store(in: &cancellables)
         
         // 监听加载状态
         viewModel.$isLoading
@@ -533,7 +675,7 @@ extension MapViewController {
                     self?.hideLoading()
                 }
             }
-            .store(in: &viewModel.cancellables)
+            .store(in: &cancellables)
     }
     
     private func showLoading() {
@@ -550,7 +692,7 @@ extension MapViewController {
     private func loadInitialData() {
         
         // 请求路线列表数据
-        let routeModel = RouteListModel(type: "0", pageNum: "1", pageSize: "20")
+        let routeModel = RouteListReq(type: 0)
         viewModel.input.routeListRequest.send(routeModel)
         
         // 请求POI数据
@@ -637,18 +779,23 @@ extension MapViewController {
                     iconName: "map_addPoint_1",
                     action: { [weak self] in
                         print("添加兴趣点")
-                        self?.offMeasure()
-                        self?.addPointOfInterest()
-                        self?.hidePopupView()
+//                        self?.offMeasure()
+//                        self?.addPointOfInterest()
+//                        self?.hidePopupView()
+//                        self?.isAddPOIing = true
+                        
+                        let vc = MapSecondViewController()
+                        self?.navigationController?.pushViewController(vc, animated: true)
                     }
                 ),
                 PopupMenuItem(
                     title: "添加路线",
                     iconName: "map_addPoint_2",
                     action: { [weak self] in
-                        self?.offMeasure()
-                        self?.hidePopupView()
-                        self?.isAddRoute = true
+//                        self?.offMeasure()
+//                        self?.hidePopupView()
+//                        self?.isAddRoute = true
+                        self?.navigationController?.pushViewController(AddRouteViewController(), animated: false)
                     }
                 )
             ]
@@ -656,6 +803,11 @@ extension MapViewController {
         }
     }
 
+    // 天气
+    @objc private func onWeather() {
+        
+    }
+    
     // 队伍
     @objc private func onTeam() {
 
@@ -672,58 +824,15 @@ extension MapViewController {
     }
     
     @objc private func onStartRecordTrajectory() {
-        let recording = trackManager.recording
-        let items = [
-            PopupMenuItem(
-                title: "开始记录轨迹",
-                iconName: recording ? "map_track_on" : "map_track_off",
-                action: { [weak self] in
-                    if recording {
-                        self?.trackManager.stopRecord()
-                        var popupContainer: SWPopupView?
-                        let customView = AddTrackPopupView(trackName: self?.trackManager.currentRecord?.name)
-                        customView.closeHandler = {
-                            self?.distanceManager.clear()
-                            self?.trackManager.deleteRecords()
-                            popupContainer?.dismiss()
-                        }
-                        customView.confirmHandler = { recordName in
-                            self?.viewModel.checkValidTrackName(recordName) {[weak self] errorMsg in
-                                if let errorMsg = errorMsg {
-                                    UIWindow.topWindow?.sw_showWarningToast(errorMsg)
-                                } else {
-                                    customView.endEditing(true)
-                                    self?.distanceManager.clear()
-                                    self?.trackManager.saveRecords(recordName: recordName!)
-                                    popupContainer?.dismiss()
-                                }
-                            }
-                        }
-                        var cfg = SWPopupConfiguration()
-                        cfg.dismissOnMaskTap = false
-                        popupContainer = SWPopupView.showFromBottom(contentView: customView, configuration: cfg)
-                    } else {
-                        self?.trackManager.startRecord()
-                        self?.trackManager.locationUpdateCompletion = { [weak self] coordinate, error in
-                            if let coordinate = coordinate {
-                                self?.distanceManager.trackLine(coordinate: coordinate)
-                            }
-                        }
-                        
-                    }
-                    self?.hidePopupView()
-                }
-            ),
-            PopupMenuItem(
-                title: "我的历史轨迹",
-                iconName: "map_arrow_white",
-                action: { [weak self] in
-                    self?.hidePopupView()
-                    self?.prsentTrackRecordVC()
-                }
-            )
-        ]
-        showMenuPopover(items: items, type: .track)
+        if !trackManager.recording {
+            trackManager.startRecord()
+        }
+        isAddTrack = true
+        trajectoryButton.isSelected = true
+    }
+    
+    @objc private func onTrackHistory() {
+        SWRouter.handle(RouteTable.routeListPageUrl, parameters: ["type" : "1"])
     }
     
     @objc private func onSafeReport() {
@@ -1044,46 +1153,102 @@ extension MapViewController {
     }
     
     private func presentAddRouteVC() {
-        var popupContainer: SWPopupView?
-        let customView = AddRoutePopupView()
-        customView.closeHandler = { [weak self] in
-            self?.isAddRoute = false
-            popupContainer?.dismiss()
+        routeManager.getSessionRoute { route in
+            guard let route = route else {
+                return
+            }
+            var popupContainer: SWPopupView?
+            let customView = AddRoutePopupView(route: route)
+            customView.closeHandler = { [weak self] in
+                self?.isAddRoute = false
+                popupContainer?.dismiss()
+            }
+            customView.confirmHandler = {[weak self] name, desc in
+                self?.viewModel.checkValidTrackName(name + (desc ?? "")) { [weak self] errorMsg  in
+                    if let errorMsg = errorMsg {
+                        UIWindow.topWindow?.sw_showWarningToast(errorMsg)
+                    } else {
+                        self?.routeManager.saveRoute(name: name, desc: desc) { [weak self] in
+                            self?.isAddRoute = false
+                            popupContainer?.dismiss()
+                        }
+                    }
+                }
+            }
+            popupContainer = SWPopupView.showFromBottom(contentView: customView,
+                                                        configuration: SWPopupConfiguration(dismissOnMaskTap: false))
         }
-        customView.confirmHandler = {[weak self] name, desc in
-            self?.isAddRoute = false
-            self?.routeManager.saveRoute(name: name, desc: desc)
-            popupContainer?.dismiss()
-        }
-        var cfg = SWPopupConfiguration()
-        cfg.dismissOnMaskTap = false
-        popupContainer = SWPopupView.showFromBottom(contentView: customView, configuration: cfg)
     }
     
-    private func prsentTrackRecordVC() {
-        let trackRecordVC = TrackRecordViewController()
-        trackRecordVC.records = trackManager.getTrackRecords()
-        trackRecordVC.onClickCloseHandler = {[weak self] in
-            self?.distanceManager.clear()
-        }
-        trackRecordVC.onClickLookHandler = {[weak self] coordinates in
-            self?.distanceManager.trackLines(coordinates: coordinates)
-        }
-        trackRecordVC.onClickUnLookHandler = {[weak self] in
-            self?.distanceManager.clear()
-        }
-        trackRecordVC.onClickDeleteHandler = {[weak self] _ in
-            self?.distanceManager.clear()
+    private func presentAddTrackVC() {
+        trackManager.getSessionRoute { route in
+            guard let route = route else {
+                return
+            }
+            var popupContainer: SWPopupView?
+            let customView = AddRoutePopupView(route: route)
+            customView.closeHandler = { [weak self] in
+                self?.isAddTrack = false
+                self?.trackBottomView.clean()
+                self?.distanceManager.clear()
+                self?.trackManager.endRecord()
+                self?.trajectoryButton.isSelected = false
+                popupContainer?.dismiss()
+            }
+            customView.confirmHandler = { [weak self] name, desc in
+                self?.viewModel.checkValidTrackName(name) {[weak self] errorMsg in
+                    if let errorMsg = errorMsg {
+                        UIWindow.topWindow?.sw_showWarningToast(errorMsg)
+                    } else {
+                        self?.trackManager.saveRoute(name: name) { [weak self] in
+                            self?.isAddTrack = false
+                            self?.trackBottomView.clean()
+                            self?.trackManager.endRecord()
+                            self?.trajectoryButton.isSelected = false
+                            popupContainer?.dismiss()
+                        }
+                    }
+                }
+            }
+            popupContainer = SWPopupView.showFromBottom(contentView: customView,
+                                                        configuration: SWPopupConfiguration(dismissOnMaskTap: false))
         }
         
-        // 创建并设置自定义的过渡代理
-        let customTransitioningDelegate = CustomTransitioningDelegate(heightPercentage: 0.35)
-        trackRecordVC.customTransitioningDelegate = customTransitioningDelegate // 保持引用
-        trackRecordVC.transitioningDelegate = customTransitioningDelegate
-        trackRecordVC.modalPresentationStyle = .custom
+    }
+    
+    private func presentRouteDetail(data: MarkerData) {
+        var popupContainer: SWPopupView?
+        let routeId = String(data.id)
+        guard let route = DBManager.shared.queryFromDb(fromTable: DBTableName.route.rawValue, cls: Route.self, where: Route.Properties.id == routeId)?.first else {
+            return
+        }
         
-        // 展示页面
-        present(trackRecordVC, animated: true)
+        let customView = LookRoutePopupView(route: route)
+        customView.closeHandler = {
+            popupContainer?.dismiss()
+        }
+        customView.deleteHandler = {
+            popupContainer?.dismiss()
+            
+            self.view.sw_showLoading()
+            self.routeManager.deleteRoute(routeId) { [weak self] success in
+                self?.view.sw_hideLoading()
+                if success {
+                    guard let markerLayerManager = self?.mapManager.markerLayerManager else {
+                        return
+                    }
+                    //移除线
+                    markerLayerManager.removeMarker("\(routeId)", from: "myRoutesLine")
+                    //移除点
+                    if let points = self?.routeManager.getPointsInRoute(routeId: routeId), points.count > 1 {
+                        points.forEach { coordinate in
+                            markerLayerManager.removeMarker(String(coordinate.longitude), from: "myRoutesNode")
+                        }
+                    }
+                }
+            }
+        }
+        popupContainer = SWPopupView.showFromBottom(contentView: customView)
     }
     
     private func showToast(message: String) {
@@ -1099,32 +1264,23 @@ extension MapViewController {
 
 extension MapViewController {
     
-//    private func showPOIMsgView(location: CGPoint, point: CLLocationCoordinate2D) {
-//        let locationStr = "\(point.longitude),\(point.latitude)"
-//        viewModel.mapPointData(locationStr)
-//            .receive(on: DispatchQueue.main)
-//            .sink { completion in
-//                if case .failure(let error) = completion {
-//                    print("点位的信息获取失败--\(error)")
-//                }
-//            } receiveValue: { [weak self] data in
-//                guard let self = self else { return }
-//                print("点位的信息--\(data)")
-//            }
-//            .store(in: &viewModel.cancellables)
-//    }
-    
     // 当用户点击兴趣点时显示天气详情
-    func showWeatherDetail(with title: String, address: String, coordinate: CLLocationCoordinate2D) {
-        let weatherVC = POIWeatherDetailViewController(title: title, address: address, coordinate: coordinate)
-        if let sheet = weatherVC.sheetPresentationController {
-            sheet.detents = [.medium(), .large()]
-            sheet.prefersGrabberVisible = true
-            sheet.prefersEdgeAttachedInCompactHeight = true
-            sheet.widthFollowsPreferredContentSizeWhenEdgeAttached = true
-            sheet.delegate = weatherVC
+    func showWeatherDetail(with poiId: String) {
+        POIDatabaseManager.shared.fetchPOI(by: poiId) { [weak self] poi in
+            if let poi = poi {
+                print("公共兴趣点数据-----\(poi)")
+                let weatherVC = POIWeatherDetailViewController(poiData: poi)
+                if let sheet = weatherVC.sheetPresentationController {
+                    sheet.detents = [.medium(), .large()]
+                    sheet.prefersGrabberVisible = true
+                    sheet.prefersEdgeAttachedInCompactHeight = true
+                    sheet.widthFollowsPreferredContentSizeWhenEdgeAttached = true
+                    sheet.delegate = weatherVC
+                }
+                self?.present(weatherVC, animated: true)
+            }
         }
-        present(weatherVC, animated: true)
+        
     }
     
     func showUserPointDetail(with poiData: UserPOIData) {
@@ -1135,7 +1291,7 @@ extension MapViewController {
                 print("标记层管理器未初始化")
                 return
             }
-            if let code = poiData.id {
+            if let code = poiData.poiId {
                 markerLayerManager.removeMarker("custom_\(code)", from: "custom")
             }
         }
@@ -1170,9 +1326,23 @@ extension MapViewController {
     @objc private func changeMapSource(_ notification: Notification) {
         guard let userInfo = notification.userInfo else { return }
         if let sceneUrl = userInfo["sceneUrl"] as? String {
+            if sceneUrl.contains("天地图") {
+                mapSourceImageView.image = MapModule.image(named: "ic_layer_tianditu")
+            }else if sceneUrl.contains("吉林") {
+                mapSourceImageView.image = MapModule.image(named: "ic_layer_changguang")
+            }
             mapManager.switchTileSource(to: sceneUrl)
         }
             
+    }
+    
+    @objc private func showNote(_ notification: Notification) {
+        guard let userInfo = notification.userInfo else { return }
+        if let notes = userInfo["notes"] as? [String: Bool] {
+            if let isShow = notes["矢量注记"] {
+                mapManager.uploadNotesLayer(with: isShow)
+            }
+        }
     }
     
     @objc private func showSelectPoi(_ notification: Notification) {
@@ -1204,23 +1374,19 @@ extension MapViewController {
             if let gasStation = poiLayers["加油站"] {
                 markerLayerManager.setLayerVisible(gasStation, layerId: "gasStation")
             }
+            if let medical = poiLayers["医疗"] {
+                markerLayerManager.setLayerVisible(medical, layerId: "medical")
+            }
             if let custom = poiLayers["我的兴趣点"] {
                 markerLayerManager.setLayerVisible(custom, layerId: "custom")
                 markerLayerManager.setLayerVisible(custom, layerId: "newCustom")
             }
-            if let route = poiLayers["我的路线"] {
-                if route {
-                    if let routes = self.routeManager.getAllRoutes() {
-                        for route in routes {
-                            if let routeId = route.routeId, let points = self.routeManager.getPointsInRoute(routeId: routeId), points.count > 1 {
-                                let coordinates = points.map { CLLocationCoordinate2D(latitude: $0.latitude ?? 0, longitude: $0.longitude ?? 0) }
-                                self.distanceManager.showRoute(coordinates: coordinates)
-                            }
-                        }
-                    }
-                } else {
-                    self.distanceManager.clear()
+            if let myRoutes = poiLayers["我的路线"] {
+                if myRoutes {
+                    addRoutesMarkers()
                 }
+                markerLayerManager.setLayerVisible(myRoutes, layerId: "myRoutesLine")
+                markerLayerManager.setLayerVisible(myRoutes, layerId: "myRoutesNode")
             }
         }
     }
@@ -1233,8 +1399,12 @@ extension MapViewController {
         _ = markerLayerManager.createLayer(id: "campsite", name: "露营地", isVisible: false)
         _ = markerLayerManager.createLayer(id: "scenicSpots", name: "风景名胜", isVisible: false)
         _ = markerLayerManager.createLayer(id: "gasStation", name: "加油站", isVisible: false)
+        _ = markerLayerManager.createLayer(id: "medical", name: "医疗", isVisible: false)
         _ = markerLayerManager.createLayer(id: "custom", name: "自定义标注", isVisible: false)
         _ = markerLayerManager.createLayer(id: "newCustom", name: "添加自定义标注", isVisible: true)
+        _ = markerLayerManager.createLayer(id: "myRoutesLine", name: "我的路线", isVisible: true)
+        _ = markerLayerManager.createLayer(id: "myRoutesNode", name: "我的路线节点", isVisible: true)
+        _ = markerLayerManager.createLayer(id: "weather", name: "天气点", isVisible: true)
     }
     
     /// 添加公共兴趣点
@@ -1242,22 +1412,26 @@ extension MapViewController {
         guard let markersData = self.publicPoiDatas else { return }
 //        print("兴趣点消息------\(markersData)")
         // 添加露营地
-        let campsitesData = markersData.filter { $0.type?.contains("露营地") == true }
+        let campsitesData = markersData.filter { $0.category == 1 }
 //        print("露营地消息------\(campsitesData)")
-        addMarkerWirtStyle(poiData: campsitesData, styleStr: "campsite", styleType: .campsite)
+        addMarkerWirtStyle(poiData: campsitesData, styleStr: "campsite")
         
         // 添加风景名胜
-        let scenicSpotsData = markersData.filter { $0.type?.contains("风景名胜") == true }
+        let scenicSpotsData = markersData.filter { $0.category == 2 }
 //        print("风景名胜消息------\(scenicSpotsData)")
-        addMarkerWirtStyle(poiData: scenicSpotsData, styleStr: "scenicSpots", styleType: .scenicSpots)
+        addMarkerWirtStyle(poiData: scenicSpotsData, styleStr: "scenicSpots")
         
         // 添加加油站
-        let gasStationData = markersData.filter { $0.type?.contains("加油站") == true }
-        addMarkerWirtStyle(poiData: gasStationData, styleStr: "gasStation", styleType: .gasStation)
+        let gasStationData = markersData.filter { $0.category == 3 }
+        addMarkerWirtStyle(poiData: gasStationData, styleStr: "gasStation")
+        
+        // 添加医疗
+        let medicalData = markersData.filter { $0.category == 4 }
+        addMarkerWirtStyle(poiData: medicalData, styleStr: "medical")
         
     }
     
-    public func addMarkerWirtStyle(poiData: [PublicPOIData], styleStr: String, styleType: PresetStyleType) {
+    public func addMarkerWirtStyle(poiData: [PublicPOIData], styleStr: String) {
         guard let markerLayerManager = mapManager.markerLayerManager else {
             print("标记层管理器未初始化")
             return
@@ -1271,8 +1445,7 @@ extension MapViewController {
                     title: publicPoi.name ?? "",
                     subtitle: publicPoi.address ?? ""
                 )
-                
-                markerLayerManager.addMarkerWithPresetStyle(to: styleStr, data: data, styleType: styleType)
+                markerLayerManager.addMarker(to: styleStr, data: data)
             }
         }
     }
@@ -1286,7 +1459,7 @@ extension MapViewController {
         }
         
         for (_, userPoi) in pointData.enumerated() {
-            if let lat = userPoi.lat, let lon = userPoi.lon, let code = userPoi.id {
+            if let lat = userPoi.lat, let lon = userPoi.lon, let code = userPoi.poiId {
                 let coordinate = CLLocationCoordinate2D(latitude: lat, longitude: lon)
                 let data = MarkerData(
                     id: "custom_\(code)",
@@ -1294,7 +1467,7 @@ extension MapViewController {
                     title: userPoi.name ?? "",
                     subtitle: userPoi.description ?? ""
                 )
-                markerLayerManager.addMarkerWithPresetStyle(to: "custom", data: data, styleType: .user)
+                markerLayerManager.addMarker(to: "custom", data: data)
             }
         }
     }
@@ -1314,7 +1487,7 @@ extension MapViewController {
                 title: pointData.name ?? "",
                 subtitle: pointData.address ?? ""
             )
-            markerLayerManager.addMarkerWithPresetStyle(to: "newCustom", data: data, styleType: .user)
+            markerLayerManager.addMarker(to: "newCustom", data: data)
         }
         
         let x = max(customPoint.x - 120, 0)
@@ -1324,6 +1497,7 @@ extension MapViewController {
         customPointView.closeAction = { [weak self] in
             guard let self = self else { return }
             DispatchQueue.main.async {
+                self.isAddPOIing = false
                 self.closeCustomPointView(with: pointData)
             }
         }
@@ -1332,13 +1506,80 @@ extension MapViewController {
             DispatchQueue.main.async {
                 self.customPointView.removeFromSuperview()
                 self.addPointData = nil
+                self.isAddPOIing = false
                 self.presentAddPOIVC(latitude: pointData.latitude ?? 0.0, longitude: pointData.longitude ?? 0.0)
             }
         }
         self.view.addSubview(customPointView)
     }
     
+    // 展示天气气泡视图
+    public func showWeatherPointView(with weatherData: WeatherData) {
+        // 安全地访问 markerLayerManager
+        guard let markerLayerManager = mapManager.markerLayerManager else {
+            print("标记层管理器未初始化")
+            return
+        }
+        
+        guard let coordinate = singlePointCoordinate else {
+            print("未获取到点击点位的经纬度")
+            return
+        }
+        
+        
+        let data = MarkerData(
+            id: "weather",
+            coordinate: coordinate,
+            title: "",
+            subtitle: ""
+        )
+        markerLayerManager.addMarker(to: "weather", data: data)
+        
+        
+        let x = max(customPoint.x - 130, 0)
+        let y = max(customPoint.y - 240, 130)
+        pointWeatherView.frame = CGRect(x: x, y: y, width: 260, height: 220)
+        pointWeatherView.updateUI(with: weatherData, coordinate: coordinate)
+        pointWeatherView.closeAction = { [weak self] in
+            guard let self = self else { return }
+            DispatchQueue.main.async {
+                self.closePointWeatherView()
+            }
+        }
+        pointWeatherView.creatPointAction = { [weak self] in
+            guard let self = self else { return }
+            DispatchQueue.main.async {
+                self.closePointWeatherView()
+                let weatherVC = POIWeatherDetailViewController(coordinate: coordinate)
+                if let sheet = weatherVC.sheetPresentationController {
+                    sheet.detents = [.medium(), .large()]
+                    sheet.prefersGrabberVisible = true
+                    sheet.prefersEdgeAttachedInCompactHeight = true
+                    sheet.widthFollowsPreferredContentSizeWhenEdgeAttached = true
+                    sheet.delegate = weatherVC
+                }
+                self.present(weatherVC, animated: true)
+            }
+        }
+        self.view.addSubview(pointWeatherView)
+    }
     
+    func addRoutesMarkers() {
+        guard let markerLayerManager = mapManager.markerLayerManager else {
+            return
+        }
+        
+        for route in self.routeManager.getAllRoutes() {
+            let routeId = route.id
+            if let points = self.routeManager.getPointsInRoute(routeId: routeId), points.count > 1 {
+                let coordinates = points.map { CLLocationCoordinate2D(latitude: $0.latitude, longitude: $0.longitude) }
+                markerLayerManager.addLineMarker(to: "myRoutesLine", id: String(routeId), coordinates: coordinates, title: route.routeName ?? "", subTitle: route.description ?? "")
+                coordinates.forEach { coordinate in
+                    markerLayerManager.addPointMarker(to: "myRoutesNode", id: String(coordinate.longitude), coordinate: coordinate)
+                }
+            }
+        }
+    }
 
     // 关闭点位视图，并且删除点位
     private func closeCustomPointView(with pointData: MapSearchPointMsgData) {
@@ -1350,6 +1591,16 @@ extension MapViewController {
         }
         markerLayerManager.removeMarker("newCustom_\(code)", from: "newCustom")
         addPointData = nil
+    }
+    
+    // 关闭天气视图，并且删除点位
+    private func closePointWeatherView() {
+        pointWeatherView.removeFromSuperview()
+        guard let markerLayerManager = mapManager.markerLayerManager else {
+            print("标记层管理器未初始化")
+            return
+        }
+        markerLayerManager.removeMarker("weather", from: "weather")
     }
 }
 

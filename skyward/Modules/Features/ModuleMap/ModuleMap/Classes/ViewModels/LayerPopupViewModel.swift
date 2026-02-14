@@ -59,21 +59,27 @@ public class LayerPopupConfig {
                       imageName: "map3",
                       sceneUrl: "https://api.jl1mall.com/getMap/{z}/{x}/{y}?mk=3ddec00f5f435270285ffc7ad1a60ce5&tk=c4e73a6b0428f65a94fb6fbe677d2375",
                       isSelected: true),
-            MapSource(name: "海图",
-                      imageName: "map4",
-                      sceneUrl: "https://m12.shipxy.com/tile.c?l=Na&m=o&x={x}&y={y}&z={z}")
+            MapSource(name: "谷歌地图",
+                      imageName: "map5",
+                      sceneUrl: "https://gdtc.shipxy.com/tile.g?z={z}&x={x}&y={y}"),
+            MapSource(name: "谷歌卫星",
+                      imageName: "map6",
+                      sceneUrl: "https://gwxc.shipxy.com/tile.g?z={z}&x={x}&y={y}")
+            
         ]
         
         self.annotationOptions = [
-            AnnotationOption(name: "矢量注记", isSelected: true)
+            AnnotationOption(name: "矢量注记", isSelected: true),
+            AnnotationOption(name: "天气")
         ]
         
         self.poiOptions = [
             AnnotationOption(name: "露营地"),
             AnnotationOption(name: "风景名胜"),
             AnnotationOption(name: "加油站"),
+            AnnotationOption(name: "医疗"),
             AnnotationOption(name: "我的兴趣点"),
-            AnnotationOption(name: "我的路线")
+            
         ]
         
         self.weatherOptions = [
@@ -96,22 +102,20 @@ public class LayerPopupConfig {
             MapSource(name: "吉林长光影像",
                       imageName: "map3",
                       sceneUrl: "https://api.jl1mall.com/getMap/{z}/{x}/{y}?mk=3ddec00f5f435270285ffc7ad1a60ce5&tk=c4e73a6b0428f65a94fb6fbe677d2375",
-                      isSelected: true),
-            MapSource(name: "海图",
-                      imageName: "map4",
-                      sceneUrl: "https://m12.shipxy.com/tile.c?l=Na&m=o&x={x}&y={y}&z={z}")
+                      isSelected: true)
         ]
         
         self.annotationOptions = [
-            AnnotationOption(name: "矢量注记", isSelected: true)
+            AnnotationOption(name: "矢量注记", isSelected: true),
+            AnnotationOption(name: "天气", isSelected: true)
         ]
         
         self.poiOptions = [
             AnnotationOption(name: "露营地"),
             AnnotationOption(name: "风景名胜"),
             AnnotationOption(name: "加油站"),
-            AnnotationOption(name: "我的兴趣点"),
-            AnnotationOption(name: "我的路线")
+            AnnotationOption(name: "医疗"),
+            AnnotationOption(name: "我的兴趣点")
         ]
         
         self.weatherOptions = [
@@ -141,9 +145,9 @@ public class LayerPopupViewModel: ObservableObject {
     // MARK: - 数据设置
     private func setupData() {
         sections = [
-            SectionData(type: .map, title: "地图类型", items: config.mapSources),
-            SectionData(type: .annotation, title: "注记", items: config.annotationOptions),
+            SectionData(type: .map, title: "地图切换", items: config.mapSources),
             SectionData(type: .poi, title: "兴趣点", items: config.poiOptions),
+            SectionData(type: .annotation, title: "其他", items: config.annotationOptions),
 //            SectionData(type: .weather, title: "天气图层", items: config.weatherOptions)
         ]
         updateSelectedOptions()
@@ -246,14 +250,23 @@ public class LayerPopupViewModel: ObservableObject {
     }
     
     // MARK: - 图层处理
+    public func handleNotesLayerDisplay(_ selectedPOIs: [String]) -> [String: Bool] {
+        var notesLayers: [String: Bool] = [:]
+        
+        notesLayers["矢量注记"] = selectedPOIs.contains("矢量注记")
+        notesLayers["天气"] = selectedPOIs.contains("天气")
+        
+        return notesLayers
+    }
+    
     public func handlePOILayerDisplay(_ selectedPOIs: [String]) -> [String: Bool] {
         var poiLayers: [String: Bool] = [:]
         
         poiLayers["露营地"] = selectedPOIs.contains("露营地")
         poiLayers["风景名胜"] = selectedPOIs.contains("风景名胜")
         poiLayers["加油站"] = selectedPOIs.contains("加油站")
+        poiLayers["医疗"] = selectedPOIs.contains("医疗")
         poiLayers["我的兴趣点"] = selectedPOIs.contains("我的兴趣点")
-        poiLayers["我的路线"] = selectedPOIs.contains("我的路线")
         
         return poiLayers
     }

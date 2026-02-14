@@ -13,9 +13,9 @@ import SWKit
 public class DeviceListViewController: PersonalBaseViewController {
     
     // MARK: - 数据
-    private var selectedDeviceType: Int = 0 // 0: 行者mini, 1: 行者pro
-    private var miniDevices: [MiniDeviceData] = []
-    private var proDevices: [WiFiDevice] = []
+    private var selectedDeviceType: Int
+    private var miniDevices: [MiniDeviceData]
+    private var proDevices: [WiFiDevice]
     private let viewModel = PersonalViewModel()
     
     // MARK: - UI组件
@@ -63,6 +63,19 @@ public class DeviceListViewController: PersonalBaseViewController {
         collectionView.showsVerticalScrollIndicator = false
         return collectionView
     }()
+    
+    public init(selectedDeviceType: Int) {
+        self.selectedDeviceType = selectedDeviceType
+        self.miniDevices = []
+        self.proDevices = []
+        super.init(nibName: nil, bundle: nil)
+        self.updateOptionButtons()
+        self.loadInitialData()
+    }
+    
+    @MainActor required init?(coder: NSCoder) {
+        fatalError("init(coder:) has not been implemented")
+    }
     
     // MARK: - 生命周期
     public override func viewDidLoad() {

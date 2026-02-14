@@ -19,27 +19,20 @@ public class HomeViewModel: ObservableObject {
     @Published var weatherInfo: WeatherInfo?
     @Published var selectedMiniDevice: MiniDevice?
     @Published var selectedProDevice: WiFiDevice?
-    private var selectedMiniDeviceStatusInfo: StatusInfo?  //选中的设备的状态信息
-    private var selectedMiniDeviceSatelliteNum: Int?       //选中的设备的卫星信号
-    
-    var savedMiniDevices: [MiniDevice] {
-        get {
-            let baseModel = BaseModel(pageNum: 1, pageSize: 20)
-            PersonalViewModel().input.deviceListRequest.send(baseModel)
-            let miniDeviceList = getSaveMiniDeviceListData()
-            return miniDeviceList
-        }
-    }
-    var latestMessage: HomeNewMessageModel?
-    var noticeReponse: HomeNoticeModel = HomeNoticeModel(totalCount: 0, safeCount: 0, sosCount: 0, weatherCount: 0, safeList: [], sosList: [], weatherList: [])
-    
-    private var homeCache: SWCache?
-    
     @Published var noticeTypeItems: [NoticeTypeItem] = [NoticeTypeItem(noticeType: .all, selected: true, count: 0),
                                                         NoticeTypeItem(noticeType: .sos, selected: false, count: 0),
                                                         NoticeTypeItem(noticeType: .safety, selected: false, count: 0),
                                                         NoticeTypeItem(noticeType: .weather, selected: false, count: 0),
                                                         NoticeTypeItem(noticeType: .service, selected: false, count: 0)]
+    
+    private var selectedMiniDeviceStatusInfo: StatusInfo?  //选中的设备的状态信息
+    private var selectedMiniDeviceSatelliteNum: Int?       //选中的设备的卫星信号
+    
+    private var latestMessage: HomeNewMessageModel?
+    private var noticeReponse: HomeNoticeModel = HomeNoticeModel(totalCount: 0, safeCount: 0, sosCount: 0, weatherCount: 0, safeList: [], sosList: [], weatherList: [])
+    
+    private var homeCache: SWCache?
+    
     private var didPublish: Bool = false
     
     private let locationManager = LocationManager()
@@ -78,7 +71,10 @@ public class HomeViewModel: ObservableObject {
     
     // MARK: - Public Methods
     
-    func getSaveMiniDeviceListData() -> [MiniDevice] {
+    func getMiniDeviceListData() -> [MiniDevice] {
+        let baseModel = BaseModel(pageNum: 1, pageSize: 20)
+        PersonalViewModel().input.deviceListRequest.send(baseModel)
+        
         var savedMiniDevices: [MiniDevice] = []
         let connectedMiniDevice = BluetoothManager.shared.connectedScannedPeripheral
         if let miniDevices = MiniDeviceDBManager.shared.qureyFromMiniDeviceDataAllData() {
@@ -103,7 +99,7 @@ public class HomeViewModel: ObservableObject {
     
     func setupDevice() {
         
-        if let miniDevice = self.savedMiniDevices.first {
+        if let miniDevice = getMiniDeviceListData().first {
             selectedMiniDevice = miniDevice
             linkOrBreakMiniDevice(miniDevice)
         }
@@ -151,7 +147,7 @@ public class HomeViewModel: ObservableObject {
         }
     }
     
-    public func cleanMessage() {
+    func cleanMessage() {
         MQTTManager.shared.publish(message: "{}", to: cleanMessage_pub, qos: .qos1)
     }
     
@@ -237,7 +233,7 @@ public class HomeViewModel: ObservableObject {
         }
     }
 
-    func getWeatherInfo() {
+    private func getWeatherInfo() {
         locationManager.getCurrentLocation {[weak self] location, error in
             guard let location = location else {
                 return
@@ -263,27 +259,42 @@ public class HomeViewModel: ObservableObject {
         do {
             homeCache = try SWCache(dirName: CacheModuleName.home.module)
         } catch {
-            print("❌ SWCache 创建失败: \(error)")
-            print("错误详情: \(error.localizedDescription)")
+            debugPrint("❌ SWCache 创建失败: \(error.localizedDescription)")
         }
     }
     
     private func loadCacheData() {
+        let dispatchGroup = DispatchGroup()
+
         // 加载最新消息缓存
+        dispatchGroup.enter()
         loadCacheValue(forKey: latestMessage_sub) { [weak self] (data: Data?) in
-            guard let self = self, let data = data else { return }
-            self.latestMessage = try? JSONDecoder().decode(HomeNewMessageModel.self, from: data)
-            self.updateNoticeTypeItems()
-            self.updateNoticeList()
+            guard let self = self, let data = data else {
+                dispatchGroup.leave()
+                return
+            }
+            if let reponse = try? JSONDecoder().decode(HomeNewMessageModel.self, from: data) {
+                self.latestMessage = reponse
+            }
+            dispatchGroup.leave()
         }
-        
+
         // 加载通知列表缓存
+        dispatchGroup.enter()
         loadCacheValue(forKey: noticeList_sub) { [weak self] (data: Data?) in
-            guard let self = self, let data = data else { return }
+            guard let self = self, let data = data else {
+                dispatchGroup.leave()
+                return
+            }
             if let reponse = try? JSONDecoder().decode(HomeNoticeModel.self, from: data) {
                 self.noticeReponse = reponse
             }
+            dispatchGroup.leave()
+        }
 
+        // 两个缓存都加载完成后执行
+        dispatchGroup.notify(queue: .main) { [weak self] in
+            guard let self = self else { return }
             self.updateNoticeTypeItems()
             self.updateNoticeList()
         }
@@ -302,11 +313,11 @@ public class HomeViewModel: ObservableObject {
                 case .memory(let data), .disk(let data):
                     completion(data)
                 case .none:
-                    print("没有缓存数据 for key: \(key)")
+                    debugPrint("没有缓存数据 for key: \(key)")
                     completion(nil)
                 }
             case .failure(let error):
-                print("❌ 加载缓存失败 for key: \(key): \(error)")
+                debugPrint("❌ 加载缓存失败 for key: \(key): \(error)")
                 completion(nil)
             }
         }
@@ -318,16 +329,16 @@ public class HomeViewModel: ObservableObject {
         cache.setValue(data, forKey: key, toDisk: true) { result in
             switch result.memoryCacheResult {
             case .success:
-                print("✅ 内存存储成功 for key: \(key)")
+                debugPrint("✅ 内存存储成功 for key: \(key)")
             case .failure(let error):
-                print("❌ 内存存储失败 for key: \(key): \(error)")
+                debugPrint("❌ 内存存储失败 for key: \(key): \(error)")
             }
             
             switch result.diskCacheResult {
             case .success:
-                print("✅ 磁盘存储成功 for key: \(key)")
+                debugPrint("✅ 磁盘存储成功 for key: \(key)")
             case .failure(let error):
-                print("❌ 磁盘存储失败 for key: \(key): \(error)")
+                debugPrint("❌ 磁盘存储失败 for key: \(key): \(error)")
             }
         }
     }
@@ -361,7 +372,7 @@ public class HomeViewModel: ObservableObject {
     @objc private func showSatelliteInfo(_ notification: Notification) {
         guard let userInfo = notification.userInfo else { return }
         if let satelliteInfo = userInfo["satelliteInfo"] as? String {
-            print("Mini设备卫星状态--首页Model--\(satelliteInfo)")
+            debugPrint("Mini设备卫星状态--首页Model--\(satelliteInfo)")
             selectedMiniDeviceSatelliteNum = Int(satelliteInfo)
             uploadSelectedMiniDevice()
         }
@@ -374,6 +385,7 @@ public class HomeViewModel: ObservableObject {
             selectedMiniDevice?.connected = false
         }
     }
+    
 }
 
 extension HomeViewModel: MQTTManagerDelegate {
@@ -395,36 +407,22 @@ extension HomeViewModel: MQTTManagerDelegate {
             return
         }
         
-        // 确保在主线程更新UI
-        _Concurrency.Task { @MainActor in
-            do {
-                // 将消息字符串转换为Data
-                guard let jsonData = message.data(using: .utf8) else {
-                    print("[JSON解析] 消息转换为Data失败")
-                    return
-                }
-                
-                // 使用JSONDecoder直接解析数据
-                let decoder = JSONDecoder()
-
-                if topic == noticeListSubscribeTopic {
-                    self.noticeReponse = try decoder.decode(HomeNoticeModel.self, from: jsonData)
-                    saveCacheValue(data: jsonData, forKey: noticeListSubscribeTopic)
-                } else if topic == latestMessageSubscribeTopic {
-                    self.latestMessage = try decoder.decode(HomeNewMessageModel.self, from: jsonData)
-                    saveCacheValue(data: jsonData, forKey: latestMessageSubscribeTopic)
-                }
-                
-                // 更新通知类型计数
-                updateNoticeTypeItems()
-                
-                // 根据当前选中的通知类型更新列表
-                updateNoticeList()
-                
-                print("[JSON解析] 成功解析通知: 总数\(self.noticeReponse.totalCount), SOS\(self.noticeReponse.sosCount)")
-            } catch {
-                print("[JSON解析] 解析失败: \(error)")
+        guard let jsonData = message.data(using: .utf8) else {
+            return
+        }
+        
+        do {
+            if topic == noticeListSubscribeTopic {
+                self.noticeReponse = try JSONDecoder().decode(HomeNoticeModel.self, from: jsonData)
+                saveCacheValue(data: jsonData, forKey: noticeListSubscribeTopic)
+            } else if topic == latestMessageSubscribeTopic {
+                self.latestMessage = try JSONDecoder().decode(HomeNewMessageModel.self, from: jsonData)
+                saveCacheValue(data: jsonData, forKey: latestMessageSubscribeTopic)
             }
+            updateNoticeTypeItems()
+            updateNoticeList()
+        } catch {
+            debugPrint("[JSON解析] 解析失败: \(error)")
         }
     }
     
@@ -438,10 +436,6 @@ extension HomeViewModel: MQTTManagerDelegate {
             updateNoticeTypeItems()
             updateNoticeList()
         }
-    }
-    
-    public func mqttManager(_ manager: MQTTManager, connectionDidFailWithError error: (any Error)?) {
-        
     }
 }
 
@@ -469,7 +463,7 @@ extension HomeViewModel {
     /// 发送在线心跳
     private func sendOnlinePing() {
         MQTTManager.shared.publish(message: "{}", to: onlinePing_pub, qos: .qos1)
-        print("✅ 发送在线心跳到: \(onlinePing_pub)")
+        debugPrint("✅ 发送在线心跳到: \(onlinePing_pub)")
     }
 }
 
