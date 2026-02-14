@@ -241,17 +241,13 @@ class MiniDeviceStatusCell: UITableViewCell {
         
         // 经度
         let longitudeValue = Double(statusInfo.longitude) / 10000.0
-        let longitudeHemisphere = statusInfo.longitudeHemisphere == 0 ? "E" : "W"
-//        let (degrees, minutes, seconds) = decimalToDMS(longitudeValue)
-//        let longitudeString = "\(degrees)°\(minutes)′\(seconds)″\(longitudeHemisphere)"
+        let longitudeHemisphere = statusInfo.longitudeHemisphere == 1 ? "E" : "W"
         let longitudeNum = decimalToDegrees(longitudeValue)
         let longitudeString = "\(longitudeNum)°\(longitudeHemisphere)"
         
         // 纬度
         let latitudeValue = Double(statusInfo.latitude) / 10000.0
-        let latitudeHemisphere = statusInfo.latitudeHemisphere == 0 ? "N" : "S"
-//        let (laDegrees, laMinutes, laSeconds) = decimalToDMS(latitudeValue)
-//        let latitudeString = "\(laDegrees)°\(laMinutes)′\(laSeconds)″\(latitudeHemisphere)"
+        let latitudeHemisphere = statusInfo.latitudeHemisphere == 1 ? "N" : "S"
         let latitudeNum = decimalToDegrees(latitudeValue)
         let latitudeString = "\(latitudeNum)°\(latitudeHemisphere)"
         
@@ -271,11 +267,11 @@ class MiniDeviceStatusCell: UITableViewCell {
         let motionStatusString: String
         switch statusInfo.motionStatus {
         case 0:
-            motionStatusString = "静止"
+            motionStatusString = "静态"
         case 1:
-            motionStatusString = "移动"
+            motionStatusString = "运动"
         case 2:
-            motionStatusString = "跌倒"
+            motionStatusString = "跌落"
         default:
             motionStatusString = "未知"
         }
@@ -304,18 +300,9 @@ class MiniDeviceStatusCell: UITableViewCell {
     }
     
     private func decimalToDegrees(_ decimal: Double) -> String {
-        // 将 DDMM.MMMMMM 格式转换为十进制度
-        // 3039.985107 -> 30度 + 39.985107分
-        
         // 获取度（前两位）
-        let degrees = Int(decimal / 100)
+        let degrees = decimal / 100
         
-        // 获取剩余部分作为分
-        let minutes = decimal - Double(degrees * 100)
-        
-        // 将分转换为度（1度=60分）
-        let decimalDegrees = Double(degrees) + minutes / 60.0
-        
-        return String(format: "%.6f", decimalDegrees)
+        return String(format: "%.6f", degrees)
     }
 }

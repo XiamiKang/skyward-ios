@@ -43,8 +43,11 @@ extension LoginAPI: NetworkAPI {
     
     public var method: Moya.Method {
         switch self {
-        case .sendSmsCode, .register, .passwordLogin,
-             .verificationCodeLogin, .refreshToken:
+        case    .sendSmsCode,
+                .register,
+                .passwordLogin,
+                .verificationCodeLogin,
+                .refreshToken:
             return .post
         case .forgotPassword:
             return .put
@@ -103,6 +106,7 @@ extension LoginAPI: NetworkAPI {
                 encoding: URLEncoding.httpBody
             )
         }
+        
     }
     
     public var headers: [String: String]? {

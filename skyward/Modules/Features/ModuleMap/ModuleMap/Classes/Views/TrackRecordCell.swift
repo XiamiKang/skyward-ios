@@ -79,11 +79,13 @@ class TrackRecordCell: BaseCell {
         
         nameLabel.snp.makeConstraints { make in
             make.left.equalToSuperview().inset(Layout.hMargin)
+            make.right.equalTo(uploadLabel.snp.left).offset(-Layout.hSpacing)
             make.centerY.equalToSuperview()
         }
         
         uploadLabel.snp.makeConstraints { make in
             make.left.equalTo(nameLabel.snp.right).offset(Layout.hSpacing)
+            make.right.equalTo(uploadButton.snp.left).offset(-Layout.hSpacing)
             make.centerY.equalToSuperview()
         }
         
@@ -106,11 +108,11 @@ class TrackRecordCell: BaseCell {
         }
     }
     
-    func configure(with record: TrackRecord) {
-        nameLabel.text = record.name
-        uploadLabel.isHidden = record.uploadStatus == .uploaded
-        uploadButton.isHidden = record.uploadStatus == .uploaded
-        lookButton.isSelected = record.isLook
+    func configure(with record: Route) {
+        nameLabel.text = record.routeName
+//        uploadLabel.isHidden = record.uploadStatus == .uploaded
+//        uploadButton.isHidden = record.uploadStatus == .uploaded
+//        lookButton.isSelected = record.isLook
         
     }
     

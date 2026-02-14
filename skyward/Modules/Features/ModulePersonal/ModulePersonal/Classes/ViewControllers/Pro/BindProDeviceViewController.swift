@@ -84,6 +84,7 @@ class BindProDeviceViewController: PersonalBaseViewController {
         setupConstraints()
         loadWifiData()
         getWiFiSSID()
+        setNotification()
     }
     
     private func setupUI() {
@@ -267,15 +268,21 @@ class BindProDeviceViewController: PersonalBaseViewController {
         }
     }
     
-    func getWiFiSSID() {
-        WiFiDeviceManager.shared.checkWiFiPermission { [weak self] wifiInfo in
+    @objc func getWiFiSSID() {
+        WiFiDeviceManager.shared.checkWiFiPermission(completion: { [weak self] wifiInfo in
+            print("WiFi信息----\(wifiInfo)")
             if wifiInfo.isAvailable {
                 self?.wifiName = wifiInfo.ssid
                 self?.bssid = wifiInfo.bssid
                 self?.loadWifiData()
             }
-        }
+        })
     }
+    
+    private func setNotification() {
+        NotificationCenter.default.addObserver(self, selector: #selector(getWiFiSSID), name: .applicationDidBecomeActive, object: nil)
+    }
+
 }
 
 extension BindProDeviceViewController: UITableViewDelegate, UITableViewDataSource {
@@ -296,4 +303,8 @@ extension BindProDeviceViewController: UITableViewDelegate, UITableViewDataSourc
             openWiFiSettings()
         }
     }
+}
+
+public extension Notification.Name {
+    static let applicationDidBecomeActive = Notification.Name("applicationDidBecomeActive")
 }

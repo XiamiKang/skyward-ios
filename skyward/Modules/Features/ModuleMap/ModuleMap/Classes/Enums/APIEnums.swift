@@ -15,13 +15,13 @@ import SWKit
 public enum MapAPI {
     case getRouteList(_ model: RouteListModel)                            // 获取用户路线列表
     case getRouteMsg(_ model: RouteMsgModel)                              // 获取路线详情
-    case deleteRouteMsg(_ model: RouteMsgModel)                           // 删除路线
+    case deleteRoute(_ routeId: String)                                   // 删除路线
     case getWeatherMap                                                    // 获取天气地图
     case searchMapMsgWithAddressName(_ address: String)                   // 搜索--通过地名
     case searchMapMsgWithLocation(_ location: String)                     // 搜索--通过经纬度
     case getPointWeatherData(_ location: CLLocationCoordinate2D)          // 获取点击位置的天气信息
     case saveUserPOI(_ model: UserPOIModel)                               // 保存兴趣点
-    case saveUserRoute(_ model: UserRouteModel)                           // 保存路线
+    case saveUserRoute(params: [String : Any])                            // 保存路线
     case saveUserTrack(name: String, fileUrl: String)                     // 保存轨迹
     case getWeatherWarningMsg(_ location: CLLocationCoordinate2D)         // 获取天气预警信息
     case getEveryHoursWeatherMsg(_ location: CLLocationCoordinate2D)      // 获取每小时天气信息
@@ -31,6 +31,10 @@ public enum MapAPI {
     case getUserPOIData(_ id: String)                                     // 获取用户兴趣点详情
     case deleteUserPOIData(_ id: String)                                  // 删除用户兴趣点
     case checkSensitiveWords(_ content: String)                           // 敏感词校验
+    case collectPublicPOI(_ poiId: String)                                // 公共兴趣点收藏
+    case checkInPublicPOI(_ poiId: String)                                // 公共兴趣点打卡
+    case cancelCollectPublicPOI(_ poiId: String)                          // 公共兴趣点取消收藏
+    case cancelCheckInPublicPOI(_ poiId: String)                          // 公共兴趣点取消打卡
 }
 
 extension MapAPI: NetworkAPI {
@@ -38,10 +42,10 @@ extension MapAPI: NetworkAPI {
     public var path: String {
         switch self {
         case .getRouteList:
-            return "/txts-user-center-app/api/v1/user-route/page/list"
+            return "/txts-user-center-app/api/v1/user-route/list"
         case .getRouteMsg:
             return "/txts-user-center-app/api/v1/user-route/info"
-        case .deleteRouteMsg:
+        case .deleteRoute:
             return "/txts-user-center-app/api/v1/user-route"
         case .getWeatherMap:
             return "/txts-data-app/api/v1/data/map/decision"
@@ -71,12 +75,21 @@ extension MapAPI: NetworkAPI {
             return "/txts-user-center-app/api/v1/user-point-position/remove"
         case .checkSensitiveWords:
             return "/txts-system/api/v1/sensitive-words/check"
+        case .collectPublicPOI(let poiId):
+            return "/txts-user-center-app/api/v1/user-favorites/poi/\(poiId)"
+        case .checkInPublicPOI(let poiId):
+            return "/txts-user-center-app/api/v1/point-check/add/check/\(poiId)"
+        case .cancelCollectPublicPOI(let poiId):
+            return "/txts-user-center-app/api/v1/user-favorites/cancel/\(poiId)/0"
+        case .cancelCheckInPublicPOI(let poiId):
+            return "/txts-user-center-app/api/v1/point-check/cancel/check/\(poiId)"
         }
     }
     
     public var method: Moya.Method {
         switch self {
-        case    .getWeatherMap,
+        case    .getRouteList,
+                .getWeatherMap,
                 .searchMapMsgWithLocation,
                 .searchMapMsgWithAddressName,
                 .getPointWeatherData,
@@ -85,17 +98,20 @@ extension MapAPI: NetworkAPI {
                 .getEveryHoursPrecipMsg,
                 .getEveryDayWeatherMsg,
                 .getUserPOIData,
-                .checkSensitiveWords:
+                .checkSensitiveWords,
+                .checkInPublicPOI:
             return .get
-        case .getRouteList,
-             .getRouteMsg,
+        case .getRouteMsg,
              .saveUserPOI,
              .saveUserRoute,
              .saveUserTrack,
-             .getUserPOIList:
+             .getUserPOIList,
+             .collectPublicPOI:
             return .post
-        case .deleteRouteMsg,
-             .deleteUserPOIData:
+        case .deleteRoute,
+             .deleteUserPOIData,
+             .cancelCollectPublicPOI,
+             .cancelCheckInPublicPOI:
             return .delete
         }
     }
@@ -105,17 +121,17 @@ extension MapAPI: NetworkAPI {
         case .getRouteList(let model):
             return .requestParameters(
                 parameters: model.toDictionary(),
-                encoding: JSONEncoding.default
+                encoding: URLEncoding.default
             )
         case .getRouteMsg(let model):
             return .requestParameters(
                 parameters: model.toDictionary(),
                 encoding: JSONEncoding.default
             )
-        case .deleteRouteMsg(let model):
+        case .deleteRoute(let routeId):
             return .requestParameters(
-                parameters: model.toDictionary(),
-                encoding: JSONEncoding.default
+                parameters: ["routeId": routeId],
+                encoding: URLEncoding.default
             )
         case .getWeatherMap:
             return .requestPlain
@@ -140,9 +156,9 @@ extension MapAPI: NetworkAPI {
                 parameters: model.toDictionary(),
                 encoding: JSONEncoding.default
             )
-        case .saveUserRoute(let model):
+        case .saveUserRoute(let params):
             return .requestParameters(
-                parameters: model.toDictionary(),
+                parameters: params,
                 encoding: JSONEncoding.default
             )
         case .saveUserTrack(let name, let fileUrl):
@@ -199,6 +215,14 @@ extension MapAPI: NetworkAPI {
                 parameters: ["content": content],
                 encoding: URLEncoding.default
             )
+        case .collectPublicPOI(let poiId):
+            return .requestPlain
+        case .checkInPublicPOI(let poiId):
+            return .requestPlain
+        case .cancelCollectPublicPOI(let poiId):
+            return .requestPlain
+        case .cancelCheckInPublicPOI(let poiId):
+            return .requestPlain
         }
     }
     

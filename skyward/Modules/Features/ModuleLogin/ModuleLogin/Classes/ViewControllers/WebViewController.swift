@@ -20,12 +20,20 @@ public class WebViewController: LoginBaseViewController {
     
     // MARK: - UI Components
     private lazy var webView: WKWebView = {
-        let webView = WKWebView()
+        let configuration = WKWebViewConfiguration()
+        let webView = WKWebView(frame: .zero, configuration: configuration)
         webView.backgroundColor = .white
         webView.navigationDelegate = self
         webView.allowsBackForwardNavigationGestures = true
         return webView
     }()
+    
+    // MARK: - Basic Auth Credentials
+    private let predefinedCredentials: [String: (username: String, password: String)] = [
+        "192.168.0.1": ("admin", "admin")
+        // 添加更多预定义认证地址
+    ]
+
     
     private lazy var activityIndicator: UIActivityIndicatorView = {
         let indicator: UIActivityIndicatorView
@@ -327,4 +335,90 @@ extension WebViewController: WKNavigationDelegate {
         
         decisionHandler(.allow)
     }
+    
+    // MARK: - HTTP Basic Auth 处理
+    public func webView(_ webView: WKWebView,
+                        didReceive challenge: URLAuthenticationChallenge,
+                        completionHandler: @escaping (URLSession.AuthChallengeDisposition, URLCredential?) -> Void) {
+        
+        guard challenge.protectionSpace.authenticationMethod == NSURLAuthenticationMethodHTTPBasic else {
+            // 如果不是 Basic Auth，使用默认处理
+            completionHandler(.performDefaultHandling, nil)
+            return
+        }
+        
+        let host = challenge.protectionSpace.host
+        print("检测到 HTTP Basic Auth 认证请求，主机: \(host)")
+        
+        // 检查是否有预定义的凭证
+        if let (username, password) = predefinedCredentials[host] {
+            // 使用预定义凭证
+            let credential = URLCredential(user: username,
+                                           password: password,
+                                           persistence: .forSession)
+            print("使用预定义凭证: \(username)/***")
+            completionHandler(.useCredential, credential)
+        } else {
+            // 显示登录弹窗让用户输入
+            showBasicAuthAlert(for: host) { (username, password) in
+                if let username = username, let password = password {
+                    let credential = URLCredential(user: username,
+                                                   password: password,
+                                                   persistence: .forSession)
+                    completionHandler(.useCredential, credential)
+                } else {
+                    // 用户取消或输入为空
+                    completionHandler(.cancelAuthenticationChallenge, nil)
+                }
+            }
+        }
+    }
+    
+    // MARK: - 显示 Basic Auth 登录弹窗
+    private func showBasicAuthAlert(for host: String,
+                                    completion: @escaping (String?, String?) -> Void) {
+        
+        DispatchQueue.main.async {
+            let alert = UIAlertController(title: "登录",
+                                          message: "请输入 \(host) 的用户名和密码",
+                                          preferredStyle: .alert)
+            
+            // 用户名输入框
+            alert.addTextField { textField in
+                textField.placeholder = "用户名"
+                textField.autocapitalizationType = .none
+                textField.autocorrectionType = .no
+            }
+            
+            // 密码输入框
+            alert.addTextField { textField in
+                textField.placeholder = "密码"
+                textField.isSecureTextEntry = true
+            }
+            
+            // 登录按钮
+            alert.addAction(UIAlertAction(title: "登录", style: .default) { _ in
+                let username = alert.textFields?.first?.text?.trimmingCharacters(in: .whitespacesAndNewlines)
+                let password = alert.textFields?.last?.text
+                
+                if let username = username, !username.isEmpty,
+                   let password = password, !password.isEmpty {
+                    completion(username, password)
+                } else {
+                    completion(nil, nil)
+                }
+            })
+            
+            // 取消按钮
+            alert.addAction(UIAlertAction(title: "取消", style: .cancel) { _ in
+                completion(nil, nil)
+            })
+            
+            self.present(alert, animated: true)
+        }
+    }
 }
+
+
+
+

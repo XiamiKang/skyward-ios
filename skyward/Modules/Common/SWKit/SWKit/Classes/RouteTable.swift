@@ -22,6 +22,8 @@ public struct RouteTable {
     public static let mapPageUrl = "sw://map/index"
     // 会话页
     public static let convPageUrl = "sw://message/conv"
+    public static let startMonitorMessage = "sw://message/monitor/start"
+    public static let stopMonitorMessage = "sw://message/monitor/stop"
     // 紧急消息页
     public static let urgentMessagePageUrl = "sw://message/urgentMessage"
     // 我的

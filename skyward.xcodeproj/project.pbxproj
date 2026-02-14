@@ -7,9 +7,10 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		B41746DE2F162DEA0026C6CF /* AppLaunchManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = B41746DD2F162DEA0026C6CF /* AppLaunchManager.swift */; };
+		B423D8B72F345E5E001E6BAC /* UserAgreement.html in Resources */ = {isa = PBXBuildFile; fileRef = B423D8B62F345E5E001E6BAC /* UserAgreement.html */; };
+		B423D8B82F345E5E001E6BAC /* PrivacyPolicy.html in Resources */ = {isa = PBXBuildFile; fileRef = B423D8B52F345E5E001E6BAC /* PrivacyPolicy.html */; };
 		B4886CCD2EFA95D60013C412 /* Citys.plist in Resources */ = {isa = PBXBuildFile; fileRef = B4886CCC2EFA95D60013C412 /* Citys.plist */; };
-		B4886CDA2EFB950F0013C412 /* PrivacyPolicy.html in Resources */ = {isa = PBXBuildFile; fileRef = B4886CD82EFB950F0013C412 /* PrivacyPolicy.html */; };
-		B4886CDB2EFB950F0013C412 /* UserAgreement.html in Resources */ = {isa = PBXBuildFile; fileRef = B4886CD92EFB950F0013C412 /* UserAgreement.html */; };
 		B4A323782EE18AF400A5EEEF /* DroidSansFallback.ttf in Resources */ = {isa = PBXBuildFile; fileRef = B4A323772EE18AF400A5EEEF /* DroidSansFallback.ttf */; };
 		B4B702822EE82DB5006C618B /* scene3d.yaml in Resources */ = {isa = PBXBuildFile; fileRef = B4B702812EE82DB5006C618B /* scene3d.yaml */; };
 		B4D3CBE72ED3EAD7006D0305 /* scanning.json in Resources */ = {isa = PBXBuildFile; fileRef = B4D3CBE62ED3EAD7006D0305 /* scanning.json */; };
@@ -24,9 +25,10 @@
 		1CD17FB7FB8F7D90131AB7D9 /* Pods-skyward.debug.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-skyward.debug.xcconfig"; path = "Target Support Files/Pods-skyward/Pods-skyward.debug.xcconfig"; sourceTree = "<group>"; };
 		889022F314AC7D1EDC63439F /* Pods_skyward.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; includeInIndex = 0; path = Pods_skyward.framework; sourceTree = BUILT_PRODUCTS_DIR; };
 		88EBD98ADA6305CAAD57F062 /* Pods-skyward.release.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-skyward.release.xcconfig"; path = "Target Support Files/Pods-skyward/Pods-skyward.release.xcconfig"; sourceTree = "<group>"; };
+		B41746DD2F162DEA0026C6CF /* AppLaunchManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppLaunchManager.swift; sourceTree = "<group>"; };
+		B423D8B52F345E5E001E6BAC /* PrivacyPolicy.html */ = {isa = PBXFileReference; lastKnownFileType = text.html; path = PrivacyPolicy.html; sourceTree = "<group>"; };
+		B423D8B62F345E5E001E6BAC /* UserAgreement.html */ = {isa = PBXFileReference; lastKnownFileType = text.html; path = UserAgreement.html; sourceTree = "<group>"; };
 		B4886CCC2EFA95D60013C412 /* Citys.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Citys.plist; sourceTree = "<group>"; };
-		B4886CD82EFB950F0013C412 /* PrivacyPolicy.html */ = {isa = PBXFileReference; lastKnownFileType = text.html; path = PrivacyPolicy.html; sourceTree = "<group>"; };
-		B4886CD92EFB950F0013C412 /* UserAgreement.html */ = {isa = PBXFileReference; lastKnownFileType = text.html; path = UserAgreement.html; sourceTree = "<group>"; };
 		B4A323772EE18AF400A5EEEF /* DroidSansFallback.ttf */ = {isa = PBXFileReference; lastKnownFileType = file; path = DroidSansFallback.ttf; sourceTree = "<group>"; };
 		B4B702812EE82DB5006C618B /* scene3d.yaml */ = {isa = PBXFileReference; lastKnownFileType = text.yaml; path = scene3d.yaml; sourceTree = "<group>"; };
 		B4D3CBE62ED3EAD7006D0305 /* scanning.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = scanning.json; sourceTree = "<group>"; };
@@ -92,12 +94,13 @@
 			children = (
 				F261450A2ECB19510018F242 /* Info.plist */,
 				F26143AD2EC31A020018F242 /* AppDelegate.swift */,
+				B41746DD2F162DEA0026C6CF /* AppLaunchManager.swift */,
 				B4D3CBE62ED3EAD7006D0305 /* scanning.json */,
 				B4A323772EE18AF400A5EEEF /* DroidSansFallback.ttf */,
 				B4B702812EE82DB5006C618B /* scene3d.yaml */,
 				B4886CCC2EFA95D60013C412 /* Citys.plist */,
-				B4886CD82EFB950F0013C412 /* PrivacyPolicy.html */,
-				B4886CD92EFB950F0013C412 /* UserAgreement.html */,
+				B423D8B52F345E5E001E6BAC /* PrivacyPolicy.html */,
+				B423D8B62F345E5E001E6BAC /* UserAgreement.html */,
 				F26143AE2EC31A020018F242 /* Assets.xcassets */,
 				F26143B02EC31A020018F242 /* skyward.entitlements */,
 				F261448F2EC6BBEE0018F242 /* Launch Screen.storyboard */,
@@ -173,8 +176,8 @@
 				B4D3CBE72ED3EAD7006D0305 /* scanning.json in Resources */,
 				B4B702822EE82DB5006C618B /* scene3d.yaml in Resources */,
 				F26143632EC30FFB0018F242 /* PrivacyInfo.xcprivacy in Resources */,
-				B4886CDA2EFB950F0013C412 /* PrivacyPolicy.html in Resources */,
-				B4886CDB2EFB950F0013C412 /* UserAgreement.html in Resources */,
+				B423D8B72F345E5E001E6BAC /* UserAgreement.html in Resources */,
+				B423D8B82F345E5E001E6BAC /* PrivacyPolicy.html in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -211,13 +214,9 @@
 			inputFileListPaths = (
 				"${PODS_ROOT}/Target Support Files/Pods-skyward/Pods-skyward-frameworks-${CONFIGURATION}-input-files.xcfilelist",
 			);
-			inputPaths = (
-			);
 			name = "[CP] Embed Pods Frameworks";
 			outputFileListPaths = (
 				"${PODS_ROOT}/Target Support Files/Pods-skyward/Pods-skyward-frameworks-${CONFIGURATION}-output-files.xcfilelist",
-			);
-			outputPaths = (
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
@@ -231,6 +230,7 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				B41746DE2F162DEA0026C6CF /* AppLaunchManager.swift in Sources */,
 				F26143BA2EC31A020018F242 /* AppDelegate.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -361,7 +361,7 @@
 				CODE_SIGN_ENTITLEMENTS = skyward/skyward.entitlements;
 				CODE_SIGN_IDENTITY = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 2;
+				CURRENT_PROJECT_VERSION = 3;
 				DEVELOPMENT_TEAM = 2N2M8NL7AJ;
 				ENABLE_PREVIEWS = YES;
 				ENABLE_USER_SCRIPT_SANDBOXING = NO;
@@ -398,7 +398,7 @@
 				IPHONEOS_DEPLOYMENT_TARGET = 15.6;
 				LD_RUNPATH_SEARCH_PATHS = "@executable_path/Frameworks\"";
 				"LD_RUNPATH_SEARCH_PATHS[sdk=macosx*]" = "@executable_path/../Frameworks";
-				MARKETING_VERSION = 1.0.0;
+				MARKETING_VERSION = 1.0.3;
 				PRODUCT_BUNDLE_IDENTIFIER = com.bjtxts.skyward;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				PROVISIONING_PROFILE_SPECIFIER = "";
@@ -422,7 +422,7 @@
 				CODE_SIGN_ENTITLEMENTS = skyward/skyward.entitlements;
 				CODE_SIGN_IDENTITY = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 2;
+				CURRENT_PROJECT_VERSION = 3;
 				DEVELOPMENT_TEAM = 2N2M8NL7AJ;
 				ENABLE_PREVIEWS = YES;
 				ENABLE_USER_SCRIPT_SANDBOXING = NO;
@@ -459,7 +459,7 @@
 				IPHONEOS_DEPLOYMENT_TARGET = 15.6;
 				LD_RUNPATH_SEARCH_PATHS = "@executable_path/Frameworks\"";
 				"LD_RUNPATH_SEARCH_PATHS[sdk=macosx*]" = "@executable_path/../Frameworks";
-				MARKETING_VERSION = 1.0.0;
+				MARKETING_VERSION = 1.0.3;
 				PRODUCT_BUNDLE_IDENTIFIER = com.bjtxts.skyward;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				PROVISIONING_PROFILE_SPECIFIER = "";

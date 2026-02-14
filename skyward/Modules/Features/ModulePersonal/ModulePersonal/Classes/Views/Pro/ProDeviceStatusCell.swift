@@ -14,20 +14,25 @@ class ProDeviceStatusCell: UITableViewCell {
     private let statusTitle = UILabel()
     private let refreshButton = UIButton(type: .custom)
     private let lineStatusText = UILabel()
+    
     private let msgLockText = UILabel()
+    private let msgRunText = UILabel()
     private let msgCollectionText = UILabel()
-    private let msgAzimuthText = UILabel()
-    private let msgPitchAngleText = UILabel()
     private let msgLongitudeText = UILabel()
     private let msgLatitudeText = UILabel()
     private let msgAltitudeText = UILabel()
+    private let msgTemText = UILabel()
+    private let msgHumText = UILabel()
+    
     private let lockLabel = UILabel()
+    private let runLabel = UILabel()
     private let collectionLabel = UILabel()
-    private let azimuthLabel = UILabel()
-    private let pitchAngleLabel = UILabel()
     private let longitudeLabel = UILabel()
     private let latitudeLabel = UILabel()
     private let altitudeLabel = UILabel()
+    private let temLabel = UILabel()
+    private let humLabel = UILabel()
+
     
     var refreshAction: (() -> Void)?
     
@@ -68,41 +73,49 @@ class ProDeviceStatusCell: UITableViewCell {
         msgLockText.textAlignment = .left
         bgView.addSubview(msgLockText)
         
+        msgRunText.text = "--"
+               msgRunText.textColor = UIColor(str: "#070808")
+               msgRunText.font = UIFont.systemFont(ofSize: 14, weight: .medium)
+               msgRunText.textAlignment = .center
+               bgView.addSubview(msgRunText)
+
+        
         msgCollectionText.text = "--"
         msgCollectionText.textColor = UIColor(str: "#070808")
         msgCollectionText.font = UIFont.systemFont(ofSize: 14, weight: .medium)
-        msgCollectionText.textAlignment = .center
+        msgCollectionText.textAlignment = .right
         bgView.addSubview(msgCollectionText)
-        
-        msgAzimuthText.text = "--"
-        msgAzimuthText.textColor = UIColor(str: "#070808")
-        msgAzimuthText.font = UIFont.systemFont(ofSize: 14, weight: .medium)
-        msgAzimuthText.textAlignment = .right
-        bgView.addSubview(msgAzimuthText)
-        
-        msgPitchAngleText.text = "--"
-        msgPitchAngleText.textColor = UIColor(str: "#070808")
-        msgPitchAngleText.font = UIFont.systemFont(ofSize: 14, weight: .medium)
-        msgPitchAngleText.textAlignment = .left
-        bgView.addSubview(msgPitchAngleText)
         
         msgLongitudeText.text = "--"
         msgLongitudeText.textColor = UIColor(str: "#070808")
         msgLongitudeText.font = UIFont.systemFont(ofSize: 14, weight: .medium)
-        msgLongitudeText.textAlignment = .center
+        msgLongitudeText.textAlignment = .left
         bgView.addSubview(msgLongitudeText)
         
         msgLatitudeText.text = "--"
         msgLatitudeText.textColor = UIColor(str: "#070808")
         msgLatitudeText.font = UIFont.systemFont(ofSize: 14, weight: .medium)
-        msgLatitudeText.textAlignment = .right
+        msgLatitudeText.textAlignment = .center
         bgView.addSubview(msgLatitudeText)
         
         msgAltitudeText.text = "--"
         msgAltitudeText.textColor = UIColor(str: "#070808")
         msgAltitudeText.font = UIFont.systemFont(ofSize: 14, weight: .medium)
-        msgAltitudeText.textAlignment = .left
+        msgAltitudeText.textAlignment = .right
         bgView.addSubview(msgAltitudeText)
+        
+        msgTemText.text = "--"
+               msgTemText.textColor = UIColor(str: "#070808")
+               msgTemText.font = UIFont.systemFont(ofSize: 14, weight: .medium)
+               msgTemText.textAlignment = .left
+               bgView.addSubview(msgTemText)
+               
+               msgHumText.text = "--"
+               msgHumText.textColor = UIColor(str: "#070808")
+               msgHumText.font = UIFont.systemFont(ofSize: 14, weight: .medium)
+               msgHumText.textAlignment = .center
+               bgView.addSubview(msgHumText)
+
         
         lockLabel.text = "锁定状态"
         lockLabel.textColor = UIColor(str: "#84888C")
@@ -110,34 +123,29 @@ class ProDeviceStatusCell: UITableViewCell {
         lockLabel.textAlignment = .left
         bgView.addSubview(lockLabel)
         
+        runLabel.text = "运行状态"
+                runLabel.textColor = UIColor(str: "#84888C")
+                runLabel.font = UIFont.systemFont(ofSize: 12, weight: .regular)
+                runLabel.textAlignment = .center
+                bgView.addSubview(runLabel)
+
         collectionLabel.text = "入网"
         collectionLabel.textColor = UIColor(str: "#84888C")
         collectionLabel.font = UIFont.systemFont(ofSize: 12, weight: .regular)
-        collectionLabel.textAlignment = .center
+        collectionLabel.textAlignment = .right
         bgView.addSubview(collectionLabel)
         
-        azimuthLabel.text = "方位角"
-        azimuthLabel.textColor = UIColor(str: "#84888C")
-        azimuthLabel.font = UIFont.systemFont(ofSize: 12, weight: .regular)
-        azimuthLabel.textAlignment = .right
-        bgView.addSubview(azimuthLabel)
-        
-        pitchAngleLabel.text = "俯仰角"
-        pitchAngleLabel.textColor = UIColor(str: "#84888C")
-        pitchAngleLabel.font = UIFont.systemFont(ofSize: 12, weight: .regular)
-        pitchAngleLabel.textAlignment = .left
-        bgView.addSubview(pitchAngleLabel)
         
         longitudeLabel.text = "经度"
         longitudeLabel.textColor = UIColor(str: "#84888C")
         longitudeLabel.font = UIFont.systemFont(ofSize: 12, weight: .regular)
-        longitudeLabel.textAlignment = .center
+        longitudeLabel.textAlignment = .left
         bgView.addSubview(longitudeLabel)
         
         latitudeLabel.text = "纬度"
         latitudeLabel.textColor = UIColor(str: "#84888C")
         latitudeLabel.font = UIFont.systemFont(ofSize: 12, weight: .regular)
-        latitudeLabel.textAlignment = .right
+        latitudeLabel.textAlignment = .center
         bgView.addSubview(latitudeLabel)
         
         altitudeLabel.text = "海拔"
@@ -145,6 +153,19 @@ class ProDeviceStatusCell: UITableViewCell {
         altitudeLabel.font = UIFont.systemFont(ofSize: 12, weight: .regular)
         altitudeLabel.textAlignment = .right
         bgView.addSubview(altitudeLabel)
+        
+        temLabel.text = "终端温度"
+                temLabel.textColor = UIColor(str: "#84888C")
+                temLabel.font = UIFont.systemFont(ofSize: 12, weight: .regular)
+                temLabel.textAlignment = .left
+                bgView.addSubview(temLabel)
+                
+                humLabel.text = "终端湿度"
+                humLabel.textColor = UIColor(str: "#84888C")
+                humLabel.font = UIFont.systemFont(ofSize: 12, weight: .regular)
+                humLabel.textAlignment = .center
+                bgView.addSubview(humLabel)
+
         
         setConstraint()
     }
@@ -155,20 +176,22 @@ class ProDeviceStatusCell: UITableViewCell {
         refreshButton.translatesAutoresizingMaskIntoConstraints = false
         lineStatusText.translatesAutoresizingMaskIntoConstraints = false
         msgLockText.translatesAutoresizingMaskIntoConstraints = false
+        msgRunText.translatesAutoresizingMaskIntoConstraints = false
         msgCollectionText.translatesAutoresizingMaskIntoConstraints = false
-        msgAzimuthText.translatesAutoresizingMaskIntoConstraints = false
-        msgPitchAngleText.translatesAutoresizingMaskIntoConstraints = false
         msgLongitudeText.translatesAutoresizingMaskIntoConstraints = false
         msgLatitudeText.translatesAutoresizingMaskIntoConstraints = false
         msgAltitudeText.translatesAutoresizingMaskIntoConstraints = false
+        msgTemText.translatesAutoresizingMaskIntoConstraints = false
+        msgHumText.translatesAutoresizingMaskIntoConstraints = false
         lockLabel.translatesAutoresizingMaskIntoConstraints = false
+        runLabel.translatesAutoresizingMaskIntoConstraints = false
         collectionLabel.translatesAutoresizingMaskIntoConstraints = false
-        azimuthLabel.translatesAutoresizingMaskIntoConstraints = false
-        pitchAngleLabel.translatesAutoresizingMaskIntoConstraints = false
         longitudeLabel.translatesAutoresizingMaskIntoConstraints = false
         latitudeLabel.translatesAutoresizingMaskIntoConstraints = false
         altitudeLabel.translatesAutoresizingMaskIntoConstraints = false
-        
+        temLabel.translatesAutoresizingMaskIntoConstraints = false
+        humLabel.translatesAutoresizingMaskIntoConstraints = false
+
         NSLayoutConstraint.activate([
             
             bgView.topAnchor.constraint(equalTo: topAnchor),
@@ -187,50 +210,56 @@ class ProDeviceStatusCell: UITableViewCell {
             lineStatusText.topAnchor.constraint(equalTo: statusTitle.bottomAnchor, constant: 8),
             lineStatusText.leadingAnchor.constraint(equalTo: bgView.leadingAnchor, constant: 16),
             
+            // 锁定状态，运行状态，入网
             msgLockText.topAnchor.constraint(equalTo: lineStatusText.bottomAnchor, constant: 16),
             msgLockText.leadingAnchor.constraint(equalTo: bgView.leadingAnchor, constant: 16),
             
-            msgCollectionText.topAnchor.constraint(equalTo: lineStatusText.bottomAnchor, constant: 16),
-            msgCollectionText.centerXAnchor.constraint(equalTo: bgView.centerXAnchor),
+            msgRunText.topAnchor.constraint(equalTo: lineStatusText.bottomAnchor, constant: 16),
+            msgRunText.centerXAnchor.constraint(equalTo: bgView.centerXAnchor),
             
-            msgAzimuthText.topAnchor.constraint(equalTo: lineStatusText.bottomAnchor, constant: 16),
-            msgAzimuthText.trailingAnchor.constraint(equalTo: bgView.trailingAnchor, constant: -16),
+            msgCollectionText.topAnchor.constraint(equalTo: lineStatusText.bottomAnchor, constant: 16),
+            msgCollectionText.trailingAnchor.constraint(equalTo: bgView.trailingAnchor, constant: -16),
             
             lockLabel.topAnchor.constraint(equalTo: msgLockText.bottomAnchor, constant: 5),
             lockLabel.leadingAnchor.constraint(equalTo: bgView.leadingAnchor, constant: 16),
             
+            runLabel.topAnchor.constraint(equalTo: msgRunText.bottomAnchor, constant: 5),
+            runLabel.centerXAnchor.constraint(equalTo: bgView.centerXAnchor),
+            
             collectionLabel.topAnchor.constraint(equalTo: msgCollectionText.bottomAnchor, constant: 5),
-            collectionLabel.centerXAnchor.constraint(equalTo: bgView.centerXAnchor),
+            collectionLabel.trailingAnchor.constraint(equalTo: bgView.trailingAnchor, constant: -16),
             
-            azimuthLabel.topAnchor.constraint(equalTo: msgAzimuthText.bottomAnchor, constant: 5),
-            azimuthLabel.trailingAnchor.constraint(equalTo: bgView.trailingAnchor, constant: -16),
+            //经纬，海拔
+            msgLongitudeText.topAnchor.constraint(equalTo: lockLabel.bottomAnchor, constant: 16),
+            msgLongitudeText.leadingAnchor.constraint(equalTo: bgView.leadingAnchor, constant: 16),
             
-            lineStatusText.topAnchor.constraint(equalTo: statusTitle.bottomAnchor, constant: 8),
-            lineStatusText.leadingAnchor.constraint(equalTo: bgView.leadingAnchor, constant: 16),
+            msgLatitudeText.topAnchor.constraint(equalTo: lockLabel.bottomAnchor, constant: 16),
+            msgLatitudeText.centerXAnchor.constraint(equalTo: bgView.centerXAnchor),
             
-            msgPitchAngleText.topAnchor.constraint(equalTo: lockLabel.bottomAnchor, constant: 12),
-            msgPitchAngleText.leadingAnchor.constraint(equalTo: bgView.leadingAnchor, constant: 16),
-            
-            msgLongitudeText.topAnchor.constraint(equalTo: lockLabel.bottomAnchor, constant: 12),
-            msgLongitudeText.centerXAnchor.constraint(equalTo: bgView.centerXAnchor),
-            
-            msgLatitudeText.topAnchor.constraint(equalTo: lockLabel.bottomAnchor, constant: 12),
-            msgLatitudeText.trailingAnchor.constraint(equalTo: bgView.trailingAnchor, constant: -16),
-            
-            pitchAngleLabel.topAnchor.constraint(equalTo: msgPitchAngleText.bottomAnchor, constant: 5),
-            pitchAngleLabel.leadingAnchor.constraint(equalTo: bgView.leadingAnchor, constant: 16),
+            msgAltitudeText.topAnchor.constraint(equalTo: lockLabel.bottomAnchor, constant: 16),
+            msgAltitudeText.trailingAnchor.constraint(equalTo: bgView.trailingAnchor, constant: -16),
             
             longitudeLabel.topAnchor.constraint(equalTo: msgLongitudeText.bottomAnchor, constant: 5),
-            longitudeLabel.centerXAnchor.constraint(equalTo: bgView.centerXAnchor),
+            longitudeLabel.leadingAnchor.constraint(equalTo: bgView.leadingAnchor, constant: 16),
             
             latitudeLabel.topAnchor.constraint(equalTo: msgLatitudeText.bottomAnchor, constant: 5),
-            latitudeLabel.trailingAnchor.constraint(equalTo: bgView.trailingAnchor, constant: -16),
-            
-            msgAltitudeText.topAnchor.constraint(equalTo: pitchAngleLabel.bottomAnchor, constant: 12),
-            msgAltitudeText.leadingAnchor.constraint(equalTo: bgView.leadingAnchor, constant: 16),
+            latitudeLabel.centerXAnchor.constraint(equalTo: bgView.centerXAnchor),
             
             altitudeLabel.topAnchor.constraint(equalTo: msgAltitudeText.bottomAnchor, constant: 5),
-            altitudeLabel.leadingAnchor.constraint(equalTo: bgView.leadingAnchor, constant: 16),
+            altitudeLabel.trailingAnchor.constraint(equalTo: bgView.trailingAnchor, constant: -16),
+            
+            //温度，湿度
+            msgTemText.topAnchor.constraint(equalTo: longitudeLabel.bottomAnchor, constant: 16),
+            msgTemText.leadingAnchor.constraint(equalTo: bgView.leadingAnchor, constant: 16),
+            
+            msgHumText.topAnchor.constraint(equalTo: longitudeLabel.bottomAnchor, constant: 16),
+            msgHumText.centerXAnchor.constraint(equalTo: bgView.centerXAnchor),
+            
+            temLabel.topAnchor.constraint(equalTo: msgTemText.bottomAnchor, constant: 5),
+            temLabel.leadingAnchor.constraint(equalTo: bgView.leadingAnchor, constant: 16),
+            
+            humLabel.topAnchor.constraint(equalTo: msgHumText.bottomAnchor, constant: 5),
+            humLabel.centerXAnchor.constraint(equalTo: bgView.centerXAnchor),
             
         ])
     }
@@ -242,10 +271,9 @@ class ProDeviceStatusCell: UITableViewCell {
     func configon(with data: ProDeviceStatus) {
         msgLockText.text = data.lockStatus.description
         msgCollectionText.text = data.antennaStatus.description
-        msgAzimuthText.text = String(data.azimuth)
-        msgPitchAngleText.text = String(data.elevation)
-        msgLatitudeText.text = convertToDMSString(data.latitude)
-        msgLongitudeText.text = convertToDMSString(data.longitude)
+        msgLatitudeText.text = String(format: "%.6f°N",data.latitude)
+        msgLongitudeText.text = String(format: "%.6f°E",data.longitude)
+        msgAltitudeText.text = String(format:"%.2f米",data.altitude)
         msgAltitudeText.text = String(data.altitude)
         lineStatusText.text = data.antennaStatus.contentText
         if data.antennaStatus == .stableTracking {
@@ -255,6 +283,15 @@ class ProDeviceStatusCell: UITableViewCell {
         }
     }
     
+    func configonEnvironment(with data: EnvironmentInfo) {
+        msgTemText.text = "\(data.temperature)℃"
+        msgHumText.text =  "\(data.humidity)%"
+    }
+    
+    func configRunStatus(with data: SatelliteLinkStatus) {
+        msgRunText.text = data.description
+    }
+
     // 经纬度转换
     func convertToDMSTuple(_ coordinate: Double) -> (degrees: Int, minutes: Int, seconds: Int) {
         let absCoordinate = abs(coordinate)

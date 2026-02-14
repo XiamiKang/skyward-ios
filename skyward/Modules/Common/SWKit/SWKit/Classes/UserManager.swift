@@ -105,13 +105,14 @@ public class UserManager {
     }
 
     /// 请求紧急联系人信息
-    func requestEmergencyContact(_ completion: @escaping (EmergencyContact?) -> Void) { 
+    public func requestEmergencyContact(_ completion: @escaping (EmergencyContact?) -> Void) { 
         NetworkProvider<UserAPI>().request(.getEmergencyContact) { result in
             switch result {
             case .success(let rsp):
                 do {
                     let networkResponse = try rsp.map(NetworkResponse<EmergencyContact>.self)
                     self.emergencyContact = networkResponse.data
+                    self.userInfo?.isSetEmergency = true
                     completion(self.emergencyContact)
                 } catch {
                     completion(nil)
@@ -146,8 +147,16 @@ public class UserManager {
     }
     
     /// 清空用户信息
-    private func cleanUserInfo() {
+    public func cleanUserInfo() {
         UserDefaults.standard.removeObject(forKey: storageUserId())
+        userInfo = nil
+        emergencyContact = nil
+        TokenManager.shared.clearTokens()
+    }
+    
+    public func cleanEmergencyContact() {
+        userInfo?.isSetEmergency = false
+        emergencyContact = nil
     }
     
     /// 保存用户信息

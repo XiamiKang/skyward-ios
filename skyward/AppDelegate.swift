@@ -17,12 +17,18 @@ import ModuleMessage
 import ModuleTeam
 import ModuleLogin
 import SWNetwork
+import Combine
+import Bugly
 
 @main
 
 class AppDelegate: UIResponder, UIApplicationDelegate {
     
     var window: UIWindow?
+    private var cancellables = Set<AnyCancellable>()
+    
+    /// 设置该属性，配置所有的应用模块
+    private var modules: [ModuleType] = []
     
     // MARK: - Config && Process
     /// 配置所有的应用模块
@@ -48,6 +54,17 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
 extension AppDelegate {
     
     func application(_ application: UIApplication, didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?) -> Bool {
+        // 初始化日志管理器
+        Logger.registe(with: .other) //TODO:根据环境来配置
+        // bugly初始化
+        Bugly.start(withAppId: "ea0cccaf98")
+        
+        if UserManager.shared.isLogin {
+            //初始化数据库
+            DBManager.shared.initDb(userId: UserManager.shared.userId)
+            //MQTT开始链接
+            MQTTManager.shared.connect()
+        }
         
         for service in _sortedServices {
             service.application(application, didFinishLaunchingWithOptions: launchOptions)
@@ -60,10 +77,8 @@ extension AppDelegate {
         }
         
         if UserManager.shared.isLogin {
-            //初始化数据库
-            DBManager.shared.initDb(userId: UserManager.shared.userId)
-            //MQTT开始链接
-            MQTTManager.shared.connect()
+            //消息模块监听消息
+            SWRouter.handle(RouteTable.startMonitorMessage)
             //组队模块监听消息
             SWRouter.handle(RouteTable.teamStartMonitorMessage)
         }
@@ -74,55 +89,50 @@ extension AppDelegate {
         }
 
         NetworkMonitor.shared.startMonitoring()
+        // 静默启动位置服务
+        LocationRegionManager.shared.startLocationService()
         // 初始化地图
         MapConfig.shared.resetToDefaults()
         // 下载公共兴趣点
         DispatchQueue.main.asyncAfter(deadline: .now() + 2) {
             POIDownloadManager.shared.startSilentDownload()
         }
+        // 判断pro的固件版本
+        AppLaunchManager.shared.performLaunchTasks()
         
-        let aWindow = UIWindow(frame: UIScreen.main.bounds)
-        self.window = aWindow
-        self.window?.backgroundColor = .white
-        Bootstrap.shared.window = aWindow
-        Bootstrap.shared.runMainFlow()
-        self.window?.makeKeyAndVisible()
+        // 上传宽带存储的数据
+        DeviceDataCollectionScheduler.shared.checkAndUploadViaMQTT()
+        
+        UserDefaults.standard.set(["zh-Hans"], forKey: "AppleLanguages")
+        UserDefaults.standard.synchronize()
         
         DispatchQueue.main.async {
-            if let win = self.window, !win.isKeyWindow {
-                print("⚠️ 窗口不是keyWindow，重新设置")
-                self.useFallbackWindowStrategy()
-            }
+            let aWindow = UIWindow(frame: UIScreen.main.bounds)
+            self.window = aWindow
+            self.window?.backgroundColor = .white
+            Bootstrap.shared.window = aWindow
+            Bootstrap.shared.runMainFlow()
+            self.window?.makeKeyAndVisible()
         }
 
         return true
-    }
-    
-    private func useFallbackWindowStrategy() {
-        print("使用备用窗口策略...")
-        
-        // 创建全新的窗口，使用更高的windowLevel
-        let fallbackWindow = UIWindow(frame: UIScreen.main.bounds)
-        fallbackWindow.windowLevel = .alert + 1  // 非常高的层级
-        fallbackWindow.backgroundColor = .white  // 明显的测试颜色
-
-        Bootstrap.shared.window = fallbackWindow
-        Bootstrap.shared.runMainFlow()
-        
-        // 立即显示
-        fallbackWindow.isHidden = false
-        fallbackWindow.makeKey()
-        
-        // 替换原来的window
-        self.window = fallbackWindow
-        
-        print("✅ 备用窗口已激活")
     }
     
     public func applicationDidBecomeActive(_ application: UIApplication) {
         for service in _sortedServices {
             service.applicationDidBecomeActive(application)
         }
+        LocationRegionManager.shared.startLocationService()
+        WiFiDeviceManager.shared.checkWiFiPermission { wifiInfo in
+            if let wifiName = wifiInfo.ssid,
+               wifiName.contains("天行探索") {
+                WiFiDeviceManager.shared.connect()
+            }else {
+                WiFiDeviceManager.shared.disconnect()
+            }
+        }
+        NotificationCenter.default.post(name: .applicationDidBecomeActive, object: nil)
+
     }
     
     public func applicationWillResignActive(_ application: UIApplication) {
@@ -154,6 +164,7 @@ extension AppDelegate {
             service.application(application, performActionFor: shortcutItem, completionHandler: completionHandler)
         }
     }
+    
 }
 
 // MARK: - Hanlde URL

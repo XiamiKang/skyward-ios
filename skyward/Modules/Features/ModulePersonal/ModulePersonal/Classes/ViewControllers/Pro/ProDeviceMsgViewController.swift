@@ -140,10 +140,10 @@ class ProDeviceMsgViewController: PersonalBaseViewController {
     
     private func loadDeviceInfoFromCache() {
         let userDefaults = UserDefaults.standard
-        let deviceSN = userDefaults.string(forKey: "LastDeviceSN") ?? "无缓存数据"
-        let acuVersion = userDefaults.string(forKey: "LastACUVersion") ?? "无缓存数据"
-        let catMAC = userDefaults.string(forKey: "LastCatMAC") ?? "无缓存数据"
-        let catSN = userDefaults.string(forKey: "LastCatSN") ?? "无缓存数据"
+        let deviceSN = userDefaults.string(forKey: "LastDeviceSN") ?? "--"
+        let acuVersion = userDefaults.string(forKey: "LastACUVersion") ?? "--"
+        let catMAC = userDefaults.string(forKey: "LastCatMAC") ?? "--"
+        let catSN = userDefaults.string(forKey: "LastCatSN") ?? "--"
         
         dataSource = [
             [ProDeviceMsgInfo(title: "设备SN", value: deviceSN),

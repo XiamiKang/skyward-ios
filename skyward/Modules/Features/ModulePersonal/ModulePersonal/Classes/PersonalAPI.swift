@@ -25,6 +25,8 @@ public enum PersonalAPI {
     case getDeviceFirmware(_ model: DeviceFirmwareModel)           // 获取设备的固件信息
     case getEmergencyContact                                       // 获取紧急联系人
     case getUserInfo                                               // 获取用户信息
+    case getEmergencyContactList                                   // 获取紧急联系人列表
+    case deleteEmergencyContact(id: String)                        // 删除紧急联系人
 }
 
 // MARK: - TargetType 实现
@@ -60,6 +62,10 @@ extension PersonalAPI: NetworkAPI {
             return "/txts-user-center-app/api/v1/emergency-contact/info"
         case .getUserInfo:
             return "/txts-user-center-app/api/v1/my-center/info"
+        case .getEmergencyContactList:
+            return "/txts-user-center-app/api/v1/emergency-contact/list"
+        case .deleteEmergencyContact(let id):
+            return "/txts-user-center-app/api/v1/emergency-contact/\(id)"
         }
     }
     
@@ -69,11 +75,13 @@ extension PersonalAPI: NetworkAPI {
                 .userLogout,
                 .getDeviceFirmware,
                 .getEmergencyContact,
-                .getUserInfo:
+                .getUserInfo,
+                .getEmergencyContactList:
             return .get
         case    .addEmergencyContact:
             return .post
-        case    .unBingMiniDevice:
+        case    .unBingMiniDevice,
+                .deleteEmergencyContact:
             return .delete
         case    .updateUserAvatar,
                 .updateUserNickname,
@@ -145,6 +153,10 @@ extension PersonalAPI: NetworkAPI {
         case .getEmergencyContact:
             return .requestPlain
         case .getUserInfo:
+            return .requestPlain
+        case .getEmergencyContactList:
+            return .requestPlain
+        case .deleteEmergencyContact:
             return .requestPlain
         }
     }
@@ -239,14 +251,22 @@ public struct UnBindModel {
 }
 
 public struct EmergencyContactModel {
+    public let id: String?
     public let name: String
     public let phone: String
     
     func toDictionary() -> [String: Any] {
-        return [
+        var dict: [String: Any] = [
             "name": name,
             "phone": phone
-            ]
+        ]
+        
+        // 如果id不为nil，就添加到字典中
+        if let id = id {
+            dict["id"] = id
+        }
+        
+        return dict
     }
 }
 
@@ -268,6 +288,12 @@ public struct DeviceFirmwareModel {
     let deviceType: Int // 设备类型（1-窄带 2-宽带）
     let versionCode: String
     let hardwareModel: String
+    
+    public init(deviceType: Int, versionCode: String, hardwareModel: String) {
+        self.deviceType = deviceType
+        self.versionCode = versionCode
+        self.hardwareModel = hardwareModel
+    }
     
     func toDictionary() -> [String: Any] {
         return [

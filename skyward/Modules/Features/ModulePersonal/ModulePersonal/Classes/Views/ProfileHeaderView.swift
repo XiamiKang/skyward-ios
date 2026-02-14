@@ -48,14 +48,10 @@ class ProfileHeaderView: UITableViewHeaderFooterView {
     }()
     
     private let editButton: UIButton = {
-        let button = UIButton(type: .system)
+        let button = UIButton(type: .custom)
         button.translatesAutoresizingMaskIntoConstraints = false
-        button.setTitle("编辑资料", for: .normal)
-        button.setTitleColor(.white, for: .normal)
-        button.titleLabel?.font = .systemFont(ofSize: 12, weight: .medium)
-        button.backgroundColor = UIColor(str: "#FE6A00")
-        button.layer.cornerRadius = 4
-        button.contentEdgeInsets = UIEdgeInsets(top: 4, left: 10, bottom: 4, right: 10)
+        button.setImage(PersonalModule.image(named: "profile_edit"), for: .normal)
+        
         return button
     }()
     
@@ -103,8 +99,8 @@ class ProfileHeaderView: UITableViewHeaderFooterView {
         NSLayoutConstraint.activate([
             editButton.centerYAnchor.constraint(equalTo: avatarImageView.centerYAnchor),
             editButton.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -20),
-            editButton.widthAnchor.constraint(equalToConstant: 80),
-            editButton.heightAnchor.constraint(equalToConstant: 30)
+            editButton.widthAnchor.constraint(equalToConstant: 40),
+            editButton.heightAnchor.constraint(equalToConstant: 40)
         ])
         
         editButton.addTarget(self, action: #selector(editButtonTapped), for: .touchUpInside)

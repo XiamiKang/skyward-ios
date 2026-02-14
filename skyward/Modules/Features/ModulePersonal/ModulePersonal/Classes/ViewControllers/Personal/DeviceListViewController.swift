@@ -13,9 +13,9 @@ import SWKit
 public class DeviceListViewController: PersonalBaseViewController {
     
     // MARK: - 数据
-    private var selectedDeviceType: Int = 0 // 0: 行者mini, 1: 行者pro
-    private var miniDevices: [MiniDeviceData] = []
-    private var proDevices: [WiFiDevice] = []
+    private var selectedDeviceType: Int
+    private var miniDevices: [MiniDeviceData]
+    private var proDevices: [WiFiDevice]
     private let viewModel = PersonalViewModel()
     
     // MARK: - UI组件
@@ -64,6 +64,19 @@ public class DeviceListViewController: PersonalBaseViewController {
         return collectionView
     }()
     
+    public init(selectedDeviceType: Int) {
+        self.selectedDeviceType = selectedDeviceType
+        self.miniDevices = []
+        self.proDevices = []
+        super.init(nibName: nil, bundle: nil)
+        self.updateOptionButtons()
+        self.loadInitialData()
+    }
+    
+    @MainActor required init?(coder: NSCoder) {
+        fatalError("init(coder:) has not been implemented")
+    }
+    
     // MARK: - 生命周期
     public override func viewDidLoad() {
         super.viewDidLoad()
@@ -79,6 +92,7 @@ public class DeviceListViewController: PersonalBaseViewController {
         super.viewWillAppear(animated)
         navigationController?.setNavigationBarHidden(true, animated: animated)
         loadDevices()
+        BluetoothManager.shared.startScanningForFilteredDevices()
     }
     
 }
@@ -266,8 +280,6 @@ extension DeviceListViewController: UICollectionViewDataSource, UICollectionView
                 let device = miniDevices[indexPath.item]
                 navigateToMiniDeviceDetail(with: device)
                 BluetoothManager.shared.stopScanning()
-               
-                
             }
         }else {
             if proDevices.isEmpty {
@@ -279,7 +291,12 @@ extension DeviceListViewController: UICollectionViewDataSource, UICollectionView
                     showBindDeviceSheet()
                     return
                 }
-                navigateToProDeviceDetail()
+                let device = proDevices[indexPath.item]
+                if device.isConnected {
+                    navigateToProDeviceDetail()
+                }else {
+                    view.sw_showWarningToast("请确认已连接到设备WiFi")
+                }
             }
         }
     }

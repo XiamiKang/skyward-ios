@@ -319,7 +319,7 @@ public class AdvancedFirmwareUpdateManager {
         data[6] = UInt8((sequence >> 8) & 0xFF)
         
         // 包长度
-        let packetLength = UInt16(packetData.count)
+        let packetLength = packetSize
         data[7] = UInt8(packetLength & 0xFF)
         data[8] = UInt8((packetLength >> 8) & 0xFF)
         
@@ -380,7 +380,6 @@ public class AdvancedFirmwareUpdateManager {
         
         let infoPacket = createInfoPacket(sequence: 0, firmwareInfo: firmwareInfo, firmwareSize: firmwareSize)
         try sendBinaryPacketWithRetry(packet: infoPacket, expectedResponse: "$ACK,IN")
-//        try sendBinaryPacketWithRetry(packet: infoPacket, expectedResponse: "")
         addLog("✅ 固件信息发送成功")
     }
     
@@ -468,7 +467,6 @@ public class AdvancedFirmwareUpdateManager {
         case .failure(let error):
             throw error
         }
-//        return
     }
 
     private func sendWithRetry(operation: () throws -> String) throws -> Result<String, Error> {

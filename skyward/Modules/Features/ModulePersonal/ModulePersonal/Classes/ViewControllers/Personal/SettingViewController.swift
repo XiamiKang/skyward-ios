@@ -57,6 +57,15 @@ class SettingViewController: PersonalBaseViewController {
         view.addSubview(tableView)
         view.addSubview(bottomButton)
         
+#if DEBUG
+        let tap = UITapGestureRecognizer(target: self, action: #selector(goLogManager))
+        tap.numberOfTapsRequired = 3
+        customNavView.addGestureRecognizer(tap)
+#endif
+    }
+    
+    @objc private func goLogManager(){
+        navigationController?.pushViewController(LogExportViewController(), animated: true)
     }
     
     private func setupConstraints() {
@@ -79,7 +88,7 @@ class SettingViewController: PersonalBaseViewController {
         dataSource = [
             [SettingData(
                 titleStr: titles[0],
-                contentStr: "1.0.0",
+                contentStr: Bundle.main.infoDictionary?["CFBundleShortVersionString"] as! String,
                 canChange: true
             ),
             SettingData(
@@ -181,13 +190,7 @@ extension SettingViewController: UITableViewDelegate, UITableViewDataSource {
     func tableView(_ tableView: UITableView, didSelectRowAt indexPath: IndexPath) {
         if indexPath.section == 0 {
             if indexPath.row == 0 {
-//                view.sw_showSuccessToast("当前已是最新版本")
-                if NetworkConfig.shared.baseURL == NetworkEnvironment.development.baseURL {
-                    view.sw_showSuccessToast("当前是测试版本")
-                }
-                if NetworkConfig.shared.baseURL == NetworkEnvironment.production.baseURL {
-                    view.sw_showSuccessToast("当前是发布版本")
-                }
+                view.sw_showSuccessToast("当前已是最新版本")
             }
             if indexPath.row == 1 {
                 contactUs()

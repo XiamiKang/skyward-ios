@@ -139,12 +139,18 @@ extension Bootstrap {
         DispatchQueue.main.async {
             self.runMainFlow()
         }
+        
+        SWRouter.handle(RouteTable.startMonitorMessage)
+        SWRouter.handle(RouteTable.teamStartMonitorMessage)
     }
     
     /// 处理登出
     @objc private func handleLogout() {
         
         disconnectMQTT()
+        
+        SWRouter.handle(RouteTable.stopMonitorMessage)
+        SWRouter.handle(RouteTable.teamStopMonitorMessage)
         
         DBManager.shared.closeDb()
     }
@@ -153,7 +159,6 @@ extension Bootstrap {
     private func connectMQTT() {
         debugPrint("[Bootstrap] 用户登录成功，重新连接MQTT")
         MQTTManager.shared.reconnect()
-        SWRouter.handle(RouteTable.teamStartMonitorMessage)
     }
     
     /// 断开MQTT连接
@@ -162,6 +167,7 @@ extension Bootstrap {
         MQTTManager.shared.disconnect()
         MQTTManager.shared.removeAllDelegates()
         MQTTManager.shared.removeAllSubscribes()
-        SWRouter.handle(RouteTable.teamStopMonitorMessage)
     }
 }
+
+

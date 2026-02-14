@@ -162,6 +162,12 @@ class MiniDeviceUpdateViewController: PersonalBaseViewController {
             if FirmwareDownloadManager.shared.firmwareFileExists(firmwareData: firmwareData) {
                 self.updateButtonState(isDownloading: false, progress: 1.0, text: "下载完成，立即安装")
             }
+        }else {
+            firmwareVersionLabel.text = "当前版本：固件_\(self.currentVersion)"
+            firmwareMessageLabel.text = "已是最新版本"
+            self.firmwareWarnLabel.isHidden = true
+            self.firmwareWarnImageView.isHidden = true
+            self.firmwareUpdateView.isHidden = true
         }
     }
     
@@ -395,6 +401,7 @@ extension MiniDeviceUpdateViewController {
         )
         
         alert.addAction(UIAlertAction(title: "确定", style: .default) { _ in
+            self.currentFirmwareData = nil
             // 返回到设备列表或首页
             self.navigationController?.popViewController(animated: true)
         })

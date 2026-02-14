@@ -38,7 +38,18 @@ class MiniDeviceMsgViewController: PersonalBaseViewController {
             ]
             saveDeviceInfoToCache(deviceInfo)
             tableView.reloadData()
+        }else {
+            dataSource = [
+                [ProDeviceMsgInfo(title: "IMEI", value: "--"),
+                 ProDeviceMsgInfo(title: "设备型号", value: "TXTS-NB-01"),
+                 ProDeviceMsgInfo(title: "协议版本号", value: "--"),
+                 ProDeviceMsgInfo(title: "固件版本号", value: "--")]
+            ]
+            tableView.reloadData()
+            BluetoothManager.shared.requestDeviceInfo()
+            
         }
+        setNotification()
     }
     
     override func viewDidLayoutSubviews() {
@@ -62,6 +73,30 @@ class MiniDeviceMsgViewController: PersonalBaseViewController {
         
     }
     
+    private func setNotification() {
+        NotificationCenter.default.addObserver(self,
+                                               selector: #selector(showDeviceInfo(_:)),
+                                               name: .didReceiveDeviceInfo,
+                                               object: nil)
+    }
+    
+    @objc private func showDeviceInfo(_ notification: Notification) {
+        guard let userInfo = notification.userInfo else { return }
+        if let deviceInfo = userInfo["deviceInfo"] as? DeviceInfo {
+            print("Mini设备信息---\(deviceInfo)")
+            self.deviceInfo = deviceInfo
+            dataSource = [
+                [ProDeviceMsgInfo(title: "IMEI", value: "\(deviceInfo.deviceId)"),
+                 ProDeviceMsgInfo(title: "设备型号", value: "TXTS-NB-01"),
+                 ProDeviceMsgInfo(title: "协议版本号", value: formatVersion(deviceInfo.protocolVersion)),
+                 ProDeviceMsgInfo(title: "固件版本号", value: formatVersion(deviceInfo.mcuSoftwareVersion))]
+            ]
+            saveDeviceInfoToCache(deviceInfo)
+            tableView.reloadData()
+        }
+    }
+
+    
     private func saveDeviceInfoToCache(_ deviceInfo: DeviceInfo) {
         // 使用UserDefaults缓存设备信息
         let userDefaults = UserDefaults.standard
@@ -76,9 +111,9 @@ class MiniDeviceMsgViewController: PersonalBaseViewController {
     
     private func loadDeviceInfoFromCache() {
         let userDefaults = UserDefaults.standard
-        let IMEIStr = userDefaults.string(forKey: "LastMiniDeviceIMEI") ?? "无缓存数据"
-        let protocolVersionStr = userDefaults.string(forKey: "LastMiniDeviceProVer") ?? "无缓存数据"
-        let mcuSoftwareVersionStr = userDefaults.string(forKey: "LastMiniDeviceSoftVer") ?? "无缓存数据"
+        let IMEIStr = userDefaults.string(forKey: "LastMiniDeviceIMEI") ?? "--"
+        let protocolVersionStr = userDefaults.string(forKey: "LastMiniDeviceProVer") ?? "--"
+        let mcuSoftwareVersionStr = userDefaults.string(forKey: "LastMiniDeviceSoftVer") ?? "--"
         
         dataSource = [
             [ProDeviceMsgInfo(title: "IMEI", value: IMEIStr),

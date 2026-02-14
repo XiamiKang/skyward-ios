@@ -40,7 +40,7 @@ public class MapManager: NSObject {
     public var onLayerVisibilityChanged: ((String, Bool) -> Void)?
     public var onLocationPermissionChanged: ((CLAuthorizationStatus) -> Void)?
     public var onTileSourceChanged: ((String) -> Void)? // 地图源切换回调
-    public var onMapSingleTapHandler: ((CLLocationCoordinate2D) -> Void)?
+    public var onMapSingleTapHandler: ((CLLocationCoordinate2D, CGPoint) -> Void)?
     public var onAddCustomMarker: ((CLLocationCoordinate2D, CGPoint) -> Void)?
     public var onMapPanHandler: (() -> Void)?
     
@@ -115,7 +115,7 @@ public class MapManager: NSObject {
         
         loadMapWithCurrentTileSource()
         
-        newMapView.cameraPosition = TGCameraPosition(center: config.userPosition, zoom: 15, bearing: 0, pitch: 0)
+        newMapView.cameraPosition = TGCameraPosition(center: config.userPosition, zoom: config.defaultZoom, bearing: 0, pitch: 0)
         
         // 添加到容器视图
         if let containerView = containerView {
@@ -203,12 +203,6 @@ public class MapManager: NSObject {
             tmsUpdate.path = "sources.satellite.tms"
             tmsUpdate.value = tileSourceURL.contains("jl1mall") ? "true" : "false"
             
-            if tileSourceURL.contains("shipxy") {
-                mapView?.zoom = 12
-            }else {
-                mapView?.zoom = 16
-            }
-            
             self.sceneUpdates = [update, tmsUpdate]
             
             // 重新加载地图
@@ -230,6 +224,15 @@ public class MapManager: NSObject {
         print("切换地图源结果: \(success ? "成功" : "失败")")
     }
     
+    public func uploadNotesLayer(with isShow: Bool) {
+        let roadUpdate = TGSceneUpdate()
+        roadUpdate.path = "layers.road-overlay.visible"
+        roadUpdate.value = "\(isShow)"
+        
+        loadMapWithUpdates([roadUpdate])
+    }
+    
+    
     public func reloadMapWithCurrentTileSource() {
         guard let tileSourceURL = config.currentTileSourceURL else {
             loadMap()
@@ -244,12 +247,6 @@ public class MapManager: NSObject {
         tmsUpdate.path = "sources.satellite.tms"
         tmsUpdate.value = tileSourceURL.contains("jl1mall") ? "true" : "false"
         
-        if tileSourceURL.contains("shipxy") {
-            mapView?.zoom = 12
-        }else {
-            mapView?.zoom = 16
-        }
-        
         loadMapWithUpdates([update,tmsUpdate])
     }
     
@@ -259,15 +256,12 @@ public class MapManager: NSObject {
             update.path = config.tileSourcePath
             update.value = tileSourceURL
             
+            print("yifan-----地图请求地址=\(tileSourceURL)")
+            
+            
             let tmsUpdate = TGSceneUpdate()
             tmsUpdate.path = "sources.satellite.tms"
             tmsUpdate.value = tileSourceURL.contains("jl1mall") ? "true" : "false"
-            
-            if tileSourceURL.contains("shipxy") {
-                mapView?.zoom = 12
-            }else {
-                mapView?.zoom = 16
-            }
             
             loadMapWithUpdates([update,tmsUpdate])
         } else {
@@ -348,6 +342,7 @@ public class MapManager: NSObject {
             
             self.config.userPosition = coordinate
             
+            
             // 更新用户位置标记
             self.updateUserLocationMarker(coordinate, accuracy: locationPoint.horizontalAccuracy)
             
@@ -381,7 +376,7 @@ public class MapManager: NSObject {
         let coordinate = config.userPosition
         let cameraPosition = TGCameraPosition(
             center: coordinate,
-            zoom: 16.0,
+            zoom: config.defaultZoom,
             bearing: mapView.bearing,
             pitch: mapView.pitch
         )
@@ -427,7 +422,7 @@ public class MapManager: NSObject {
     
     /// 添加自定义标注
     public func addCustomMarker(layerId: String, coordinate: CLLocationCoordinate2D, title: String,
-                        subtitle: String? = nil, style: MarkerStyle = .defaultStyle) -> String? {
+                                subtitle: String? = nil, style: MarkerStyle = PointMarkerStyle.default) -> String? {
         guard let markerLayerManager = markerLayerManager else {
             print("标记层管理器未初始化")
             return nil
@@ -436,7 +431,7 @@ public class MapManager: NSObject {
         let markerId = UUID().uuidString
         let data = MarkerData(id: markerId, coordinate: coordinate, title: title, subtitle: subtitle)
         
-        return markerLayerManager.addMarker(to: layerId, data: data, style: style)
+        return markerLayerManager.addMarker(to: layerId, data: data)
     }
     
     public func createPointLocationMarker(with coordinate: CLLocationCoordinate2D) {
@@ -460,8 +455,31 @@ public class MapManager: NSObject {
         """
         pointLocationMarker?.icon = SWKitModule.image(named: "measure_start")!
         if let positon = TGCameraPosition(center: coordinate, zoom: 16, bearing: 0, pitch: mapView.pitch) {
-            mapView.fly(to: positon, withDuration: 2)
+            mapView.fly(to: positon, withSpeed: 6)
         }
+    }
+    
+    public func createWeatherPointMarker(with coordinate: CLLocationCoordinate2D) {
+        guard let mapView = mapView else { return }
+        
+        if let marker = pointLocationMarker {
+            mapView.markerRemove(marker)
+            pointLocationMarker = nil
+        }
+        
+        // 创建用户位置标记
+        pointLocationMarker = mapView.markerAdd()
+        pointLocationMarker?.point = coordinate
+        pointLocationMarker?.stylingString = """
+        { style: 'points',
+          interactive: false,
+          color: 'white',
+          size: [40px, 40px],
+          order: 1005,
+          collide: false }
+        """
+        pointLocationMarker?.icon = SWKitModule.image(named: "measure_start2")!
+        
     }
     
     // MARK: - 私有方法
@@ -605,7 +623,7 @@ extension MapManager: TGRecognizerDelegate {
         let coordinate = mapView.coordinate(fromViewPosition: location)
         print("单点手势位置：经度=\(coordinate.longitude)--纬度=\(coordinate.latitude)")
 
-        onMapSingleTapHandler?(coordinate)
+        onMapSingleTapHandler?(coordinate, location)
         
         if isAddPOIStatus {
             onAddCustomMarker?(coordinate, location)
@@ -624,7 +642,7 @@ extension MapManager: TGRecognizerDelegate {
                 coordinate: coordinate,
                 title: "轨迹点",
                 subtitle: "手动添加的轨迹点",
-                style: MarkerStyle(
+                style: PointMarkerStyle(
                     color: "orange",
                     size: [12, 12]
                 )

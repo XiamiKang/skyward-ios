@@ -45,6 +45,8 @@ public class HomeViewController: BaseViewController, MapViewDelegate, SOSButtonD
         setupActions()
         
         setupNotifications()
+        
+        bindEmergency()
     }
     
     public override func viewWillAppear(_ animated: Bool) {
@@ -204,6 +206,10 @@ public class HomeViewController: BaseViewController, MapViewDelegate, SOSButtonD
         }, for: .touchUpInside)
         
         clearButton.addAction(UIAction { [weak self] _ in
+            guard self?.viewModel.noticeList.isEmpty == false else {
+                self?.view.sw_showWarningToast("当前无可清除消息")
+                return
+            }
             SWAlertView.showAlert(title: "确定清除所有消息吗？", message: nil) {
                 self?.viewModel.cleanMessage()
             }
@@ -211,8 +217,9 @@ public class HomeViewController: BaseViewController, MapViewDelegate, SOSButtonD
     }
     
     func selectMiniDevice() {
-        let savedMiniDevices = viewModel.savedMiniDevices
+        let savedMiniDevices = viewModel.getMiniDeviceListData()
         guard savedMiniDevices.count > 0 else {
+            SWPopupView.currentPopup?.dismiss(animated: false)
             SWRouter.handle(RouteTable.bindDevicePageUrl)
             return
         }
@@ -230,7 +237,7 @@ public class HomeViewController: BaseViewController, MapViewDelegate, SOSButtonD
         contentView.deviceList = savedMiniDevices
         NSLayoutConstraint.activate([
             contentView.widthAnchor.constraint(equalToConstant: ScreenUtil.screenWidth),
-            contentView.heightAnchor.constraint(equalToConstant: Double(min(5, contentView.deviceList.count)) * swAdaptedValue(68))
+            contentView.heightAnchor.constraint(equalToConstant: Double(min(3, contentView.deviceList.count)) * swAdaptedValue(68))
         ])
         let top = CGRectGetMaxY(miniDeviceCardView.frame)
         let superView = UIView(frame: CGRectMake(0, top, ScreenUtil.screenWidth, ScreenUtil.screenHeight - top))
@@ -250,6 +257,7 @@ public class HomeViewController: BaseViewController, MapViewDelegate, SOSButtonD
     func selectProDevice() {
         let savedProDevices = viewModel.getProDeviceListData()
         guard savedProDevices.count > 0 else {
+            SWPopupView.currentPopup?.dismiss(animated: false)
             SWRouter.handle(RouteTable.bindDevicePageUrl)
             return
         }
@@ -267,7 +275,7 @@ public class HomeViewController: BaseViewController, MapViewDelegate, SOSButtonD
         contentView.deviceList = savedProDevices
         NSLayoutConstraint.activate([
             contentView.widthAnchor.constraint(equalToConstant: ScreenUtil.screenWidth),
-            contentView.heightAnchor.constraint(equalToConstant: Double(min(5, contentView.deviceList.count)) * swAdaptedValue(68))
+            contentView.heightAnchor.constraint(equalToConstant: Double(min(3, contentView.deviceList.count)) * swAdaptedValue(68))
         ])
         let top = CGRectGetMaxY(proDeviceCardView.frame)
         let superView = UIView(frame: CGRectMake(0, top, ScreenUtil.screenWidth, ScreenUtil.screenHeight - top))
@@ -370,9 +378,8 @@ public class HomeViewController: BaseViewController, MapViewDelegate, SOSButtonD
     }
     
     func mapViewDidTapZoomButton(_ mapView: HomeMapView) {
-        if let navigationController = ScreenUtil.getKeyWindow()?.rootViewController as? UINavigationController,
-           let tabBarController = navigationController.viewControllers.first as? UITabBarController,
-           tabBarController.tabBar.items?.count ?? 0 > 1 {
+        if let navigationController = UIWindow.currentNavigationController(),
+           let tabBarController = navigationController.viewControllers.first as? UITabBarController {
             tabBarController.selectedIndex = 1
         }
     }
@@ -442,6 +449,31 @@ public class HomeViewController: BaseViewController, MapViewDelegate, SOSButtonD
             print("宽带设备连接状态--首页--\(satelliteInfo)")
             
         }
+    }
+    
+    private func bindEmergency() {
+         if let emergencyName = UserDefaults.standard.string(forKey: "EmergencyName"),
+            let emergencyPhone = UserDefaults.standard.string(forKey: "EmergencyPhone") {
+             NetworkProvider<UserAPI>().request(.bindEmergencyContact(name: emergencyName, phone: emergencyPhone)) { result in
+                 switch result {
+                 case .success(let rsp):
+                     do {
+                         let networkResponse = try rsp.map(NetworkResponse<Bool>.self)
+                         if networkResponse.isSuccess {
+                             UserDefaults.standard.removeObject(forKey: "EmergencyName")
+                             UserDefaults.standard.removeObject(forKey: "EmergencyPhone")
+                             UserManager.shared.requestEmergencyContact { result in
+                                 
+                             }
+                         }
+                     } catch {
+                         
+                     }
+                 case .failure(let error):
+                     print(error)
+                 }
+             }
+         }
     }
 }
 

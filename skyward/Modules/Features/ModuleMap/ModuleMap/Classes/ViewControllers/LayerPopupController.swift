@@ -257,7 +257,6 @@ public class LayerPopupController: UIViewController {
     
     @objc private func confirmButtonTapped() {
         let selectedOptions = viewModel.selectedOptions
-        
         // 处理地图切换
         if let mapDict = selectedOptions["selectedMap"] as? [String: String],
            let sceneName = mapDict["name"],
@@ -269,10 +268,13 @@ public class LayerPopupController: UIViewController {
             }
         }
         
-//        if let mapDict = selectedOptions["selectedMap"] as? [String: String],
-//           let sceneName = mapDict["name"] {
-//            handleMapSourceLayerDisplay(sceneName)
-//        }
+        if let mapNotes = selectedOptions["selectedAnnotations"] as? [String],
+           let currentNotes = viewModel.currentSelectedOptions["selectedAnnotations"] as? [String] {
+            if Set(mapNotes) != Set(currentNotes) {
+                let noteLayers = viewModel.handleNotesLayerDisplay(mapNotes)
+                handleMapNotesLayerDisplay(noteLayers)
+            }
+        }
         
 
         // 处理兴趣点
@@ -402,6 +404,16 @@ extension LayerPopupController {
         )
     }
     
+    // 处理注记
+    private func handleMapNotesLayerDisplay(_ notes: [String: Bool]) {
+        // 发送通知更新图源
+        NotificationCenter.default.post(
+            name: .updateMapNotes,
+            object: nil,
+            userInfo: ["notes": notes]
+        )
+    }
+    
     // 处理兴趣点图层显示
     private func handlePOILayerDisplay(_ poiLayers: [String: Bool]) {
         // 发送通知更新POI图层
@@ -415,16 +427,18 @@ extension LayerPopupController {
     // 处理天气图层显示
     private func handleWeatherLayerDisplay(_ weatherLayers: [String: Bool]) {
         // 发送通知更新天气图层
-//        NotificationCenter.default.post(
-//            name: .updateWeatherLayers,
-//            object: nil,
-//            userInfo: ["weatherLayers": weatherLayers]
-//        )
+        NotificationCenter.default.post(
+            name: .updateWeatherLayers,
+            object: nil,
+            userInfo: ["weatherLayers": weatherLayers]
+        )
     }
     
 }
 
 extension Notification.Name {
     public static let updateMapSource = Notification.Name("updateMapSource")
+    public static let updateMapNotes = Notification.Name("updateMapNotes")
     public static let updatePOILayers = Notification.Name("updatePOILayers")
+    public static let updateWeatherLayers = Notification.Name("updateWeatherLayers")
 }

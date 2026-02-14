@@ -319,7 +319,7 @@ extension BluetoothManager {
                     return
                 }
                 
-                progressCallback(10) // 开始升级，进度10%
+                progressCallback(0.1) // 开始升级，进度10%
                 
                 // Step 2: 发送固件数据
                 let sendSuccess = try await sendFirmwareDataInChunks(
@@ -338,7 +338,7 @@ extension BluetoothManager {
                 
                 if endSuccess {
                     completion(true, nil)
-                    progressCallback(100)
+                    progressCallback(1)
                 } else {
                     completion(false, "结束升级失败")
                 }
@@ -451,7 +451,7 @@ extension BluetoothManager {
             print("✅ 数据块 \(i+1)/\(fileChunkCount) 发送成功，耗时: \(String(format: "%.2f", elapsedTime))秒")
             
             // 更新进度
-            let progress = 10 + (Double(i + 1) / Double(fileChunkCount))*0.9
+            let progress = 0.1 + (Double(i + 1) / Double(fileChunkCount))*0.9
             print("发送包进度--------------\(progress)")
             progressCallback(progress)
             

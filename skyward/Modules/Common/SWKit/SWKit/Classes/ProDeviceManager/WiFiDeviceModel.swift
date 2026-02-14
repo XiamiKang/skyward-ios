@@ -53,6 +53,7 @@ public enum LockStatus: Int {
 
 // MARK: - 天线运行状态
 public enum AntennaStatus: Int {
+    case idle = 0
     case stored = 1
     case waitingGPS = 2
     case waitingIMU = 4
@@ -61,6 +62,7 @@ public enum AntennaStatus: Int {
     
     public var description: String {
         switch self {
+        case .idle: return "空闲"
         case .stored: return "收藏"
         case .waitingGPS: return "等待GPS定位"
         case .waitingIMU: return "等待惯导信息"
@@ -71,6 +73,7 @@ public enum AntennaStatus: Int {
     
     public var contentText: String {
         switch self {
+        case .idle: return "设备处于空闲中..."
         case .stored: return "设备处于非工作状态，天线收藏中..."
         case .waitingGPS: return "正在获取设备当前地理位置信息..."
         case .waitingIMU: return "正在获取设备姿态数据..."
@@ -79,6 +82,30 @@ public enum AntennaStatus: Int {
         }
     }
 }
+
+// MARK: - 卫星链路运行状态
+public enum SatelliteLinkStatus: Int {
+    case STATUS_OFF = -1
+    case HOLD_STANDBY = 0
+    case OFF_STANDBY = 1
+    case READY_LOGON = 2
+    case READY_SYNC = 3
+    case SYNC = 4
+    case NCR_RECOVERY = 5
+    
+    public var description: String {
+        switch self {
+        case .STATUS_OFF: return "未知"
+        case .HOLD_STANDBY: return "保持待机"
+        case .OFF_STANDBY: return "离线"
+        case .READY_LOGON: return "准备登录"
+        case .READY_SYNC: return "准备同步"
+        case .SYNC: return "已同步"
+        case .NCR_RECOVERY: return "NCR修复"
+        }
+    }
+}
+
 
 // MARK: - 故障码结构
 public struct FaultCodes {

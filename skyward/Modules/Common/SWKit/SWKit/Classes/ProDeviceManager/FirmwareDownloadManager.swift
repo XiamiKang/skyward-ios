@@ -50,7 +50,8 @@ public struct FirmwareData: Codable {
     public let versionName: String?               // 设备版本名称
     public let firmwareUrl: String?               // 设备固件地址
     public let forceUpdate: Bool?                 // 是否强制更新
-    public let hardwareModel: String?             // 设备型号
+    public let hardwareModel: String?             // 设备批号
+    public let deviceType: Int?                   // 设备类型（1：窄带，2：宽带）
 }
 
 // MARK: - 固件下载管理器

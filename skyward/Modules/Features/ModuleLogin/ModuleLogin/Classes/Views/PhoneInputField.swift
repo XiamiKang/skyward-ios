@@ -15,7 +15,7 @@ class PhoneInputField: BaseInputField {
         let button = UIButton(type: .system)
         button.setTitle("获取验证码", for: .normal)
         button.setTitleColor(UIColor.init(hex: "#C4C7CA"), for: .normal)
-        button.titleLabel?.font = UIFont.systemFont(ofSize: 14)
+        button.titleLabel?.font = .systemFont(ofSize: 14, weight: .medium)
         button.isEnabled = false // 默认禁用，直到输入有效手机号
         button.alpha = 0.6 // 禁用时降低透明度
         return button
@@ -147,6 +147,7 @@ class PhoneInputField: BaseInputField {
         let isValidPhone = validate()
         verifyCodeButton.isEnabled = isValidPhone && !isCountingDown
         verifyCodeButton.setTitleColor(isValidPhone ? defaultOrangeColor : UIColor.init(hex: "#C4C7CA"), for: .normal)
+        verifyCodeButton.alpha = isValidPhone ? 1.0 : 0.6
     }
     
     // MARK: - Actions

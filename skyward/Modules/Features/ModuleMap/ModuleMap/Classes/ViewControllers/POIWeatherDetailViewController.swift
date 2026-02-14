@@ -16,6 +16,8 @@ class POIWeatherDetailViewController: UIViewController {
     var poiTitle: String?
     var address: String?
     var coordinate: CLLocationCoordinate2D
+    var isPOI = true
+    private var poiData: PublicPOIData?
     private var weatherData: WeatherData?
     private var hoursData: [EveryHoursWeatherData]?
     private var daysData: [EveryDayWeatherData]?
@@ -40,10 +42,20 @@ class POIWeatherDetailViewController: UIViewController {
     private let closeButton = UIButton(type: .system)
     
     // MARK: - Initializer
-    init(title: String, address: String, coordinate: CLLocationCoordinate2D) {
-        self.poiTitle = title
-        self.address = address
+    init(poiData: PublicPOIData) {
+        self.poiData = poiData
+        self.poiTitle = poiData.name
+        self.address = poiData.address
+        self.coordinate = CLLocationCoordinate2D(latitude: poiData.wgsLat ?? 0.0, longitude: poiData.wgsLon ?? 0.0)
+        super.init(nibName: nil, bundle: nil)
+    }
+    
+    init(coordinate: CLLocationCoordinate2D) {
+        self.poiData = nil
+        self.poiTitle = String(format: "%.6f°E, %.6f°N", coordinate.longitude, coordinate.latitude)
+        self.address = ""
         self.coordinate = coordinate
+        self.isPOI = false
         super.init(nibName: nil, bundle: nil)
     }
     
@@ -85,6 +97,7 @@ class POIWeatherDetailViewController: UIViewController {
         tableView.showsVerticalScrollIndicator = true
         contentContainerView.addSubview(tableView)
         
+        bottomToolView.isHidden = !isPOI
         // 底部工具栏
         contentContainerView.addSubview(bottomToolView)
         setupBottomToolView()
@@ -94,7 +107,9 @@ class POIWeatherDetailViewController: UIViewController {
     
     private func setupBottomToolView() {
         bottomToolView.backgroundColor = .white
-        
+        if let poidata = poiData {
+            bottomToolView.updateWithPOIData(poiData: poidata)
+        }
         // 添加顶部边框
         let border = UIView()
         border.backgroundColor = UIColor.systemGray5
@@ -156,7 +171,7 @@ class POIWeatherDetailViewController: UIViewController {
             bottomToolView.leadingAnchor.constraint(equalTo: contentContainerView.leadingAnchor),
             bottomToolView.trailingAnchor.constraint(equalTo: contentContainerView.trailingAnchor),
             bottomToolView.bottomAnchor.constraint(equalTo: contentContainerView.bottomAnchor),
-            bottomToolView.heightAnchor.constraint(equalToConstant: 100)
+            bottomToolView.heightAnchor.constraint(equalToConstant: isPOI ? 100 : 0)
         ])
     }
     

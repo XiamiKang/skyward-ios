@@ -27,7 +27,7 @@ sources:
         headers:
             User-Agent: "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36"
         tms: true
-        max_zoom: 18
+        max_zoom: 20
         rasters: [ elevation ]
     road:
         type: Raster
@@ -36,15 +36,12 @@ sources:
         headers:
             User-Agent: "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36"
         rasters: [ elevation ]
-    tianqi:
-        type: Raster
-        url: http://test.bjtxts.com:8081/qixiangpng/temp/{z}/{x}/{y}.png
-        max_zoom: 6
-        rasters: [ elevation ]
         
 scene:
     terrain_3d: false
     elevation_source: elevation
+    background:
+        color: '#F2F3F4'
 textures:
     loc-marker:
         density: 2
@@ -145,6 +142,7 @@ styles:
         mix: terrain-3d
         # blend_order: 10000
         lighting: false
+        blend: overlay
     # unlit-lines:
     #     base: lines
     #     mix: global.terrain_3d_mixin

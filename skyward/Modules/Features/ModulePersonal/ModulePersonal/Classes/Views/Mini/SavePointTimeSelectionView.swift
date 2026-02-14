@@ -88,6 +88,7 @@ class SavePointTimeSelectionView: UIView {
         stackView.axis = .horizontal
         stackView.alignment = .center
         stackView.distribution = .equalSpacing
+        stackView.isUserInteractionEnabled = false
         
         let titleLabel = UILabel()
         titleLabel.text = title
@@ -206,16 +207,16 @@ class SavePointTimeSelectionView: UIView {
         var positionData = Data()
         switch sender.tag {
         case 0:
-            let interval: UInt32 = 600 // 10分钟
+            let interval: UInt32 = 180 // 3分钟
             positionData.append(interval.bigEndianData)
         case 1:
-            let interval: UInt32 = 1200 // 20分钟
+            let interval: UInt32 = 300 // 5分钟
             positionData.append(interval.bigEndianData)
         case 2:
-            let interval: UInt32 = 1800 // 30分钟
+            let interval: UInt32 = 900 // 15分钟
             positionData.append(interval.bigEndianData)
         default:
-            let interval: UInt32 = 1800 // 默认30分钟
+            let interval: UInt32 = 900 // 默认15分钟
             positionData.append(interval.bigEndianData)
         }
         BluetoothManager.shared.sendCommand(.setPositionStoreInterval, messageContent: positionData)

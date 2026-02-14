@@ -8,12 +8,6 @@
 import Foundation
 import SWKit
 
-// 响应数据模型
-public struct RouteListData: Codable {
-    public let list: [RouteData]?   // 路线类型(0-路线 1-自动轨迹)
-    public let total: Int?
-}
-
 public struct RouteData: Codable {
     public let id: String?
     public let routeName: String?
@@ -26,8 +20,8 @@ public struct RouteData: Codable {
     public let distance: String?
     public let travelTime: String?
     public let description: String?
-    public let coordinates: [Coordinate]?
     public let imgUrlList: [String]?
+    public let fileUrl: String?
     public let type: Int?
 }
 

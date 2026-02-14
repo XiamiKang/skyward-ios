@@ -7,6 +7,7 @@
 
 import UIKit
 import SWKit
+import TXKit
 
 class ProDeviceSettingCell: UITableViewCell {
 
@@ -142,21 +143,19 @@ class ProDeviceSettingCell: UITableViewCell {
         }
         newVersion = false
         let currentVersion = String(result.ACUVersion.dropFirst())
-        let hardwareModel = "4.0.0"
-        let model = DeviceFirmwareModel(deviceType: 2, versionCode: currentVersion, hardwareModel: hardwareModel)
-        viewModel.fetchDeviceFirmware(model: model)
-            .receive(on: DispatchQueue.main)
-            .sink { _ in
-                
-            } receiveValue: { [weak self] firmwareData in
-                guard let self = self, let url = firmwareData.firmwareUrl else { return }
-                self.newVersion = true
-                DispatchQueue.main.async {
-                    self.collectionView.reloadData()
-                }
+        let savedVersion = FirmwareManager.shared.getCurrentStoredVersion()
+        switch currentVersion.compareVersion(savedVersion) {
+        case .orderedAscending:
+            print("\(currentVersion) < \(savedVersion)")
+            self.newVersion = true
+            DispatchQueue.main.async {
+                self.collectionView.reloadData()
             }
-            .store(in: &self.viewModel.cancellables)
-        
+        case .orderedDescending:
+            print("\(currentVersion) > \(savedVersion)")
+        case .orderedSame:
+            print("\(currentVersion) == \(savedVersion)")
+        }
     }
 }
 

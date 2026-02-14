@@ -107,7 +107,7 @@ public class MiniDeviceDetailViewController: PersonalBaseViewController {
             let mcuSoftwareVersion = formatVersion(deviceInfo.mcuSoftwareVersion)
             miniVersion = String(mcuSoftwareVersion.dropFirst())
             print("Mini设备固件版本信息---\(miniVersion)")
-            let hardwareModel = "1.0"
+            let hardwareModel = formatHardware(deviceInfo.mcuHardwareVersion)
             let model = DeviceFirmwareModel(deviceType: 1, versionCode: miniVersion, hardwareModel: hardwareModel)
             self.checkNewVersion(model: model)
         }
@@ -267,8 +267,8 @@ public class MiniDeviceDetailViewController: PersonalBaseViewController {
     }
     
     private func refreshMiniDeviceData() {
-        BluetoothManager.shared.requestDeviceInfo()
         BluetoothManager.shared.requestStatusInfo()
+        BluetoothManager.shared.requestDeviceInfo()
         BluetoothManager.shared.getSatelliteSignal()
     }
 }
@@ -296,6 +296,7 @@ extension MiniDeviceDetailViewController: BluetoothManagerDelegate {
         print("设备断开连接: \(peripheral.name ?? "未知设备")")
         DispatchQueue.main.async { [weak self] in
             self?.deviceConnetedStatus = 0
+            self?.newVersion = false
             self?.miniTableView.reloadData()
         }
     }

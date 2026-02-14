@@ -25,7 +25,7 @@ class TabBarController: UITabBarController {
     
         // 更新外观设置
         let tabBarAppearance = UITabBarAppearance()
-        tabBarAppearance.configureWithTransparentBackground()
+        tabBarAppearance.configureWithOpaqueBackground()
         tabBarAppearance.backgroundColor = .white
         tabBarAppearance.shadowColor = .black.withAlphaComponent(0.1)
         tabBarAppearance.shadowImage = nil

@@ -87,17 +87,17 @@ class AddTrackPopupView: UIView, SWPopupContentView {
     // MARK: - Properties
     
     var closeHandler: (() -> Void)?
-    var confirmHandler: ((String?) -> Void)?
+    var confirmHandler: ((String) -> Void)?
     
     // MARK: - Initialization
-    init(trackName: String?) {
-        super.init(frame: CGRectZero)
+    init(route: Route) {
+        super.init(frame: .zero)
         setupUI()
         setupConstraints()
         
         cancelButton.addTarget(self, action: #selector(closeButtonTapped), for: .touchUpInside)
         confirmButton.addTarget(self, action: #selector(confirmButtonTapped), for: .touchUpInside)
-        nameTextField.text = trackName
+        nameTextField.text = route.routeName
     }
     
     required init?(coder: NSCoder) {
@@ -167,6 +167,15 @@ class AddTrackPopupView: UIView, SWPopupContentView {
     }
     
     @objc private func confirmButtonTapped() {
-        self.confirmHandler?(nameTextField.text)
+        nameTextField.resignFirstResponder()
+        guard let name = nameTextField.text?.trimmingCharacters(in: .whitespacesAndNewlines), !name.isEmpty else {
+            sw_showWarningToast("名称不能为空")
+            return
+        }
+        if name.count > 30 {
+            sw_showWarningToast("最多输入30个字符")
+            return
+        }
+        self.confirmHandler?(name)
     }
 }

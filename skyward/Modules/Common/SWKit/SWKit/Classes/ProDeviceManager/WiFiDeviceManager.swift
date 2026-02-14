@@ -18,7 +18,7 @@ public class WiFiDeviceManager {
     // MARK: - 配置
     var host: String = "192.168.0.7"
     var port: UInt16 = 2018
-    private let maxRetryCount = 5
+    private let maxRetryCount = 10
     private let timeoutInterval: TimeInterval = 10.0
     private var bssid: String?
     
@@ -106,6 +106,9 @@ public class WiFiDeviceManager {
     public func connect(completion: ((Result<Bool, Error>) -> Void)? = nil) {
         guard !isConnected else {
             print("设备已连接")
+            self.onConnectionStatusChanged?(true)
+            self.saveCurrentDeviceAfterConnection()
+            DeviceDataCollectionScheduler.shared.startCollection()
             completion?(.success(true))
             return
         }
@@ -132,6 +135,7 @@ public class WiFiDeviceManager {
                 self.startReceiving()
                 self.onConnectionStatusChanged?(true)
                 self.saveCurrentDeviceAfterConnection()
+                DeviceDataCollectionScheduler.shared.startCollection()
                 DispatchQueue.main.async {
                     completion?(.success(true))
                 }
@@ -175,6 +179,7 @@ public class WiFiDeviceManager {
     public func disconnect() {
         print("断开设备连接")
         cleanupConnection()
+        
     }
     
     private func cleanupConnection() {
@@ -186,10 +191,11 @@ public class WiFiDeviceManager {
         receiveBuffer.removeAll()
         pendingResponses.removeAll()
         responseSemaphores.removeAll()
+        DeviceDataCollectionScheduler.shared.stopCollection()
         
         DispatchQueue.main.async {
             self.onConnectionStatusChanged?(false)
-            self.updateDeviceOnDisconnect()
+            WiFiDeviceStorageManager.shared.allDeviceDisConnected()
         }
     }
     
@@ -229,7 +235,9 @@ public class WiFiDeviceManager {
                 if let data = data, !data.isEmpty {
                     print("收到数据包，大小: \(data.count) 字节")
                     print("收到数据包，内容: \(data.hexString)")
-                    self.processReceivedData(data)
+                    if data.hexString != "0D0A" {
+                        self.processReceivedData(data)
+                    }
                 }
                 
                 // 继续接收下一个数据包
@@ -318,6 +326,19 @@ public class WiFiDeviceManager {
     private func handleReceivedMessage(_ message: String) {
         guard !message.isEmpty else { return }
         
+        // 首先检查是否是命令响应（优先级最高）
+        if let (commandKey, response) = parseCommandResponse(message) {
+            print("命令响应[\(commandKey)]: \(response)")
+            
+            // 存储响应并通知等待的调用者
+            queue.async {
+                self.pendingResponses[commandKey] = response
+                self.responseSemaphores[commandKey]?.signal()
+            }
+            
+            return
+        }
+        
         // 1. 检查是否是日志流数据
         if message.hasPrefix("$SHOW") {
             print("收到日志流: \(message)")
@@ -344,6 +365,7 @@ public class WiFiDeviceManager {
             return
         }
         
+        // 3. 检查是否是设备请求手机定位
         if message.hasPrefix("REQAPPLOC") {
             print("设备请求手机定位: \(message)")
             DispatchQueue.main.async {
@@ -375,28 +397,17 @@ public class WiFiDeviceManager {
             return
         }
         
-        // 3. 检查是否是状态更新
-        if let status = ProDeviceStatus(from: extractResponseContent(message)) {
-            print("设备状态更新")
-            DispatchQueue.main.async {
-                self.onStatusUpdate?(status)
+        // 4. 检查是否是状态更新
+        if message.hasPrefix("REQLOC") {
+            if let status = ProDeviceStatus(from: message) {  // 直接使用原始消息
+                print("设备状态更新")
+                DispatchQueue.main.async {
+                    self.onStatusUpdate?(status)
+                }
+                return
             }
-            return
         }
-        
-        // 4. 检查是否是命令响应
-        if let (commandKey, response) = parseCommandResponse(message) {
-            print("命令响应[\(commandKey)]: \(response)")
-            
-            // 存储响应并通知等待的调用者
-            queue.async {
-                self.pendingResponses[commandKey] = response
-                self.responseSemaphores[commandKey]?.signal()
-            }
-            
-            return
-        }
-        
+
         // 5. 其他未知消息
         print("收到未知消息: \(message)")
         DispatchQueue.main.async {
@@ -457,33 +468,63 @@ public class WiFiDeviceManager {
             return ("OTA", message)
         }
         
-        // 支持的命令列表
-        let commandPrefixes = [
-            "AUTOOFF": "AUTOOFF",
-            "AUTOSATALI": "AUTOSATALI",
-            "HAFSATALI": "AUTOSATALI",
-            "DEEPSLEEP": "DEEPSLEEP",
-            "REQENV": "REQENV",
-            "REQLOC": "REQLOC",
-            "RESET": "RESET",
-            "RESET_ACU": "RESET_ACU",
-            "DEV_WARING": "DEV_WARING",
-            "REQDEV_INFO": "REQDEV_INFO",
-            "REQ_BEACON": "REQ_BEACON",
-            "REQ_LOG": "REQ_LOG",
-            "LOG_SWON": "LOG_SWON",
-            "LOG_SWOFF": "LOG_SWOFF",
-            "OTA,START": "OTA,START",
-            "OTA,END": "OTA,END",
-            "OTA_START": "OTA_START",
-            "OTA_END": "OTA_END"
-        ]
+        // 3. 🔧 修复：精确匹配各个命令响应
+        if message.hasPrefix("REQLOC,") || message == "REQLOC" {
+            return ("REQLOC", message)
+        }
         
-        for (key, prefix) in commandPrefixes {
-            if message.hasPrefix(prefix) {
-                // 返回命令键和完整响应
-                return (key, message)
-            }
+        if message.hasPrefix("REQENV,") || message == "REQENV" {
+            return ("REQENV", message)
+        }
+        
+        // 🔧 关键修复：DEV_WARING 可能没有逗号
+        if message.hasPrefix("DEV_WARING") {
+            return ("DEV_WARING", message)
+        }
+        
+        // 🔧 关键修复：REQDEV_INFO 可能没有逗号
+        if message.hasPrefix("REQDEV_INFO") {
+            return ("REQDEV_INFO", message)
+        }
+        
+        if message.hasPrefix("AUTOOFF,") || message == "AUTOOFF" {
+            return ("AUTOOFF", message)
+        }
+        
+        if message.hasPrefix("AUTOSATALI,") || message == "AUTOSATALI" {
+            return ("AUTOSATALI", message)
+        }
+        
+        if message.hasPrefix("HAFSATALI,") || message == "HAFSATALI" {
+            return ("AUTOSATALI", message)
+        }
+        
+        if message.hasPrefix("DEEPSLEEP,") || message == "DEEPSLEEP" {
+            return ("DEEPSLEEP", message)
+        }
+        
+        if message.hasPrefix("RESET,") || message == "RESET" {
+            return ("RESET", message)
+        }
+        
+        if message.hasPrefix("RESET_ACU,") || message == "RESET_ACU" {
+            return ("RESET_ACU", message)
+        }
+        
+        if message.hasPrefix("REQ_BEACON,") || message == "REQ_BEACON" {
+            return ("REQ_BEACON", message)
+        }
+        
+        if message.hasPrefix("REQ_LOG,") || message == "REQ_LOG" {
+            return ("REQ_LOG", message)
+        }
+        
+        if message.hasPrefix("LOG_SWON,") || message == "LOG_SWON" {
+            return ("LOG_SWON", message)
+        }
+        
+        if message.hasPrefix("LOG_SWOFF,") || message == "LOG_SWOFF" {
+            return ("LOG_SWOFF", message)
         }
         
         return nil
@@ -583,7 +624,10 @@ public class WiFiDeviceManager {
                 let waitResult = semaphore.wait(timeout: .now() + self.timeoutInterval)
                 
                 defer {
-                    self.responseSemaphores.removeValue(forKey: commandKey)
+                    self.storageQueue.async(flags: .barrier) { [weak self] in
+                        guard let self = self else { return }
+                        self.responseSemaphores.removeValue(forKey: commandKey)
+                    }
                 }
                 
                 if waitResult == .timedOut {
@@ -595,7 +639,11 @@ public class WiFiDeviceManager {
                 // 获取响应
                 if let response = self.pendingResponses[commandKey] {
                     print("📥 命令[\(commandKey)]收到响应: \(response)")
-                    self.pendingResponses.removeValue(forKey: commandKey)
+                    // 删除操作也要经过同一个队列
+                    self.storageQueue.async(flags: .barrier) { [weak self] in
+                        guard let self = self else { return }
+                        self.pendingResponses.removeValue(forKey: commandKey)
+                    }
                     completion(.success(response))
                 } else {
                     print("❌ 命令[\(commandKey)]没有收到响应")
@@ -1090,7 +1138,7 @@ extension WiFiDeviceManager {
                         isAvailable: true,
                         error: nil
                     )
-                    self.bssid = network.bssid.replacingOccurrences(of: ":", with: "")
+                    self.bssid = network.bssid
                     completion(wifiInfo)
                 } else {
                     // 无法获取 WiFi 信息（可能是未授权或未连接）
@@ -1101,6 +1149,7 @@ extension WiFiDeviceManager {
                         isAvailable: false,
                         error: "WiFi信息不可用或未授权"
                     )
+                    self.bssid = nil
                     completion(wifiInfo)
                 }
             }
@@ -1122,6 +1171,7 @@ extension WiFiDeviceManager {
                 isAvailable: false,
                 error: "无法获取网络接口"
             )
+            self.bssid = nil
             completion(wifiInfo)
             return
         }
@@ -1142,7 +1192,7 @@ extension WiFiDeviceManager {
                 isAvailable: true,
                 error: nil
             )
-            self.bssid = bssid?.replacingOccurrences(of: ":", with: "")
+            self.bssid = bssid
             completion(wifiInfo)
             foundWiFi = true
             break
@@ -1156,6 +1206,7 @@ extension WiFiDeviceManager {
                 isAvailable: false,
                 error: "未连接WiFi或权限不足"
             )
+            self.bssid = nil
             completion(wifiInfo)
         }
     }

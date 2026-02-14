@@ -15,6 +15,7 @@ class SearchResultView: UIView {
     private var resultData: [MapSearchPointMsgData] = []
     var closeAction: (() -> Void)?
     var choosePointAction: ((MapSearchPointMsgData) -> Void)?
+    var touchCellAction: ((MapSearchPointMsgData) -> Void)?
     
     private let titleLabel: UILabel = {
         let label = UILabel()
@@ -183,5 +184,9 @@ extension SearchResultView: UITableViewDelegate, UITableViewDataSource {
         return cell
     }
     
-    
+    func tableView(_ tableView: UITableView, didSelectRowAt indexPath: IndexPath) {
+        let data = resultData[indexPath.row]
+        touchCellAction?(data)
+    }
+
 }

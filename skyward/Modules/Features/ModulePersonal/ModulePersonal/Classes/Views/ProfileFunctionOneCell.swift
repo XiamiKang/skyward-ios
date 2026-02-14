@@ -94,9 +94,12 @@ class ProfileFunctionOneCell: UITableViewCell {
     
     func changeInfoLabel(_ data: EmergencyInfoData?) {
         if let phone = data?.phone {
-            infoLabel.text = phone.hidePhoneNumber()
+            UserManager.shared.userInfo?.isSetEmergency = true
+//            infoLabel.text = phone.hidePhoneNumber()
+            infoLabel.text = "已设置"
             infoLabel.textColor = .black
         }else {
+            UserManager.shared.cleanEmergencyContact()
             infoLabel.text = "未设置"
             infoLabel.textColor = .systemGray
         }

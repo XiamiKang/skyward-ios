@@ -18,7 +18,7 @@ class AddRoutePopupView: UIView, SWPopupContentView {
     /// 标题标签
     private lazy var titleLabel: UILabel = {
         let label = UILabel()
-        label.text = "保存轨迹记录"
+        label.text = "保存路线"
         label.font = .pingFangFontBold(ofSize: 18)
         label.textColor = ThemeManager.current.titleColor
         label.textAlignment = .center
@@ -38,7 +38,7 @@ class AddRoutePopupView: UIView, SWPopupContentView {
 
     private let nameTitleLabel: UILabel = {
         let label = UILabel()
-        label.text = "轨迹名称"
+        label.text = "*路线名称"
         label.font = .systemFont(ofSize: 14, weight: .regular)
         label.textColor = .black
         label.translatesAutoresizingMaskIntoConstraints = false
@@ -48,7 +48,7 @@ class AddRoutePopupView: UIView, SWPopupContentView {
     private let nameTextField: UITextField = {
         let textField = UITextField()
         textField.backgroundColor = ThemeManager.current.mediumGrayBGColor
-        textField.placeholder = "请输入轨迹名称"
+        textField.placeholder = "请输入路线名称"
         textField.textColor = ThemeManager.current.titleColor
         textField.font = .pingFangFontMedium(ofSize: 14)
         textField.backgroundColor = ThemeManager.current.mediumGrayBGColor
@@ -59,6 +59,18 @@ class AddRoutePopupView: UIView, SWPopupContentView {
         textField.leftViewMode = .always
         textField.translatesAutoresizingMaskIntoConstraints = false
         return textField
+    }()
+    
+    private let startItemView: RouteItemView = {
+        return RouteItemView(title: "起点", value: "--")
+    }()
+    
+    private let endItemView: RouteItemView = {
+        return RouteItemView(title: "终点", value: "--")
+    }()
+    
+    private let distanceItemView: RouteItemView = {
+        return RouteItemView(title: "距离", value: "--")
     }()
     
     private let inputContainerView: UIView = {
@@ -109,7 +121,7 @@ class AddRoutePopupView: UIView, SWPopupContentView {
     
     private let confirmButton: UIButton = {
         let button = UIButton(type: .system)
-        button.setTitle("添加", for: .normal)
+        button.setTitle("保存", for: .normal)
         button.setTitleColor(.white, for: .normal)
         button.backgroundColor = ThemeManager.current.mainColor
         button.titleLabel?.font = .pingFangFontMedium(ofSize: 16)
@@ -126,16 +138,42 @@ class AddRoutePopupView: UIView, SWPopupContentView {
     var confirmHandler: ((String, String?) -> Void)?
     
     // MARK: - Initialization
-    override init(frame: CGRect) {
-        super.init(frame: frame)
+    init(route: Route) {
+        super.init(frame: .zero)
         setupUI()
         setupConstraints()
         
         cancelButton.addTarget(self, action: #selector(closeButtonTapped), for: .touchUpInside)
         confirmButton.addTarget(self, action: #selector(confirmButtonTapped), for: .touchUpInside)
         
+        addTapGestureTarget(self, action: #selector(dismissKeyboard))
+
         nameTextField.delegate = self
         textView.delegate = self
+        
+        // 设置路线名称
+        if let routeName = route.routeName {
+            nameTextField.text = routeName
+        }
+        
+        // 设置起点信息
+        if let startDesc = route.startDesc() {
+            startItemView.valueLabel.attributedText = startDesc
+        }
+        
+        // 设置终点信息
+        if let endDesc = route.endDesc() {
+            endItemView.valueLabel.attributedText = endDesc
+        }
+        
+        // 设置距离信息
+        if let distance = route.distance {
+            distanceItemView.valueLabel.text = "\(String(format: "%.2f", distance))km"
+        }
+        
+        
+        
+        debugPrint("startDesc: \(route.startDesc()?.string ?? "") endDesc: \(route.endDesc()?.string ?? "")")
     }
     
     required init?(coder: NSCoder) {
@@ -151,6 +189,10 @@ class AddRoutePopupView: UIView, SWPopupContentView {
         
         addSubview(nameTitleLabel)
         addSubview(nameTextField)
+        
+        addSubview(startItemView)
+        addSubview(endItemView)
+        addSubview(distanceItemView)
         
         addSubview(inputContainerView)
         inputContainerView.addSubview(textView)
@@ -169,8 +211,7 @@ class AddRoutePopupView: UIView, SWPopupContentView {
         }
         
         closeButton.snp.makeConstraints {
-            $0.right.equalToSuperview().inset(swAdaptedValue(16))
-            $0.centerY.equalTo(titleLabel)
+            $0.top.right.equalToSuperview().inset(swAdaptedValue(9))
             $0.width.height.equalTo(swAdaptedValue(30))
         }
         
@@ -186,9 +227,22 @@ class AddRoutePopupView: UIView, SWPopupContentView {
             make.left.right.equalToSuperview().inset(Layout.hMargin)
         }
         
+        startItemView.snp.makeConstraints { make in
+            make.top.equalTo(nameTextField.snp.bottom).offset(24)
+        }
+        
+        endItemView.snp.makeConstraints { make in
+            make.top.equalTo(startItemView.snp.bottom).offset(12)
+        }
+        
+        distanceItemView.snp.makeConstraints { make in
+            make.top.equalTo(endItemView.snp.bottom).offset(12)
+            make.left.equalToSuperview()
+        }
+        
         inputContainerView.snp.makeConstraints { make in
             make.height.equalTo(swAdaptedValue(94))
-            make.top.equalTo(nameTextField.snp.bottom).offset(24)
+            make.top.equalTo(distanceItemView.snp.bottom).offset(16)
             make.left.right.equalToSuperview().inset(Layout.hMargin)
         }
         
@@ -225,21 +279,32 @@ class AddRoutePopupView: UIView, SWPopupContentView {
     
     // MARK: - Actions
     @objc private func closeButtonTapped() {
-        nameTextField.resignFirstResponder()
-        textView.resignFirstResponder()
+        dismissKeyboard()
         SWAlertView.showAlert(title: "确定不保存路线吗？", message: nil, confirmTitle: "继续编辑", cancelTitle: "不保存",  cancelHandler: {
             self.closeHandler?()
         })
     }
     
     @objc private func confirmButtonTapped() {
-        nameTextField.resignFirstResponder()
-        textView.resignFirstResponder()
-        guard let name = nameTextField.text, !name.isEmpty else {
+        dismissKeyboard()
+        guard let name = nameTextField.text?.trimmingCharacters(in: .whitespacesAndNewlines), !name.isEmpty else {
             sw_showWarningToast("名称不能为空")
             return
         }
+        if name.count > 30 {
+            sw_showWarningToast("最多输入30个字符")
+            return
+        }
         self.confirmHandler?(name, textView.text)
+    }
+    
+    @objc private func dismissKeyboard() {
+        if nameTextField.isFirstResponder {
+            nameTextField.resignFirstResponder()
+        }
+        if textView.isFirstResponder {
+            textView.resignFirstResponder()
+        }
     }
 }
 
@@ -250,7 +315,7 @@ extension AddRoutePopupView: UITextFieldDelegate {
     
     func textField(_ textField: UITextField, shouldChangeCharactersIn range: NSRange, replacementString string: String) -> Bool {
         let currentText = textField.text ?? ""
-        return currentText.count < 30
+        return currentText.count < 60
     }
 }
 

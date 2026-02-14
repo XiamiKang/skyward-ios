@@ -165,7 +165,7 @@ public class POIDatabaseManager {
                     on: PublicPOIData.Properties.all,
                     fromTable: "poi_data",
                     where: condition,
-                    limit: 200 // 限制数量，避免内存问题
+                    limit: 2000 // 限制数量，避免内存问题
                 )
                 
                 
@@ -176,6 +176,110 @@ public class POIDatabaseManager {
                 print("区域查询失败: \(error)")
                 DispatchQueue.main.async {
                     completion([])
+                }
+            }
+        }
+    }
+    
+    // MARK: - 根据ID查询单个POI
+    public func fetchPOI(by id: String, completion: @escaping (PublicPOIData?) -> Void) {
+        operationQueue.async {
+            do {
+                let condition = PublicPOIData.Properties.id == id
+                
+                let item: PublicPOIData? = try self.database.getObject(
+                    on: PublicPOIData.Properties.all,
+                    fromTable: "poi_data",
+                    where: condition
+                )
+                
+                DispatchQueue.main.async {
+                    completion(item)
+                }
+            } catch {
+                print("根据ID查询POI失败: \(error)")
+                DispatchQueue.main.async {
+                    completion(nil)
+                }
+            }
+        }
+    }
+
+    // MARK: - 使用完整对象更新
+    public func updatePOIWithObject(_ object: PublicPOIData,
+                                   updateFields: [PropertyConvertible]? = nil,
+                                    completion: ((Bool, Error?) -> Void)? = nil) {
+        operationQueue.async(flags: .barrier) {
+            do {
+                guard let id = object.id else {
+                    DispatchQueue.main.async {
+                        completion?(false, NSError(domain: "POIDatabase", code: 400, userInfo: [NSLocalizedDescriptionKey: "ID不能为空"]))
+                    }
+                    return
+                }
+                
+                let condition = PublicPOIData.Properties.id == id
+                
+                if let fields = updateFields {
+                    // 只更新指定的字段
+                    try self.database.update(
+                        table: "poi_data",
+                        on: fields,
+                        with: object,
+                        where: condition
+                    )
+                } else {
+                    // 更新所有字段
+                    try self.database.update(
+                        table: "poi_data",
+                        on: PublicPOIData.Properties.all,
+                        with: object,
+                        where: condition
+                    )
+                }
+                
+                // 发送更新通知
+                NotificationCenter.default.post(
+                    name: .poiDataDidUpdate,
+                    object: nil,
+                    userInfo: ["id": id, "action": "update"]
+                )
+                
+                DispatchQueue.main.async {
+                    completion?(true, nil)
+                }
+                
+            } catch {
+                DispatchQueue.main.async {
+                    completion?(false, error)
+                }
+            }
+        }
+    }
+
+    // MARK: - 删除指定ID的POI
+    public func deletePOI(by id: String, completion: ((Bool, Error?) -> Void)? = nil) {
+        operationQueue.async(flags: .barrier) {
+            do {
+                let condition = PublicPOIData.Properties.id == id
+                try self.database.delete(
+                    fromTable: "poi_data",
+                    where: condition
+                )
+                
+                NotificationCenter.default.post(
+                    name: .poiDataDidUpdate,
+                    object: nil,
+                    userInfo: ["id": id, "action": "delete"]
+                )
+                
+                DispatchQueue.main.async {
+                    completion?(true, nil)
+                }
+                
+            } catch {
+                DispatchQueue.main.async {
+                    completion?(false, error)
                 }
             }
         }

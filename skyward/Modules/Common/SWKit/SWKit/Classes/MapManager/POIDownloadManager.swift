@@ -29,6 +29,7 @@ public class POIDownloadManager {
         static let pageSize = 1000
         static let maxRetryCount = 3
         static let initialDownloadKey = "isPOIInitialDownloadCompleted"
+        static let downloadPageNumKey = "DownloadPageNum"
     }
     
     private var isDownloading = false
@@ -88,13 +89,7 @@ public class POIDownloadManager {
             completion?(false)
             return
         }
-        
-//        guard !NetworkMonitor.shared.isConnected else {
-//            print("网络不可用，无法下载")
-//            completion?(false)
-//            return
-//        }
-        
+
         guard retryCount < Config.maxRetryCount else {
             print("达到最大重试次数")
             completion?(false)
@@ -106,7 +101,8 @@ public class POIDownloadManager {
         print("开始完整下载POI数据")
         
         // 开始分页下载
-        downloadPage(page: 1, retryCount: retryCount) { [weak self] success in
+        let pageNum = userDefaults.integer(forKey: Config.downloadPageNumKey)
+        downloadPage(page: pageNum, retryCount: retryCount) { [weak self] success in
             guard let self = self else {
                 completion?(false)
                 return
@@ -143,7 +139,7 @@ public class POIDownloadManager {
             pageSize: Config.pageSize
         )
         
-//        print("正在下载第 \(page) 页")
+        print("正在下载第 \(page) 页")
         
         
         publicPOIService.getPublicPOIList(model) { result in
@@ -164,16 +160,18 @@ public class POIDownloadManager {
                                 itemsCount: data.count
                             )
                             
-//                            print("下载的条数-----\(data.count)")
+                            print("下载的条数-----\(data.count)")
                             // 检查是否有更多页
-                            if data.count == Config.pageSize*2 {
+                            if data.count < Config.pageSize {
+                                self.userDefaults.removeObject(forKey: Config.downloadPageNumKey)
+                                // 下载完成
+                                completion(true)
+                            } else {
                                 // 短暂延迟后下载下一页
                                 DispatchQueue.global().asyncAfter(deadline: .now() + 0.1) {
                                     self.downloadPage(page: page + 1, retryCount: retryCount, completion: completion)
+                                    self.userDefaults.set(page + 1, forKey: Config.downloadPageNumKey)
                                 }
-                            } else {
-                                // 下载完成
-                                completion(true)
                             }
                             
                         } else {

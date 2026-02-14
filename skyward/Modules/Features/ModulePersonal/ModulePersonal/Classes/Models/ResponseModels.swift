@@ -6,11 +6,30 @@
 //
 
 import Foundation
+import SWKit
 
 public struct EmergencyInfoData: Codable {
+    public let id: String?
     public let name: String?                      // 名称
     public let phone: String?                     // 手机号
 }
+
+public struct HomeStatusData: Codable {
+    public let num_string: String?                //
+    public let rcst_current_status: Int?          // 运行状态
+    public let rf_rx_is_locked: Int?              //
+    public let rf_rx_snr: Int?                    // 接收信噪比
+    public let rf_tx_snr: Int?                    // 发送信噪比
+    public let x509_auth_status: Int?             //
+    public let zd_version: Int?                   //
+    
+    
+    // 计算属性：获取卫星链路状态
+    var satelliteLinkStatus: SatelliteLinkStatus {
+        return SatelliteLinkStatus(rawValue: rcst_current_status ?? -1) ?? .STATUS_OFF
+    }
+}
+
 
 public struct ResponseUserInfoData: Codable {
     public let userInfo: UserInfoData?             // 用户信息

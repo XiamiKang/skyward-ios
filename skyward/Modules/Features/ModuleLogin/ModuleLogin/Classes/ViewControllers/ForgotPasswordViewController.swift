@@ -306,7 +306,7 @@ public class ForgotPasswordViewController: LoginBaseViewController {
         
         // 这里添加实际的重置密码API调用
         print("开始重置密码: 手机号=\(phone), 验证码=\(verificationCode)")
-        view.sw_showSuccessToast("重置密码请求已发送")
+//        view.sw_showSuccessToast("重置密码请求已发送")
         
         viewModel.forgotPassword(phone: phone, smsCode: verificationCode, newPassword: newPassword) { [weak self] result in
             self?.handlePasswordResetResult(result)

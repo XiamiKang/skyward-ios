@@ -49,7 +49,6 @@ class UrgentMessageViewController: BaseViewController {
     override func viewDidLoad() {
         super.viewDidLoad()
         
-        DBManager.shared.createTable(table: DBTableName.urgentMessage.rawValue, of: UrgentMessage.self)
         self.messages = DBManager.shared.queryFromDb(fromTable: DBTableName.urgentMessage.rawValue, cls: UrgentMessage.self) ?? []
         
         // 注册键盘通知
@@ -59,18 +58,13 @@ class UrgentMessageViewController: BaseViewController {
         // MQTT
         MQTTManager.shared.addDelegate(self)
         MQTTManager.shared.subscribe(to: receiveUrgentMessage_sub)
-        // 获取消息列表
-        _Concurrency.Task {
-            await requestUrgentMessages()
-        }
         
-        // 监听窄带设备的自定义消息
-        NotificationCenter.default.addObserver(
-            self,
-            selector: #selector(receiveDeviceCustomMessage(_:)),
-            name: .didReceiveDeviceCustomMsg,
-            object: nil
-        )
+        if NetworkMonitor.shared.isConnected {
+            // 获取消息列表
+            _Concurrency.Task {
+                await requestUrgentMessages()
+            }
+        }
     }
     
     override func viewDidLayoutSubviews() {
@@ -169,6 +163,12 @@ class UrgentMessageViewController: BaseViewController {
     @objc private func sendButtonTapped() {
         let content = messageTextView.text.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !content.isEmpty else { return }
+        
+        guard content.count <= 70 else {
+            view.sw_showWarningToast("消息长度不能超过70个字符")
+            return
+        }
+
         // 清空输入框
         messageTextView.text = ""
         
@@ -176,10 +176,6 @@ class UrgentMessageViewController: BaseViewController {
     }
     
     func sendMessage(_ msg: String) {
-        guard msg.count <= 70 else {
-            view.sw_showWarningToast("消息长度不能超过70个字符")
-            return
-        }
         let timestamp = Date().timeIntervalSince1970
         let sendTime = UInt64(timestamp * 1000)
         let senderId = UserManager.shared.userId
@@ -217,6 +213,10 @@ class UrgentMessageViewController: BaseViewController {
     }
     
     func addMessageToTable(_ message: UrgentMessage) {
+        
+        guard let _ = message.id else {
+            return
+        }
         messages.append(message)
         DBManager.shared.insertToDb(objects: [message], intoTable: DBTableName.urgentMessage.rawValue)
         DispatchQueue.main.async {[weak self] in
@@ -230,10 +230,13 @@ class UrgentMessageViewController: BaseViewController {
         do {
             let rsp = try await NetworkProvider<MessageAPI>().request(.urgentMessages(page: 1, size: 1000))
             let networkResponse = try JSONDecoder().decode(NetworkResponse<UrgentMessageList>.self, from: rsp.data)
-            if let messages = networkResponse.data?.list, !messages.isEmpty {
+            if let messages = networkResponse.data?.list {
                 self.messages = messages.reversed()
-                DBManager.shared.insertToDb(objects: self.messages, intoTable: DBTableName.urgentMessage.rawValue)
-
+                DBManager.shared.deleteFromDb(fromTable: DBTableName.urgentMessage.rawValue)
+                if !messages.isEmpty {
+                    DBManager.shared.insertToDb(objects: self.messages, intoTable: DBTableName.urgentMessage.rawValue)
+                }
+        
                 DispatchQueue.main.async {
                     self.tableView.reloadData()
                     self.scrollToBottom(animated: false)
@@ -243,7 +246,6 @@ class UrgentMessageViewController: BaseViewController {
             }
         } catch {
             UIWindow.topWindow?.sw_showWarningToast(error.localizedDescription)
-            print("+++\(error.localizedDescription)")
         }
     }
     
@@ -416,88 +418,5 @@ extension UrgentMessageViewController: UIGestureRecognizerDelegate {
     func gestureRecognizer(_ gestureRecognizer: UIGestureRecognizer, shouldReceive touch: UITouch) -> Bool {
         // 如果点击的是按钮或其他需要交互的控件，不触发收起键盘的手势
         return !(touch.view is UIButton || touch.view is UIScrollView)
-    }
-}
-
-extension UrgentMessageViewController {
-    
-    // MARK: - 窄带设备自定义消息
-
-    @objc private func receiveDeviceCustomMessage(_ notification: Notification) {
-        guard let data = notification.userInfo?["data"] as? Data else {
-            return
-        }
-        
-        if let deviceMessage = parseDeviceCustomMessage(data) {
-            addMessageToTable(deviceMessage)
-        }
-    }
-    
-    func parseDeviceCustomMessage(_ data: Data) -> UrgentMessage? {
-        // 1+1+4+2+n
-        guard data.count >= 8 else {
-            debugPrint("设备信息数据长度错误: \(data.count)")
-            return nil
-        }
-        
-        var offset = 0
-        
-        // 命令指令(1字节)
-        let protocolVersion = data[offset]
-        
-        guard protocolVersion == 7 else {
-            return nil
-        }
-        offset += 1
-        
-        // 通知类型(1字节) 1：SOS报警 2：报平安 3：天气 4:紧急通讯 5:紧急通讯消息成功通知
-        let noticeType = data[offset]
-        offset += 1
-        
-        // 时间戳 (4字节)
-        let timestamp = (Int32(data[offset]) << 24) |
-        (Int32(data[offset + 1]) << 16) |
-        (Int32(data[offset + 2]) << 8) |
-        Int32(data[offset + 3])
-        offset += 4
-        
-        // msgLength (2字节)
-        offset += 2
-        
-        let msg = String(data: data[offset...], encoding: .utf8) ?? ""
-        offset += msg.count
-        
-        debugPrint("✅ 解析出来的数据:")
-        debugPrint("  命令指令: 0x\(protocolVersion)")
-        debugPrint("  通知类型: \(noticeType)")
-        debugPrint("  时间戳: \(timestamp)")
-        debugPrint("  消息内容: \(msg)")
-        
-        let sendTime = Int64(timestamp) * 1000
-        let msgId = String(sendTime)
-        var nickname: String?
-        var userType: Int?
-        if [1, 2, 3].contains(noticeType) {
-            nickname = "天行探索平台"
-            userType = 9
-        } else if noticeType == 4 {
-            nickname = (UserManager.shared.emergencyContact?.name ?? UserManager.shared.emergencyContact?.phone) ?? "紧急联系人"
-            userType = 2
-        } else if noticeType == 5 {
-            nickname = "紧急通讯消息成功通知"
-        }
-        
-        let sender = UrgentUser(id: msgId,
-                                nickname: nickname,
-                                imUserType: userType)
-        
-        return UrgentMessage(id: msgId,
-                             sendId: "1",
-                             receiverId: UserManager.shared.userId,
-                             content: msg,
-                             sendTime: DateFormatter.fullPretty.string(from: Date(timeIntervalSince1970: Double(timestamp))),
-                             type: Int(noticeType),
-                             sendUserBaseInfoVO: sender,
-                             receiveUserBaseInfoVO: nil)
     }
 }

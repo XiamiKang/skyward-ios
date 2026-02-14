@@ -103,6 +103,14 @@ public class LoginViewController: UIViewController {
         configureLoginMethods()
     }
     
+    public override func viewWillAppear(_ animated: Bool) {
+        super.viewWillAppear(animated)
+        usernameField?.textField.text = ""
+        passwordField?.textField.text = ""
+        phoneField?.textField.text = ""
+        verificationCodeField?.textField.text = ""
+    }
+    
     private func setUI() {
         view.addSubview(navigationView)
         view.addSubview(welcomeText)

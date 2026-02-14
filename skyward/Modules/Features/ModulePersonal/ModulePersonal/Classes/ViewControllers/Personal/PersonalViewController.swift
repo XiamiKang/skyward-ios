@@ -214,10 +214,14 @@ extension PersonalViewController: UITableViewDataSource, UITableViewDelegate {
                 emergencyVC.contentText = emergencyInfoData.phone != nil ? "\(emergencyInfoData.name ?? "")\("(\(emergencyInfoData.phone ?? ""))")" : "未设置"
             }
             navigationController?.pushViewController(emergencyVC, animated: true)
+//            let vc = EmergencyContactViewController()
+//            vc.nickNameText = emergencyInfoData?.name ?? ""
+//            vc.phoneText = emergencyInfoData?.phone ?? ""
+//            navigationController?.pushViewController(vc, animated: true)
             break
         case 1:
             // 我的卫星装备
-            let deviceVC = DeviceListViewController()
+            let deviceVC = DeviceListViewController(selectedDeviceType: 0)
             navigationController?.pushViewController(deviceVC, animated: true)
             break
 //        case 2:

@@ -102,6 +102,7 @@ class CancelAccountViewController: PersonalBaseViewController {
                 } receiveValue: { [weak self] success in
                     if success {
                         self?.view.sw_showSuccessToast("注销账号成功")
+                        UserManager.shared.cleanUserInfo()
                         DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) {
                             SWRouter.handle(RouteTable.loginPageUrl)
                         }

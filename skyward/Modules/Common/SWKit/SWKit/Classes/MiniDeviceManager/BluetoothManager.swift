@@ -204,7 +204,7 @@ extension BluetoothManager: CBCentralManagerDelegate {
         // 保存设备信息到本地
         for scannedDevice in scannedDevices.values {
             if scannedDevice.peripheral == peripheral {
-                let lastFourDigits = String(scannedDevice.imei.suffix(4))
+                let lastFourDigits = String(scannedDevice.imei.suffix(5))
                 let name = "行者nimi_\(lastFourDigits)"
                 let deviceData = MiniDeviceData(name: name, serialNum: scannedDevice.imei, imeiNum: scannedDevice.imei, forthGenCardNum: "", typeCode: "NARROW_BAND", state: 0, macAddress: scannedDevice.macAddress, model: "TXTS-NB-01")
                 // 保存设备信息到本地

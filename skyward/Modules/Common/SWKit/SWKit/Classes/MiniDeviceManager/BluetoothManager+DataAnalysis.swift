@@ -1087,6 +1087,14 @@ public func formatVersion(_ version: UInt32) -> String {
     return "v\(major).\(minor).\(patch).\(build)"
 }
 
+public func formatHardware(_ version: UInt32) -> String {
+    let major = (version >> 24) & 0xFF
+    let minor = (version >> 16) & 0xFF
+    let patch = (version >> 8) & 0xFF
+    let build = version & 0xFF
+    return "\(major).\(minor).\(patch).\(build)"
+}
+
 public func formatVersion(_ version: UInt16) -> String {
     let major = (version >> 8) & 0xFF
     let build = version & 0xFF

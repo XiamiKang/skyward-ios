@@ -46,7 +46,7 @@ public class MessageGenerator {
         data.append(contentsOf: timestampInt.toBytes())
         
         // 处理消息内容
-        let messageData = Data(message.utf8.prefix(70)) // 限制最大70字节
+        let messageData = Data(message.utf8)
         let msgLen = UInt16(messageData.count)
         
         // MsgLen (2字节)

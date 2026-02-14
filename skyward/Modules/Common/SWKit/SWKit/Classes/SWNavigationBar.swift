@@ -114,8 +114,11 @@ public class SWNavigationBar: UIView {
     
     // MARK: - Public API
     
-    public func setTitle(_ title: String) {
+    public func setTitle(_ title: String?, color: UIColor? = ThemeManager.current.titleColor) {
         titleLabel.text = title
+        if let color = color {
+            titleLabel.textColor = color
+        }
     }
     
     public func setLeftBackButton(action: @escaping () -> Void) {

@@ -18,11 +18,10 @@ public class PersonalBaseViewController: UIViewController {
         return view
     }()
     
-    private let backButton: UIButton = {
-        let button = UIButton(type: .system)
+    public var backButton: UIButton = {
+        let button = UIButton(type: .custom)
         button.translatesAutoresizingMaskIntoConstraints = false
         button.setImage(PersonalModule.image(named: "default_back"), for: .normal)
-        button.tintColor = .black
         return button
     }()
     

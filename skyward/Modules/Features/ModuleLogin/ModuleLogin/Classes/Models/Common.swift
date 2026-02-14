@@ -6,6 +6,7 @@
 //
 
 import UIKit
+import SWKit
 
-let defaultBlackColor = UIColor.init(hex: "#070808")
-let defaultOrangeColor = UIColor.init(hex: "#FE6A00")
+let defaultBlackColor = UIColor(hex: "#070808")
+let defaultOrangeColor = UIColor(hex: "#FE6A00")

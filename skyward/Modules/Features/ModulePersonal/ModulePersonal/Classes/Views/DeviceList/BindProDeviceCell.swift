@@ -22,6 +22,7 @@ class BindProDeviceCell: UITableViewCell {
         let label = UILabel()
         label.font = UIFont.systemFont(ofSize: 14, weight: .regular)
         label.textColor = .black
+        label.textAlignment = .right
         label.numberOfLines = 1
         return label
     }()
@@ -67,10 +68,10 @@ class BindProDeviceCell: UITableViewCell {
         NSLayoutConstraint.activate([
             nameLabel.centerYAnchor.constraint(equalTo: contentView.centerYAnchor),
             nameLabel.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 20),
-//            nameLabel.trailingAnchor.constraint(equalTo: contentLabel.leadingAnchor, constant: -16),
             
             contentLabel.centerYAnchor.constraint(equalTo: contentView.centerYAnchor),
             contentLabel.trailingAnchor.constraint(equalTo: arrowImageView.leadingAnchor, constant: -5),
+            contentLabel.widthAnchor.constraint(equalToConstant: UIScreen.main.bounds.width/2),
             
             avatarImageView.centerYAnchor.constraint(equalTo: contentView.centerYAnchor),
             avatarImageView.trailingAnchor.constraint(equalTo: arrowImageView.leadingAnchor, constant: -5),

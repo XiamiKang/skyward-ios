@@ -161,13 +161,8 @@ struct UrgentMessage: TableCodable, Codable {
     let sendUserBaseInfoVO: UrgentUser?
     let receiveUserBaseInfoVO: UrgentUser?
     
-<<<<<<< HEAD
     enum CodingKeys: String, CodingTableKey {
         typealias Root = UrgentMessage
-=======
-    public enum CodingKeys: String, CodingTableKey {
-        public typealias Root = UrgentMessage
->>>>>>> 20fc44d5ab4219634e38220ee9e33bbea66d58a8
         
         case id
         case sendId

@@ -1,17 +1,17 @@
 {
   "images" : [
     {
-      "filename" : "24＊24-device.png",
+      "filename" : "32x32.png",
       "idiom" : "universal",
       "scale" : "1x"
     },
     {
-      "filename" : "24＊24-device@2x.png",
+      "filename" : "32x32@2x.png",
       "idiom" : "universal",
       "scale" : "2x"
     },
     {
-      "filename" : "24＊24-device@3x.png",
+      "filename" : "32x32@3x.png",
       "idiom" : "universal",
       "scale" : "3x"
     }
