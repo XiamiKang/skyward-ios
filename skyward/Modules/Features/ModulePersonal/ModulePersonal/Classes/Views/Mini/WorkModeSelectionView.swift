@@ -117,6 +117,7 @@ class WorkModeSelectionView: UIView {
         stackView.axis = .horizontal
         stackView.alignment = .center
         stackView.distribution = .equalSpacing
+        stackView.isUserInteractionEnabled = false
         
         let titleLabel = UILabel()
         titleLabel.text = title
@@ -189,7 +190,7 @@ class WorkModeSelectionView: UIView {
         }else {
             workModeData.append(0x01) // 工作模式
         }
-        BluetoothManager.shared.sendCommand(.setWorkMode, messageContent: workModeData)
+        BluetoothManager.shared.setWorkMode(workModeData)
         
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) { [weak self] in
             guard let self = self else { return }

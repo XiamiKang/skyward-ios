@@ -6,6 +6,7 @@
 //
 
 import Combine
+import SWKit
 
 // MARK: - 设备固件更新器
 public class DeviceFirmwareUpdater: ObservableObject {
@@ -39,7 +40,7 @@ public class DeviceFirmwareUpdater: ObservableObject {
     // MARK: - 网络环境下的操作
     
     /// 检查并下载最新固件（有网络时调用）
-    public func checkAndDownloadFirmware(hardwareModel: String? = nil, completion: ((Bool, String?) -> Void)? = nil) {
+    public func checkAndDownloadFirmware(firmwareType: FirmwareType, hardwareModel: String? = nil, completion: ((Bool, String?) -> Void)? = nil) {
         guard updateStatus != .downloading else {
             completion?(false, "正在下载中，请稍候")
             return
@@ -48,11 +49,11 @@ public class DeviceFirmwareUpdater: ObservableObject {
         updateStatus = .checking
         lastError = nil
         
-        let model = hardwareModel ?? firmwareManager.getHardwareModel()
+        let model = hardwareModel ?? firmwareManager.getHardwareModel(for: firmwareType)
         
         print("开始检查并下载固件，硬件型号: \(model)")
         
-        firmwareManager.checkForUpdates(hardwareModel: model) { [weak self] result in
+        firmwareManager.checkForUpdates(firmwareType: firmwareType, hardwareModel: model) { [weak self] result in
             guard let self = self else { return }
             
             DispatchQueue.main.async {
@@ -60,7 +61,7 @@ public class DeviceFirmwareUpdater: ObservableObject {
                 case .success(let firmwareData):
                     if let firmware = firmwareData {
                         print("发现新固件，开始下载: \(firmware.versionName)")
-                        self.downloadFirmware(firmware, completion: completion)
+                        self.downloadFirmware(firmwareType: firmwareType,firmware: firmware, completion: completion)
                     } else {
 //                        print("当前已是最新版本")
                         self.updateStatus = .idle
@@ -78,11 +79,11 @@ public class DeviceFirmwareUpdater: ObservableObject {
     }
     
     /// 下载固件
-    private func downloadFirmware(_ firmware: FirmwareUpdateData, completion: ((Bool, String?) -> Void)? = nil) {
+    private func downloadFirmware(firmwareType: FirmwareType, firmware: FirmwareUpdateData, completion: ((Bool, String?) -> Void)? = nil) {
         updateStatus = .downloading
         downloadProgress = 0
         
-        firmwareManager.downloadFirmware(firmware, progress: { [weak self] progress in
+        firmwareManager.downloadFirmware(firmware, firmwareType: firmwareType, progress: { [weak self] progress in
             DispatchQueue.main.async {
                 self?.downloadProgress = progress
                 print("下载进度: \(Int(progress * 100))%")
@@ -98,7 +99,7 @@ public class DeviceFirmwareUpdater: ObservableObject {
                     self.downloadProgress = 1.0
                     
                     // 更新本地存储的版本号
-                    self.firmwareManager.updateStoredVersion(localInfo.versionName)
+                    self.firmwareManager.updateStoredVersion(localInfo.versionName, for: firmwareType)
                     
                     completion?(true, "固件下载完成: \(localInfo.versionName)")
                     
@@ -115,8 +116,8 @@ public class DeviceFirmwareUpdater: ObservableObject {
     // MARK: - 离线环境下的操作
     
     /// 检查是否需要更新设备（无网络时调用）
-    public func checkIfDeviceNeedsUpdate(deviceVersion: String) -> Bool {
-        guard let downloadedFirmware = firmwareManager.getDownloadedFirmware() else {
+    public func checkIfDeviceNeedsUpdate(firmwareType: FirmwareType, deviceVersion: String) -> Bool {
+        guard let downloadedFirmware = firmwareManager.getDownloadedFirmware(for: firmwareType) else {
             print("没有已下载的固件")
             return false
         }
@@ -132,19 +133,14 @@ public class DeviceFirmwareUpdater: ObservableObject {
         }
     }
     
-    /// 获取最新已下载的版本号
-    func getLatestDownloadedVersion() -> String? {
-        return firmwareManager.getLatestDownloadedVersion()
-    }
-    
     /// 获取本地存储的版本号
-    func getStoredVersion() -> String {
-        return firmwareManager.getCurrentStoredVersion()
+    func getStoredVersion(for type: FirmwareType) -> String {
+        return firmwareManager.getCurrentStoredVersion(for: type)
     }
     
     /// 获取已下载的固件信息
-    func getDownloadedFirmwareInfo() -> LocalFirmwareInfo? {
-        return firmwareManager.getDownloadedFirmware()
+    func getDownloadedFirmwareInfo(for type: FirmwareType) -> LocalFirmwareInfo? {
+        return firmwareManager.getDownloadedFirmware(for: type)
     }
     
     // MARK: - 重置
@@ -156,8 +152,8 @@ public class DeviceFirmwareUpdater: ObservableObject {
     }
     
     // MARK: - 硬件型号设置
-    func setHardwareModel(_ model: String) {
-        firmwareManager.saveHardwareModel(model)
+    func setHardwareModel(_ model: String, type: FirmwareType) {
+        firmwareManager.saveHardwareModel(model, for: type)
         print("设置硬件型号: \(model)")
     }
 }

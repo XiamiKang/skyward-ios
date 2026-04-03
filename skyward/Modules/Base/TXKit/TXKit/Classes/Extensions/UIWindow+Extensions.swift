@@ -58,6 +58,15 @@ extension UIWindow {
     /// Finds a specific view controller type in the given navigation controller's stack
     public class func findViewController<T: UIViewController>(ofType type: T.Type, in navigationController: UINavigationController) -> T? {
         for viewController in navigationController.viewControllers {
+            //工程结构是window->navi->tab-moduleVC
+            if let tabBarController = viewController as? UITabBarController {
+                for child in tabBarController.viewControllers ?? [] {
+                    if let target = child as? T {
+                        return target
+                    }
+                }
+            }
+
             if let targetViewController = viewController as? T {
                 return targetViewController
             }

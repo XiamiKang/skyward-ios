@@ -10,12 +10,13 @@ import CoreLocation
 import UIKit
 import TXKit
 import SWKit
+import SWNetwork
+import TangramMap
 
-
-public class TrackManager: NSObject {
+class TrackManager: NSObject {
     
     // MARK: - Properties
-    var recording: Bool = false
+    private(set) var recording: Bool = false
     private let locationManager = CLLocationManager()
     private let dataManager = RouteDataManager()
     private var lastLocation: CLLocation?
@@ -26,8 +27,16 @@ public class TrackManager: NSObject {
     // 轨迹信息更新的回调
     var routeUpdateHandler: ((Route?) -> Void)?
     
+    // markers
+    private var mapView: TGMapView
+    private var pointMarkers: [TGMarker] = []
+    private var lineMarkers: [TGMarker] = []
+    private(set) var coordinates: [CLLocationCoordinate2D] = []
+    
     // MARK: - Initializer
-    override init() {
+    
+    init(mapView: TGMapView) {
+        self.mapView = mapView
         super.init()
         NotificationCenter.default.addObserver(
             self,
@@ -72,16 +81,17 @@ public class TrackManager: NSObject {
     
     // MARK: - Location Tracking
     func startRecord() {
+        guard recording == false else {
+            return
+        }
+        recording = true
+        
         // 检查权限
         let status = locationManager.authorizationStatus
         guard status == .authorizedWhenInUse || status == .authorizedAlways else {
             UIWindow.topWindow?.sw_showWarningToast("定位权限被拒绝")
             return
         }
-        guard recording == false else {
-            return
-        }
-        recording = true
         
         dataManager.startRecord(type: .track)
         // 启动持续定位更新（使用startUpdatingLocation而非requestLocation）
@@ -95,18 +105,19 @@ public class TrackManager: NSObject {
     }
     
     func stopRecord() {
-        recording = false
         // 停止定位更新
         locationManager.stopUpdatingLocation()
         // 停止记录时长定时器
         stopTravelTimeTimer()
+        
+        drawEndPoint()
     }
     
     func endRecord() {
-        dataManager.endRecord()
+        recording = false
         lastLocation = nil
-        // 停止记录时长定时器
-        stopTravelTimeTimer()
+        dataManager.endRecord()
+        clearMarkers()
     }
 
     // MARK: - Travel Time Timer
@@ -135,15 +146,12 @@ public class TrackManager: NSObject {
 
     /// 更新记录时长
     private func updateTravelTime() {
-        guard dataManager.sessionRoute != nil else {
+        guard let sessionRoute = dataManager.sessionRoute else {
             return
         }
+        dataManager.sessionRoute?.travelTime = (sessionRoute.travelTime ?? 0) + 1
 
-        // 更新时长
-        dataManager.updateSessionRoute(timeInterval: 1)
-
-        // 回调通知更新
-        routeUpdateHandler?(dataManager.sessionRoute)
+        routeUpdateHandler?(sessionRoute)
     }
     
     // MARK: - Location Processing
@@ -164,26 +172,28 @@ public class TrackManager: NSObject {
     private func validateLocation(_ newLocation: CLLocation) -> Bool {
         // 检查位置的有效性
         if newLocation.horizontalAccuracy < 0 {
-            debugPrint("定位无效：horizontalAccuracy < 0")
+            Logger.debug("定位无效：horizontalAccuracy < 0")
             return false
         }
         
         // 检查定位精度：如果精度超过50米，则认为是低精度点，不记录
         let maxAccuracy: Double = 50.0  // 最大允许的定位精度（米）
         if newLocation.horizontalAccuracy > maxAccuracy {
-            debugPrint("定位精度不足：\(newLocation.horizontalAccuracy)米 > \(maxAccuracy)米，已跳过记录")
+            Logger.debug("定位精度不足：\(newLocation.horizontalAccuracy)米 > \(maxAccuracy)米，已跳过记录")
             return false
         }
         
         // 没有上一个点，说明是第一个点
         guard let lastLocation = lastLocation else {
+            self.lastLocation = newLocation
             return true
         }
+        self.lastLocation = newLocation
         
         // 检查1: 与上一个点的距离是否小于3米
         let distance = newLocation.distance(from: lastLocation)
         if distance < 3 {
-            debugPrint("新点与上一个点距离小于3米(\(distance)米)，已跳过记录")
+            Logger.debug("新点与上一个点距离小于3米(\(distance)米)，已跳过记录")
             return false
         }
         
@@ -195,106 +205,204 @@ public class TrackManager: NSObject {
     
     func writePoint(_ location: CLLocation) {
         let point = RecordPoint(latitude: location.coordinate.latitude, longitude: location.coordinate.longitude, altitude: location.altitude, timestamp: location.timestamp)
-        if dataManager.writePointToSessionTxtFile(point) {
-            
-            dataManager.updateSessionRoute(point: point)
-            
+        if dataManager.writePointToSessionTxtFile(point) {            
+            drawLine(at: location.coordinate)
             locationUpdateCompletion?(location)
         }
     }
-    
-    func getAllRoutes() -> [Route] {
-        let result = dataManager.getRoutes(type: .track)
-        
-        guard let sessionRouteId = dataManager.sessionRoute?.id else {
-            return result
-        }
-        
-        return result.filter({$0.id != sessionRouteId})
-    }
 
-    func getPointsInRoute(routeId: String) -> [CLLocationCoordinate2D]? {
-        return dataManager.readCoordinatesFromGPXFile(from: routeId)
-    }
+    // MARK: 保存轨迹相关
     
-    func saveRoute(name: String, completion: @escaping ()->Void) {
-        dataManager.updateSessionRoute(name: name)
+    func isValidSessionRoute() -> Bool {
         guard let route = dataManager.sessionRoute else {
-            completion()
-            return
+            return false
         }
-        UIWindow.topWindow?.sw_showLoading()
-        dataManager.saveRouteToService(route) { success in
-            UIWindow.topWindow?.sw_hideLoading()
-            if success {
-                completion()
-            }
-        }
+        return route.endLatitude != nil && route.endLongitude != nil
     }
     
-    func deleteRoute(_ routeId: String, completion: ((Bool) -> Void)?) {
-        dataManager.deleteRouteFromService(routeId: routeId) { success, errorMsg in
-            completion?(success)
-            
-            if success == false, let msg = errorMsg {
-                UIWindow.topWindow?.sw_showWarningToast(msg)
-            }
-        }
-    }
-    
-    func getSessionRoute(completion: @escaping (Route?) ->Void) {
+    func assembleSessionRoute(completion: @escaping (Route?) ->Void) {
         dataManager.assembleSessionRoute { [weak self] in
             completion(self?.dataManager.sessionRoute)
+        }
+    }
+    
+    func saveSessionRoute(newName: String?, coverImage: UIImage?, completion: @escaping (Bool) -> Void) {
+        if let newName = newName, !newName.isEmpty {
+            dataManager.sessionRoute?.routeName = newName
+        }
+        guard let route = dataManager.sessionRoute else {
+            completion(false)
+            return
+        }
+        
+        if NetworkMonitor.shared.isConnected {
+            dataManager.checkSensitiveWords(newName) { [weak self] success in
+                if success {
+                    self?.dataManager.saveRouteToServer(route, coverImage: coverImage, completion: completion)
+                }
+            }
+        } else {
+            RouteDataManager.saveRouteCoverToLocal(coverImage, routeId: route.id)
+            completion(dataManager.saveSessionRouteToLocal())
         }
     }
     
     //MARK: - Notification
     
     @objc func appDidTermination() {
-        guard let route = dataManager.sessionRoute else {
+        Logger.debug("记录轨迹中程序被杀了")
+        guard let _ = dataManager.sessionRoute else {
+            Logger.debug("记录轨迹中程序被杀了，但是没拿到sessionRoute")
             return
         }
-        let dateFormatter = DateFormatter()
-        dateFormatter.dateFormat = "yyyy-MM-dd HH:mm"
-        let timeString = dateFormatter.string(from: Date())
-        dataManager.updateSessionRoute(name: timeString)
-        dataManager.saveSessionRouteToLocal(route)
+        if dataManager.saveSessionRouteToLocal() {
+            dataManager.endRecord()
+        }
+    }
+    
+    //MARK: - Markers
+    
+    private func clearMarkers() {
+        pointMarkers.forEach { mapView.markerRemove($0) }
+        lineMarkers.forEach { mapView.markerRemove($0) }
+        pointMarkers.removeAll()
+        lineMarkers.removeAll()
+        coordinates.removeAll()
+    }
+    
+    private func drawLine(at coordinate: CLLocationCoordinate2D) {
+        coordinates.append(coordinate)
+        if coordinates.count == 1 {
+            drawStartPoint(at: coordinate)
+        }
+        if coordinates.count >= 2 {
+            // 清除所有线段标记
+            lineMarkers.forEach { mapView.markerRemove($0) }
+            lineMarkers.removeAll()
+            
+            let polyline = TGGeoPolyline(coordinates: coordinates, count: UInt(coordinates.count))
+            let marker = mapView.markerAdd()
+            marker.polyline = polyline
+            
+            marker.stylingString = """
+            {
+                style: 'lines',
+                interactive: true,
+                color: '#FE6A00',
+                width: 4px,
+                order: 500,
+                cap: 'round',
+                join: 'round',
+                outline: { width: 1px, color: '#FFFFFF', interactive: true} }
+            }
+            """
+            lineMarkers.append(marker)
+        }
+    }
+    
+    private func drawStartPoint(at coordinate: CLLocationCoordinate2D) {
+        let marker = mapView.markerAdd()
+        marker.point = coordinate
+        
+        // 设置标记样式
+        marker.stylingString = """
+        {
+            style: 'points',
+            color: 'white',
+            size: [16px, 16px],
+            order: 999,
+            collide: false
+        }
+        """
+        // 直接设置图标图片
+        if let image = SWKitModule.image(named: "map_track_start") {
+            marker.icon = image
+        }
+        
+        pointMarkers.append(marker)
+    }
+    
+    func drawEndPoint() {
+        guard coordinates.count > 1, let coordinate = coordinates.last else {
+            return
+        }
+        
+        let marker = mapView.markerAdd()
+        marker.point = coordinate
+        
+        // 设置标记样式
+        marker.stylingString = """
+        {
+            style: 'points',
+            color: 'white',
+            size: [16px, 16px],
+            order: 999,
+            collide: false
+        }
+        """
+        // 直接设置图标图片
+        if let image = SWKitModule.image(named: "map_track_end") {
+            marker.icon = image
+        }
+        
+        pointMarkers.append(marker)
     }
 
     //MARK: - Test
     func testSavePoints() {
         // 批量写入轨迹点
-        sampleRecords().forEach { point in
-            self.dataManager.writePointToSessionTxtFile(point)
+        sampleRecords().forEach { loc in
+            self.writePoint(loc)
         }
     }
     
-    func sampleRecords() -> [RecordPoint] {
-        // 随机生成5个点，每个点间隔约6米
-        var points: [RecordPoint] = []
+    func sampleRecords() -> [CLLocation] {
+        // 沿东北方向生成12个点，每个点间隔约12米
+        var points: [CLLocation] = []
         let baseLatitude = 30.667323
         let baseLongitude = 103.959066
-        
+
         // 每6米大约对应0.000054纬度差（1度≈111km）
         let meterPerDegreeLat: Double = 1.0 / 111000.0
         let meterPerDegreeLng: Double = 1.0 / (111000.0 * cos(baseLatitude * .pi / 180.0))
-        
-        for i in 0..<5 {
-            // 随机方向，0~2π
-            let angle = Double.random(in: 0..<(2 * .pi))
-            // 6米距离
-            let distance: Double = 6.0
-            let deltaLat = distance * cos(angle) * meterPerDegreeLat
-            let deltaLng = distance * sin(angle) * meterPerDegreeLng
-            
-            let lat = baseLatitude + deltaLat * Double(i + 1)
-            let lng = baseLongitude + deltaLng * Double(i + 1)
-            let timestamp = Date().addingTimeInterval(5)
-            
-            let point =  RecordPoint(latitude: lat, longitude: lng, timestamp: timestamp)
-            points.append(point)
+
+        // 主方向：东北方向（45度，即π/4）
+        let mainDirection: Double = .pi / 4  // 45度，东北方向
+        let distancePerStep: Double = 12.0   // 每步12米
+
+        // 主方向的基础偏移量
+        let baseDeltaLat = distancePerStep * cos(mainDirection) * meterPerDegreeLat
+        let baseDeltaLng = distancePerStep * sin(mainDirection) * meterPerDegreeLng
+
+        var currentLat = baseLatitude
+        var currentLng = baseLongitude
+
+        for i in 0..<12 {
+            // 添加小的随机偏移（±20度范围内），使轨迹更自然
+            let angleOffset = Double.random(in: -0.35...0.35)  // 约±20度
+            let adjustedAngle = mainDirection + angleOffset
+
+            // 计算该步的实际偏移
+            let deltaLat = distancePerStep * cos(adjustedAngle) * meterPerDegreeLat
+            let deltaLng = distancePerStep * sin(adjustedAngle) * meterPerDegreeLng
+
+            // 累加偏移量
+            currentLat += deltaLat
+            currentLng += deltaLng
+
+            // 时间戳每次递增3秒
+            let timestamp = Date().addingTimeInterval(TimeInterval(i * 3))
+
+            let location = CLLocation(
+                coordinate: CLLocationCoordinate2D(latitude: currentLat, longitude: currentLng),
+                altitude: 501,
+                horizontalAccuracy: 1,
+                verticalAccuracy: 1,
+                timestamp: timestamp
+            )
+            points.append(location)
         }
-        
+
         return points
     }
 }
@@ -307,7 +415,7 @@ extension TrackManager: CLLocationManagerDelegate {
         let status = manager.authorizationStatus
         
         // 记录权限状态变化
-        debugPrint("定位权限状态变化: \(status.rawValue)")
+        Logger.debug("定位权限状态变化: \(status.rawValue)")
         setupBackgroundLocationUpdates()
     }
     
@@ -318,18 +426,18 @@ extension TrackManager: CLLocationManagerDelegate {
     }
     
     public func locationManager(_ manager: CLLocationManager, didFailWithError error: Error) {
-        debugPrint("定位失败: \(error)")
+        Logger.debug("定位失败: \(error)")
         
         // 如果是权限错误，尝试重新请求权限
         if let clError = error as? CLError {
             switch clError.code {
             case .denied:
-                debugPrint("定位权限被拒绝")
+                Logger.debug("定位权限被拒绝")
             case .locationUnknown:
-                debugPrint("位置未知，等待系统自动重试...")
+                Logger.debug("位置未知，等待系统自动重试...")
                 // 注意：使用startUpdatingLocation时，系统会自动重试，无需手动调用
             default:
-                debugPrint("定位错误: \(clError.code.rawValue)")
+                Logger.debug("定位错误: \(clError.code.rawValue)")
             }
         }
     }

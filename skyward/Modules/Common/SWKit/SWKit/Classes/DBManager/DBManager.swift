@@ -19,19 +19,21 @@ struct DBPath {
 public enum DBTableName: String {
     case conversation = "conversationTable"
     case message = "messageTable"
-    case urgentMessage = "urgentMessageTable"
     case team = "teamTable"
     case track = "trackTable"
     case route = "routeTable"
     case routePoint = "routePointTable"
     case miniDevice = "miniDeviceTable"
+    case miniDeviceSendResult = "miniDeviceSendResult"
     case userPOI = "userPOITable"
+    case userPublicPOI = "userPublicPOITable"
+    case homeNotice = "homeNoticeTable"
 }
 
 
 public class DBManager: NSObject {
     public static let shared  = DBManager()
-    var dataBase: Database?
+    private var dataBase: Database?
     
     /// 初始化数据库
     public func initDb(userId: String) {

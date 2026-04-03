@@ -8,30 +8,15 @@
 import UIKit
 import CoreLocation
 import SWNetwork
+import SWKit
 
 class SearchResultView: UIView {
     
     private let viewModel = MapViewModel()
     private var resultData: [MapSearchPointMsgData] = []
-    var closeAction: (() -> Void)?
+    
     var choosePointAction: ((MapSearchPointMsgData) -> Void)?
-    
-    private let titleLabel: UILabel = {
-        let label = UILabel()
-        label.text = "搜索结果"
-        label.textColor = .black
-        label.font = .systemFont(ofSize: 18, weight: .medium)
-        label.translatesAutoresizingMaskIntoConstraints = false
-        return label
-    }()
-    
-    private lazy var closeButton: UIButton = {
-        let button = UIButton()
-        button.setImage(MapModule.image(named: "map_close"), for: .normal)
-        button.addTarget(self, action: #selector(closeClick), for: .touchUpInside)
-        button.translatesAutoresizingMaskIntoConstraints = false
-        return button
-    }()
+    var touchCellAction: ((MapSearchPointMsgData) -> Void)?
     
     private let noResultView: UIView = {
         let view = UIView()
@@ -115,32 +100,22 @@ class SearchResultView: UIView {
     private func setupUI() {
         self.backgroundColor = .white
         
-        self.addSubview(titleLabel)
-        self.addSubview(closeButton)
         self.addSubview(tableView)
         self.addSubview(noResultView)
         self.addSubview(noNetworkView)
         
         NSLayoutConstraint.activate([
-            titleLabel.topAnchor.constraint(equalTo: topAnchor),
-            titleLabel.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 16),
-            
-            closeButton.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -16),
-            closeButton.centerYAnchor.constraint(equalTo: titleLabel.centerYAnchor),
-            closeButton.widthAnchor.constraint(equalToConstant: 40),
-            closeButton.heightAnchor.constraint(equalToConstant: 40),
-            
-            tableView.topAnchor.constraint(equalTo: titleLabel.bottomAnchor, constant: 5),
+            tableView.topAnchor.constraint(equalTo: topAnchor, constant: 15),
             tableView.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 0),
             tableView.trailingAnchor.constraint(equalTo: trailingAnchor, constant: 0),
             tableView.bottomAnchor.constraint(equalTo: bottomAnchor, constant: -20),
             
-            noResultView.topAnchor.constraint(equalTo: titleLabel.bottomAnchor, constant: 0),
+            noResultView.topAnchor.constraint(equalTo: topAnchor, constant: 0),
             noResultView.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 0),
             noResultView.trailingAnchor.constraint(equalTo: trailingAnchor, constant: 0),
             noResultView.heightAnchor.constraint(equalToConstant: 250),
             
-            noNetworkView.topAnchor.constraint(equalTo: titleLabel.bottomAnchor, constant: 0),
+            noNetworkView.topAnchor.constraint(equalTo: topAnchor, constant: 0),
             noNetworkView.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 0),
             noNetworkView.trailingAnchor.constraint(equalTo: trailingAnchor, constant: 0),
             noNetworkView.heightAnchor.constraint(equalToConstant: 250),
@@ -160,11 +135,6 @@ class SearchResultView: UIView {
         }
         
     }
-    
-    
-    @objc func closeClick() {
-        closeAction?()
-    }
 }
 
 extension SearchResultView: UITableViewDelegate, UITableViewDataSource {
@@ -183,5 +153,8 @@ extension SearchResultView: UITableViewDelegate, UITableViewDataSource {
         return cell
     }
     
-    
+    func tableView(_ tableView: UITableView, didSelectRowAt indexPath: IndexPath) {
+        let data = resultData[indexPath.row]
+        touchCellAction?(data)
+    }
 }

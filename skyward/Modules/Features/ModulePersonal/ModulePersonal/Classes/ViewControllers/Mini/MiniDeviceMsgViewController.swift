@@ -10,9 +10,21 @@ import SWKit
 
 class MiniDeviceMsgViewController: PersonalBaseViewController {
     
-    var deviceInfo: DeviceInfo?
+    var deviceInfo: DeviceInfo
+    var imeiStr: String
     
     var dataSource: [[ProDeviceMsgInfo]]?
+    
+    init(deviceInfo: DeviceInfo, imeiStr: String, dataSource: [[ProDeviceMsgInfo]]? = nil) {
+        self.deviceInfo = deviceInfo
+        self.imeiStr = imeiStr
+        self.dataSource = dataSource
+        super.init(nibName: nil, bundle: nil)
+    }
+    
+    @MainActor required init?(coder: NSCoder) {
+        fatalError("init(coder:) has not been implemented")
+    }
     
     private lazy var tableView: UITableView = {
         let tableView = UITableView(frame: .zero, style: .plain)
@@ -29,16 +41,9 @@ class MiniDeviceMsgViewController: PersonalBaseViewController {
     override func viewDidLoad() {
         super.viewDidLoad()
         setupUI()
-        if let deviceInfo = deviceInfo {
-            dataSource = [
-                [ProDeviceMsgInfo(title: "IMEI", value: "\(deviceInfo.deviceId)"),
-                ProDeviceMsgInfo(title: "设备型号", value: "TXTS-NB-01"),
-                 ProDeviceMsgInfo(title: "协议版本号", value: formatVersion(deviceInfo.protocolVersion)),
-                ProDeviceMsgInfo(title: "固件版本号", value: formatVersion(deviceInfo.mcuSoftwareVersion))]
-            ]
-            saveDeviceInfoToCache(deviceInfo)
-            tableView.reloadData()
-        }
+        loadData()
+        setNotification()
+        
     }
     
     override func viewDidLayoutSubviews() {
@@ -62,10 +67,45 @@ class MiniDeviceMsgViewController: PersonalBaseViewController {
         
     }
     
+    private func loadData() {
+        dataSource = [
+            [ProDeviceMsgInfo(title: "IMEI", value: imeiStr),
+             ProDeviceMsgInfo(title: "设备型号", value: BluetoothManager.shared.deviceType == .TXTS ? "TXTS-NB-01" : uint64ToAsciiString(deviceInfo.deviceId)),
+             ProDeviceMsgInfo(title: "协议版本号", value: formatVersion(deviceInfo.protocolVersion)),
+            ProDeviceMsgInfo(title: "固件版本号", value: formatVersion(deviceInfo.mcuSoftwareVersion))]
+        ]
+        saveDeviceInfoToCache(deviceInfo)
+        tableView.reloadData()
+    }
+    
+    private func setNotification() {
+        NotificationCenter.default.addObserver(self,
+                                               selector: #selector(showDeviceInfo(_:)),
+                                               name: .didReceiveDeviceInfo,
+                                               object: nil)
+    }
+    
+    @objc private func showDeviceInfo(_ notification: Notification) {
+        guard let userInfo = notification.userInfo else { return }
+        if let deviceInfo = userInfo["deviceInfo"] as? DeviceInfo {
+            print("Mini设备信息---\(deviceInfo)")
+            self.deviceInfo = deviceInfo
+            dataSource = [
+                [ProDeviceMsgInfo(title: "IMEI", value: imeiStr),
+                 ProDeviceMsgInfo(title: "设备型号", value: BluetoothManager.shared.deviceType == .TXTS ? "TXTS-NB-01" : uint64ToAsciiString(deviceInfo.deviceId)),
+                 ProDeviceMsgInfo(title: "协议版本号", value: formatVersion(deviceInfo.protocolVersion)),
+                 ProDeviceMsgInfo(title: "固件版本号", value: formatVersion(deviceInfo.mcuSoftwareVersion))]
+            ]
+            saveDeviceInfoToCache(deviceInfo)
+            tableView.reloadData()
+        }
+    }
+
+    
     private func saveDeviceInfoToCache(_ deviceInfo: DeviceInfo) {
         // 使用UserDefaults缓存设备信息
         let userDefaults = UserDefaults.standard
-        let IMEIStr = "\(deviceInfo.deviceId)"
+        let IMEIStr = imeiStr
         let protocolVersionStr = formatVersion(deviceInfo.protocolVersion)
         let mcuSoftwareVersionStr = formatVersion(deviceInfo.mcuSoftwareVersion)
         userDefaults.set(IMEIStr, forKey: "LastMiniDeviceIMEI")
@@ -76,13 +116,13 @@ class MiniDeviceMsgViewController: PersonalBaseViewController {
     
     private func loadDeviceInfoFromCache() {
         let userDefaults = UserDefaults.standard
-        let IMEIStr = userDefaults.string(forKey: "LastMiniDeviceIMEI") ?? "无缓存数据"
-        let protocolVersionStr = userDefaults.string(forKey: "LastMiniDeviceProVer") ?? "无缓存数据"
-        let mcuSoftwareVersionStr = userDefaults.string(forKey: "LastMiniDeviceSoftVer") ?? "无缓存数据"
+        let IMEIStr = userDefaults.string(forKey: "LastMiniDeviceIMEI") ?? "--"
+        let protocolVersionStr = userDefaults.string(forKey: "LastMiniDeviceProVer") ?? "--"
+        let mcuSoftwareVersionStr = userDefaults.string(forKey: "LastMiniDeviceSoftVer") ?? "--"
         
         dataSource = [
             [ProDeviceMsgInfo(title: "IMEI", value: IMEIStr),
-            ProDeviceMsgInfo(title: "设备型号", value: "TXTS-NB-01"),
+            ProDeviceMsgInfo(title: "设备型号", value: BluetoothManager.shared.deviceType == .TXTS ? "TXTS-NB-01" : uint64ToAsciiString(deviceInfo.deviceId)),
              ProDeviceMsgInfo(title: "协议版本号", value: protocolVersionStr),
             ProDeviceMsgInfo(title: "固件版本号", value: mcuSoftwareVersionStr)]
         ]

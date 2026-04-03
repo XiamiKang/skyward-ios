@@ -284,14 +284,19 @@ public final class SWAlertView: UIView, SWPopupContentView {
 public extension SWAlertView {
     
     static func showAlert(
-        title: String?,
-        message: String?,
+        title: String? = nil,
+        message: String? = nil,
         confirmTitle: String = "确定",
         cancelTitle: String? = "取消",
         confirmHandler: (() -> Void)? = nil,
         cancelHandler: (() -> Void)? = nil,
         configuration: SWAlertConfiguration = SWAlertConfiguration()
     ) {
+        // tilte或message必须要有一个不为空且是有效字符串
+        if (title == nil || title?.isEmpty == true) && (message == nil || message?.isEmpty == true) {
+            return
+        }
+
         var popupContainer: SWPopupView?
         var actions: [SWAlertAction] = []
         

@@ -8,7 +8,7 @@
 import Foundation
 
 // MARK: - 错误类型
-enum FirmwareError: Error, LocalizedError {
+public enum FirmwareError: Error, LocalizedError {
     case invalidURL
     case noData
     case downloadFailed
@@ -20,7 +20,7 @@ enum FirmwareError: Error, LocalizedError {
     case noNewVersion
     case versionParseError
     
-    var errorDescription: String? {
+    public var errorDescription: String? {
         switch self {
         case .invalidURL:
             return "无效的URL"
@@ -55,7 +55,7 @@ extension PersonalError {
         case .parseError(let message):
             return .apiError(code: "PARSE_ERROR", message: message)
         case .businessError(let message, let code):
-            return .apiError(code: code ?? "BUSINESS_ERROR", message: message ?? "业务错误")
+            return .apiError(code: code, message: message)
         }
     }
 }

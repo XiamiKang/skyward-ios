@@ -1,15 +1,17 @@
 {
   "images" : [
     {
-      "filename" : "已粘贴的图像.png",
+      "filename" : "数据来自长光卫星技术股份有限公司GS（2025）1834号.png",
       "idiom" : "universal",
       "scale" : "1x"
     },
     {
+      "filename" : "数据来自长光卫星技术股份有限公司GS（2025）1834号@2x.png",
       "idiom" : "universal",
       "scale" : "2x"
     },
     {
+      "filename" : "数据来自长光卫星技术股份有限公司GS（2025）1834号@3x.png",
       "idiom" : "universal",
       "scale" : "3x"
     }

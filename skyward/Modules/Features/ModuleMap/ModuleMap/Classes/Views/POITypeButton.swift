@@ -40,7 +40,7 @@ class POITypeButton: UIButton {
         let titleLabel = UILabel()
         titleLabel.text = type.rawValue
         titleLabel.font = .systemFont(ofSize: 12)
-        titleLabel.textColor = .secondaryLabel
+        titleLabel.textColor = UIColor(str: "#84888C")
         
         stackView.addArrangedSubview(iconImageView)
         stackView.addArrangedSubview(titleLabel)
@@ -80,7 +80,7 @@ class POITypeButton: UIButton {
                             if let imageView = subview as? UIImageView {
                                 imageView.image = MapModule.image(named: type.iconName) ?? UIImage(systemName: "mappin.circle")
                             } else if let label = subview as? UILabel {
-                                label.textColor = .secondaryLabel
+                                label.textColor = UIColor(str: "#84888C")
                                 label.font = .systemFont(ofSize: 12)
                             }
                         }

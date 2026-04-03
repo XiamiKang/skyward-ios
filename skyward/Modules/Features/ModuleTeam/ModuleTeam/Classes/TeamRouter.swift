@@ -77,27 +77,3 @@ extension TeamRouter: MQTTManagerDelegate {
         selfReference = nil
     }
 }
-
-class TeamStartMonitorMessageRouter: RoutableActionType {
-    
-    static func handle(_ url: any URLConvertible, _ callback: ((Any?) -> Void)?) -> Bool {
-        TeamMessageManager.shared.startMonitorNewMessage()
-        return true
-    }
-    
-    static var patterns: [String] {
-        return ["\(RouteTable.teamStartMonitorMessage)[^\\s]*"]
-    }
-}
-
-class TeamStopMonitorMessageRouter: RoutableActionType {
-    
-    static func handle(_ url: any URLConvertible, _ callback: ((Any?) -> Void)?) -> Bool {
-        TeamMessageManager.shared.stopMonitorNewMessage()
-        return true
-    }
-    
-    static var patterns: [String] {
-        return ["\(RouteTable.teamStopMonitorMessage)[^\\s]*"]
-    }
-}

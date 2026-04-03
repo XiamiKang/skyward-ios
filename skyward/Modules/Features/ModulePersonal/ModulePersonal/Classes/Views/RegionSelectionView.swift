@@ -5,8 +5,8 @@
 //  Created by TXTS on 2025/12/23.
 //
 
-
 import UIKit
+import SWTheme
 
 protocol RegionSelectionViewDelegate: AnyObject {
     func didSelectRegion(province: Region?, city: Region?)
@@ -52,7 +52,7 @@ class RegionSelectionView: UIView {
         button.setTitle("取消", for: .normal)
         button.setTitleColor(.black, for: .normal)
         button.titleLabel?.font = UIFont.systemFont(ofSize: 14, weight: .medium)
-        button.backgroundColor = UIColor(hex: "#F2F3F4") // 可以根据设计调整颜色
+        button.backgroundColor = ThemeManager.current.mediumGrayBGColor // 可以根据设计调整颜色
         button.layer.cornerRadius = 8
         button.addTarget(self, action: #selector(closeButtonTapped), for: .touchUpInside)
         return button

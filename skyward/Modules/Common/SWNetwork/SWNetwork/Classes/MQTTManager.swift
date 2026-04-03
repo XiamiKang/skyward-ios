@@ -69,18 +69,22 @@ public struct MQTTConfiguration {
     }
 
     public static let defaultConfig: MQTTConfiguration = {
+#if DEBUG
         // 测试
         let config = MQTTConfiguration(host: "39.102.202.212",
                                        port: 1883,
                                        clientID: "ios-app-\(UUID().uuidString)",
                                        username: "txts_client",
                                        password: "txts123456")
+#else
         // 生产
-//        let config = MQTTConfiguration(host: "39.102.203.24",
-//                                       port: 1883,
-//                                       clientID: "ios-app-\(UUID().uuidString)",
-//                                       username: "txts-ios",
-//                                       password: "ios@txtsqaz.")
+        let config = MQTTConfiguration(host: "39.102.203.24",
+                                       port: 1883,
+                                       clientID: "ios-app-\(UUID().uuidString)",
+                                       username: "txts-ios",
+                                       password: "ios@txtsqaz.")
+#endif
+        
         return config
     }()
 }
@@ -181,7 +185,7 @@ public final class MQTTManager {
         connectionState = .connecting
         // CocoaMQTT5的connect()方法不抛出异常，移除try关键字
         let result = mqtt.connect()
-        print("[MQTT] 连接请求发送结果: \(result)")
+//        print("[MQTT] 连接请求发送结果: \(result)")
     }
     
     /// 断开MQTT连接
@@ -196,7 +200,7 @@ public final class MQTTManager {
     
     /// 重新连接
     public func reconnect() {
-        debugPrint("[MQTT] 重新连接")
+//        debugPrint("[MQTT] 重新连接")
         connectionState = .connecting
         isManuallyDisconnected = false // 重置手动断开标志
         setupMQTTClient()
@@ -381,7 +385,7 @@ extension MQTTManager: CocoaMQTT5Delegate {
     }
     
     public func mqtt5(_ mqtt5: CocoaMQTT5, didStateChangeTo state: CocoaMQTTConnState) {
-        print("mqtt5_didStateChangeTo : \(state.description)")
+//        print("mqtt5_didStateChangeTo : \(state.description)")
         // 只处理连接状态的过渡，避免与didConnectAck和mqtt5DidDisconnect冲突
         switch state {
         case .connecting:
@@ -396,7 +400,7 @@ extension MQTTManager: CocoaMQTT5Delegate {
         let payload = message.string ?? ""
         // 通知所有代理消息已发布
         delegates.forEach { $0.delegate?.mqttManager(self, didPublishMessage: payload, toTopic: message.topic) }
-        print("mqtt5_didPublishMessage: topic:\(message.topic) \n message: \(payload)")
+//        print("mqtt5_didPublishMessage: topic:\(message.topic) \n message: \(payload)")
     }
     
     public func mqtt5(_ mqtt5: CocoaMQTT5, didPublishAck id: UInt16, pubAckData: MqttDecodePubAck?) {
@@ -435,15 +439,15 @@ extension MQTTManager: CocoaMQTT5Delegate {
     }
     
     public func mqtt5DidPing(_ mqtt5: CocoaMQTT5) {
-        print("mqtt5_DidPing")
+//        print("mqtt5_DidPing")
     }
     
     public func mqtt5DidReceivePong(_ mqtt5: CocoaMQTT5) {
-        print("mqtt5_DidReceivePong")
+//        print("mqtt5_DidReceivePong")
     }
     
     public func mqtt5DidDisconnect(_ mqtt5: CocoaMQTT5, withError err: (any Error)?) {
-        print("mqtt5_mqtt5DidDisconnect: \(String(describing: err?.localizedDescription))")
+//        print("mqtt5_mqtt5DidDisconnect: \(String(describing: err?.localizedDescription))")
         connectionState = .disconnected
         if canReconnect() {
             scheduleReconnect()

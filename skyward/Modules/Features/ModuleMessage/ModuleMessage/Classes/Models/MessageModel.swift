@@ -10,87 +10,98 @@ import WCDBSwift
 import SWKit
 
 // MARK: - 用户模型
-struct User: Equatable, Hashable {
-    let id: String
-    let name: String
-    let avatarUrl: String?
-    
-    // 用于标识是否是当前用户（可选，也可在业务层处理）
-    var isCurrentUser: Bool = false
-}
-
-// MARK: - 消息内容类型（可扩展：文本、图片、语音、文件等）
-enum MessageType {
-    case text(String)
-    case image(URL)
-    case voice(duration: TimeInterval)
-    case systemNotice(String) // 如“XXX加入了群聊”
-    
-    var displayText: String {
-        switch self {
-        case .text(let text):
-            return text
-        case .image:
-            return "[图片]"
-        case .voice:
-            return "[语音消息]"
-        case .systemNotice(let notice):
-            return notice
-        }
-    }
+struct User: ColumnJSONCodable {
+    @Flexible var id: String?
+    let nickname: String?
+    let avatar: String?
+    let phone: String?
+    /// 角色：（0-群主 1-紧急联系人 2-系统  3-救援队 4-保险公司）
+    let role: Int?
 }
 
 // MARK: - 消息状态
-enum MessageStatus {
+enum MessageStatus: Int, ColumnCodable {
     case sending      // 发送中
     case sent         // 已发送
-    case delivered    // 已送达
-    case read         // 已读
     case failed       // 发送失败
-}
-
-// MARK: - 消息模型
-struct Message {
-    let id: String
-    let conversationId: String?
-    let conversationType: ConversationType?
-    let content: String
-    let sender: User?
-    let messageType: MessageType?
-    let timestamp: Date?
-    let status: MessageStatus?
     
-    // 便捷初始化方法，提供默认值
-    init(id: String, 
-         conversationId: String? = nil, 
-         conversationType: ConversationType? = nil, 
-         content: String, 
-         sender: User? = nil, 
-         messageType: MessageType? = nil, 
-         timestamp: Date? = Date(), 
-         status: MessageStatus? = nil) {
-        self.id = id
-        self.conversationId = conversationId
-        self.conversationType = conversationType
-        self.content = content
-        self.sender = sender
-        self.messageType = messageType
-        self.timestamp = timestamp
-        self.status = status
+    // ColumnCodable Protocol
+    static var columnType: WCDBSwift.ColumnType {
+        return .integer32
     }
     
-    // 用于列表显示的简化内容
-    var previewText: String {
-        messageType?.displayText ?? ""
+    init?(with value: WCDBSwift.Value) {
+        self.init(rawValue: Int(value.int32Value))
+    }
+    
+    func archivedValue() -> WCDBSwift.Value {
+        return FundamentalValue.init(Int32(self.rawValue))
+    }
+}
+
+// MARK: - 消息内容类型（可扩展：文本、图片、语音、文件等）
+//enum MessageType {
+//    case text(String)
+//    case image(URL)
+//    case voice(duration: TimeInterval)
+//    case systemNotice(String) // 如“XXX加入了群聊”
+//    
+//    var displayText: String {
+//        switch self {
+//        case .text(let text):
+//            return text
+//        case .image:
+//            return "[图片]"
+//        case .voice:
+//            return "[语音消息]"
+//        case .systemNotice(let notice):
+//            return notice
+//        }
+//    }
+//}
+
+/// 消息类型 : "消息类型（0-聊天消息 1-SOS消息 2-安全上报 3-系统提示 4-平台通知 5-快捷语 6-定位）"
+enum MessageType: Int, ColumnCodable {
+    case chat = 0
+    case sos = 1
+    case safety = 2
+    case system = 3
+    case platform = 4
+    case quickCommand = 5
+    case location = 6
+    
+    // ColumnCodable Protocol
+    static var columnType: WCDBSwift.ColumnType {
+        return .integer32
+    }
+    
+    init?(with value: WCDBSwift.Value) {
+        self.init(rawValue: Int(value.int32Value))
+    }
+    
+    func archivedValue() -> WCDBSwift.Value {
+        return FundamentalValue.init(Int32(self.rawValue))
     }
 }
 
 // MARK: - 会话类型
-enum ConversationType: Int, Codable, CaseIterable {
-    case single   // 单聊
+enum ConversationType: Int, ColumnCodable {
+    case single = 1  // 单聊
     case group     // 群聊
     case system  // 系统通知
     case service   // 客服/服务号
+    
+    static var columnType: WCDBSwift.ColumnType {
+        return .integer32
+    }
+    
+    init?(with value: WCDBSwift.Value) {
+        self.init(rawValue: Int(value.int32Value))
+    }
+    
+    func archivedValue() -> WCDBSwift.Value {
+        return FundamentalValue.init(Int32(self.rawValue))
+    }
     
     var displayName: String {
         switch self {
@@ -106,72 +117,38 @@ enum ConversationType: Int, Codable, CaseIterable {
     }
 }
 
-// MARK: - 会话模型（核心）
-struct Conversation {
-    let id: String                    // 会话唯一 ID（如：user_123 或 group_abc）
-    let type: ConversationType        // 会话类型
-    let title: String                 // 会话标题（群名 / 对方昵称 / "系统通知"）
-    let avatarUrl: String?            // 会话头像（群头像 / 对方头像 / 默认图标）
-    let lastMessage: Message?         // 最后一条消息（可能为空）
-    var unreadCount: Int?             // 未读消息数
-    let muted: Bool?                   // 是否免打扰
-    let pinned: Bool?                  // 是否置顶
-    let lastInteractionTime: Date?     // 最后互动时间（用于排序）
-    
-    // 可选：群聊时的成员列表（单聊时通常只有对方）
-    let participants: [User]?         // nil 表示不加载完整成员（按需加载）
-    
-    // 便捷初始化方法，提供默认值
-    init(id: String, 
-         type: ConversationType, 
-         title: String, 
-         avatarUrl: String? = nil, 
-         lastMessage: Message? = nil, 
-         unreadCount: Int? = 0, 
-         muted: Bool? = false, 
-         pinned: Bool? = false, 
-         lastInteractionTime: Date? = Date(), 
-         participants: [User]? = []) {
-        self.id = id
-        self.type = type
-        self.title = title
-        self.avatarUrl = avatarUrl
-        self.lastMessage = lastMessage
-        self.unreadCount = unreadCount
-        self.muted = muted
-        self.pinned = pinned
-        self.lastInteractionTime = lastInteractionTime
-        self.participants = participants
-    }
-}
-
-struct UrgentMessageList: Codable {
-    public let list: [UrgentMessage]? 
-    public let total: Int?
-}
-
-struct UrgentMessage: TableCodable, Codable {
-    @Flexible var id: String?
-    @Flexible var sendId: String?
-    @Flexible var receiverId: String?
+// MARK: - 消息模型（核心）
+struct Message: TableCodable, ColumnJSONCodable {
+    var id: String?
+    let conversationId: String?
+    let sender: User?
     let content: String?
-    let sendTime: String?
-    // 通知类型  1：SOS报警 2：报平安 3：天气 4:紧急通讯 5:紧急通讯消息成功通知
-    let type: Int?
-    let sendUserBaseInfoVO: UrgentUser?
-    let receiveUserBaseInfoVO: UrgentUser?
+    var sendTimeTimestamp: Int64? // 后端取的名
+    let messageType: MessageType?
+    let location: IMLocation?
+    
+    // 非服务器字段
+    // 消息发送状态
+    var status: MessageStatus?
+    // 是否是离线消息
+    var offline: Bool?
+    
+    // 非服务器和数据库字段
+    var previousMessageTimestamp: Int64?
     
     enum CodingKeys: String, CodingTableKey {
-        typealias Root = UrgentMessage
-        
+        typealias Root = Message
+
         case id
-        case sendId
-        case receiverId
+        case conversationId
+        case sender
         case content
-        case sendTime
-        case type
-        case sendUserBaseInfoVO
-        case receiveUserBaseInfoVO
+        case sendTimeTimestamp
+        case messageType
+        case location
+        
+        case status
+        case offline
         
         static let objectRelationalMapping = TableBinding(CodingKeys.self) {
             BindColumnConstraint(id, isPrimary: true)
@@ -179,54 +156,51 @@ struct UrgentMessage: TableCodable, Codable {
     }
 }
 
+// MARK: - 会话模型（核心）
+struct Conversation: TableCodable {
+    let id: String?
+    let name: String?
+    let type: ConversationType?
+    let createTimeTimestamp: Int64? // 后端取的名
+    var latestMessage: Message?
+    var unreadCount: Int?
+    let enable: Bool?
+    
+    enum CodingKeys: String, CodingTableKey {
+        typealias Root = Conversation
+        
+        case id
+        case name
+        case type
+        case createTimeTimestamp
+        case latestMessage
+        case unreadCount
+        case enable
+        
+        static let objectRelationalMapping = TableBinding(CodingKeys.self) {
+            BindColumnConstraint(id, isPrimary: true)
+        }
+    }
+    
+    static func serviceConversation() -> Conversation {
+        let date = DateFormatter.fullPretty.date(from: UserManager.shared.userInfo?.createTime ?? "2025-08-01 00:00:01") ?? Date()
+        let timestamp = Int64(date.timeIntervalSince1970 * 1000)
+        return Conversation(id: MessageManager.serviceConversationId,
+                            name: "服务中心",
+                            type: .group,
+                            createTimeTimestamp: timestamp,
+                            enable: true)
+    }
+}
 
-struct UrgentUser: ColumnCodable {
-    @Flexible var id: String?
-    let nickname: String?
-    let avatar: String?
-    let phone: String?
-    // 聊天用户类型 1-普通用户 2-紧急联系人 9-平台
-    let imUserType: Int?
-    
-    public static var columnType: WCDBSwift.ColumnType {
-        return .BLOB
-    }
-    
-    // 添加默认初始化方法
-    public init(id: String? = nil, nickname: String? = nil, avatar: String? = nil, phone: String? = nil, imUserType: Int? = nil) {
-        self.id = id
-        self.nickname = nickname
-        self.avatar = avatar
-        self.phone = phone
-        self.imUserType = imUserType
-    }
-    
-    public init?(with value: WCDBSwift.Value) {
-        let data = value.dataValue
-        guard data.count > 0,
-              let jsonDict = try? JSONSerialization.jsonObject(with: data, options: []) as? [String: Any] else {
-            return nil
-        }
-        
-        self.id = jsonDict["id"] as? String
-        self.nickname = jsonDict["nickname"] as? String
-        self.avatar = jsonDict["avatar"] as? String
-        self.phone = jsonDict["phone"] as? String
-        self.imUserType = jsonDict["imUserType"] as? Int
-    }
-    
-    public func archivedValue() -> WCDBSwift.Value {
-        let jsonDict: [String: Any] = [
-            "id": id ?? "",
-            "nickname": nickname ?? "",
-            "avatar": avatar ?? "",
-            "phone": phone ?? "",
-            "imUserType": imUserType ?? 0
-        ]
-        guard let data = try? JSONSerialization.data(withJSONObject: jsonDict, options: []) else {
-            return FundamentalValue.init(Data())
-        }
-        
-        return FundamentalValue.init(data)
-    }
+struct MessageList: Codable {
+    let list: [Message]?
+    let total: Int?
+}
+
+struct IMLocation: ColumnJSONCodable {
+    let longitude: Double?
+    let latitude: Double?
+    let address: String?
+    let addressName: String?
 }

@@ -8,8 +8,8 @@
 import UIKit
 import SWKit
 
-let itemWidth = (UIScreen.main.bounds.width - 64)/4
-let itemHeight = itemWidth/77*54
+let itemWidth = (UIScreen.main.bounds.width - 64)/3
+let itemHeight = itemWidth/103*56
 
 class ProfileMyDataView: UIView {
     

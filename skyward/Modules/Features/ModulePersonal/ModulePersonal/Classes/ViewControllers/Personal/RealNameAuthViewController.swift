@@ -8,134 +8,163 @@
 import UIKit
 import TXKit
 import SWKit
+import SWTheme
 
 class RealNameAuthViewController: PersonalBaseViewController {
     
     var isRealName: Bool = false
-    var authTypes: [RealNameAuthItem] = []
+    var userInfo: UserInfoData?
+    private let viewModel = PersonalViewModel()
     
-    private lazy var tableView: UITableView = {
-        let tableview = UITableView()
-        tableview.translatesAutoresizingMaskIntoConstraints = false
-        tableview.backgroundColor = .white
-        tableview.separatorStyle = .none
-        tableview.delegate = self
-        tableview.dataSource = self
-        tableview.register(RealNameAuthCell.self, forCellReuseIdentifier: "RealNameAuthCell")
-        tableview.register(RealNameAuthInfoCell.self, forCellReuseIdentifier: "RealNameAuthInfoCell")
-        return tableview
+    private let phoneTitleLabel = creatTextLabel(text: "手机号码")
+    private let IDTypeTitleLabel = creatTextLabel(text: "证件类型")
+    private let realNameTitleLabel = creatTextLabel(text: "真实姓名")
+    private let IDCardTitleLabel = creatTextLabel(text: "证件号码")
+    
+    private let phoneContentLabel = creatTextLabel(text: "")
+    private let IDTypeContentLabel = creatTextLabel(text: "居民身份证")
+    private let realNameTextField = UITextField()
+    private let IDCardTextField = UITextField()
+    
+    private lazy var confirmButton: UIButton = {
+        let button = UIButton(type: .custom)
+        button.translatesAutoresizingMaskIntoConstraints = false
+        button.setTitle("确认", for: .normal)
+        button.setTitleColor(.white, for: .normal)
+        button.backgroundColor = UIColor(str: "#FFE0B9")
+        button.titleLabel?.font = UIFont.systemFont(ofSize: 16, weight: .semibold)
+        button.layer.cornerRadius = 8
+        button.layer.masksToBounds = true
+        button.isEnabled = false
+        button.addTarget(self, action: #selector(confirmButtonTapped), for: .touchUpInside)
+        return button
     }()
-    
-    var dataSource: [SettingData] = []
     
     override func viewDidLoad() {
         super.viewDidLoad()
         
         setupUI()
         setupConstraints()
-        if isRealName {
-            loadAuthInfoData()
-        } else {
-            loadAuthTypeData()
-        }
         
+        let tapGesture = UITapGestureRecognizer(target: self, action: #selector(dismissKeyboard))
+        tapGesture.cancelsTouchesInView = false
+        view.addGestureRecognizer(tapGesture)
     }
     
     private func setupUI() {
         view.backgroundColor = UIColor(hex: "#FFFFFF")
         customTitle.text = "实名认证"
         
-        view.addSubview(tableView)
+        phoneContentLabel.text = userInfo?.phone?.hidePhoneNumber() ?? ""
+        
+        realNameTextField.translatesAutoresizingMaskIntoConstraints = false
+        realNameTextField.borderStyle = .none
+        realNameTextField.delegate = self
+        realNameTextField.tintColor = ThemeManager.current.mainColor
+        realNameTextField.placeholder = "请填写真实姓名"
+        
+        IDCardTextField.translatesAutoresizingMaskIntoConstraints = false
+        IDCardTextField.borderStyle = .none
+        IDCardTextField.delegate = self
+        IDCardTextField.tintColor = ThemeManager.current.mainColor
+        IDCardTextField.placeholder = "请填写身份证件号码"
+        
+        view.addSubview(phoneTitleLabel)
+        view.addSubview(IDTypeTitleLabel)
+        view.addSubview(realNameTitleLabel)
+        view.addSubview(IDCardTitleLabel)
+        view.addSubview(phoneContentLabel)
+        view.addSubview(IDTypeContentLabel)
+        view.addSubview(realNameTextField)
+        view.addSubview(IDCardTextField)
+        view.addSubview(confirmButton)
     }
     
     private func setupConstraints() {
         NSLayoutConstraint.activate([
             
-            tableView.topAnchor.constraint(equalTo: customNavView.bottomAnchor),
-            tableView.leadingAnchor.constraint(equalTo: view.leadingAnchor),
-            tableView.trailingAnchor.constraint(equalTo: view.trailingAnchor),
-            tableView.bottomAnchor.constraint(equalTo: view.bottomAnchor),
+            phoneTitleLabel.topAnchor.constraint(equalTo: customNavView.bottomAnchor, constant: 16),
+            phoneTitleLabel.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 16),
+           
+            IDTypeTitleLabel.topAnchor.constraint(equalTo: phoneTitleLabel.bottomAnchor, constant: 32),
+            IDTypeTitleLabel.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 16),
+            
+            realNameTitleLabel.topAnchor.constraint(equalTo: IDTypeTitleLabel.bottomAnchor, constant: 32),
+            realNameTitleLabel.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 16),
+            
+            IDCardTitleLabel.topAnchor.constraint(equalTo: realNameTitleLabel.bottomAnchor, constant: 32),
+            IDCardTitleLabel.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 16),
+            
+            phoneContentLabel.centerYAnchor.constraint(equalTo: phoneTitleLabel.centerYAnchor),
+            phoneContentLabel.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 116),
+            phoneContentLabel.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -16),
+            
+            IDTypeContentLabel.centerYAnchor.constraint(equalTo: IDTypeTitleLabel.centerYAnchor),
+            IDTypeContentLabel.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 116),
+            IDTypeContentLabel.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -16),
+            
+            realNameTextField.centerYAnchor.constraint(equalTo: realNameTitleLabel.centerYAnchor),
+            realNameTextField.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 116),
+            realNameTextField.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -16),
+            realNameTextField.heightAnchor.constraint(equalToConstant: 40),
+            
+            IDCardTextField.centerYAnchor.constraint(equalTo: IDCardTitleLabel.centerYAnchor),
+            IDCardTextField.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 116),
+            IDCardTextField.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -16),
+            IDCardTextField.heightAnchor.constraint(equalToConstant: 40),
+            
+            confirmButton.topAnchor.constraint(equalTo: IDCardTextField.bottomAnchor, constant: 52),
+            confirmButton.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 16),
+            confirmButton.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -16),
+            confirmButton.heightAnchor.constraint(equalToConstant: 48),
         ])
     }
     
-    
-    private func loadAuthTypeData() {
-        authTypes = [
-            RealNameAuthItem(type: .alipay, icon: PersonalModule.image(named: "realname_alipay"), title: "支付宝实名认证", info: "无需录入个人信息，一键授权，安全便捷"),
-            RealNameAuthItem(type: .wechat, icon: PersonalModule.image(named: "realname_wechat"), title: "微信实名认证", info: "无需录入个人信息，一键授权，安全便捷")
-        ]
-        
-        tableView.reloadData()
+    @objc private func dismissKeyboard() {
+        view.endEditing(true)
     }
     
-    private func loadAuthInfoData() {
-        let titles = ["当前实名信息", "证件类型", "姓名", "证件号码"]
-        dataSource = [
-            SettingData(
-                titleStr: titles[0],
-                contentStr: "",
-                canChange: true
-            ),
-            SettingData(
-                titleStr: titles[1],
-                contentStr: "证件号码",
-                canChange: true
-            ),
-            SettingData(
-                titleStr: titles[2],
-                contentStr: "刘**",
-                canChange: true
-            ),
-            SettingData(
-                titleStr: titles[3],
-                contentStr: "510000*********111",
-                canChange: true
-            )
-        ]
-        
-        tableView.reloadData()
+    @objc private func confirmButtonTapped() {
+        let realNameModel = RealNameModel(realName: realNameTextField.text ?? "", idCard: IDCardTextField.text ?? "")
+        viewModel.checkRealNameAuth(model: realNameModel)
+            .receive(on: DispatchQueue.main)
+            .sink { completion in
+                
+            } receiveValue: { [weak self] data in
+                if data {
+                    self?.view.sw_showSuccessToast("实名认证成功")
+                    
+                }else {
+                    self?.view.sw_showSuccessToast("实名认证失败")
+                }
+            }
+            .store(in: &viewModel.cancellables)
     }
     
-    func realNameAuth(type: RealNameAuthType) {
-
+    private func updateConfirmButtonState() {
+        
+        let realName = realNameTextField.text ?? ""
+        let IDCard = IDCardTextField.text ?? ""
+        let isEnabled = !realName.isEmpty && !IDCard.isEmpty
+        
+        confirmButton.isEnabled = isEnabled
+        confirmButton.backgroundColor = isEnabled ? ThemeManager.current.mainColor : UIColor(hex: "#FFE0B9")
+    }
+    
+    static func creatTextLabel(text: String) -> UILabel {
+        let label = UILabel()
+        label.text = text
+        label.textColor = .black
+        label.font = .systemFont(ofSize: 16, weight: .regular)
+        label.translatesAutoresizingMaskIntoConstraints = false
+        return label
     }
 }
 
-extension RealNameAuthViewController: UITableViewDelegate, UITableViewDataSource {
+extension RealNameAuthViewController: UITextFieldDelegate {
     
-    func tableView(_ tableView: UITableView, numberOfRowsInSection section: Int) -> Int {
-        if isRealName {
-            return dataSource.count
-        }
-        return authTypes.count
-    }
-    
-    func tableView(_ tableView: UITableView, heightForRowAt indexPath: IndexPath) -> CGFloat {
-        if isRealName {
-            return 52
-        }
-        return 94
-    }
-    
-    func tableView(_ tableView: UITableView, cellForRowAt indexPath: IndexPath) -> UITableViewCell {
-        if isRealName {
-            let cell = tableView.dequeueReusableCell(withIdentifier: "RealNameAuthInfoCell") as! RealNameAuthInfoCell
-            let data = dataSource[indexPath.row]
-            cell.configure(with: data.titleStr, value: data.contentStr)
-            return cell
-        }
-        let cell = tableView.dequeueReusableCell(withIdentifier: "RealNameAuthCell") as! RealNameAuthCell
-        let data = authTypes[indexPath.row]
-        cell.configure(with: data)
-        return cell
-    }
-    
-    func tableView(_ tableView: UITableView, didSelectRowAt indexPath: IndexPath) {
-        if isRealName {
-            return
-        }
-        let data = authTypes[indexPath.row]
-        realNameAuth(type: data.type)
+    func textFieldDidChangeSelection(_ textField: UITextField) {
+        updateConfirmButtonState()
     }
 }
 

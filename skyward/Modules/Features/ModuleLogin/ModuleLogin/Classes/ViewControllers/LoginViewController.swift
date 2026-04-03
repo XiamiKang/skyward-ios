@@ -9,6 +9,7 @@ import UIKit
 import SnapKit
 import SWNetwork
 import SWKit
+import SWTheme
 
 public class LoginViewController: UIViewController {
     
@@ -29,7 +30,7 @@ public class LoginViewController: UIViewController {
         
         let registerButton = UIButton()
         registerButton.setTitle("注册", for: .normal)
-        registerButton.setTitleColor(defaultOrangeColor, for: .normal)
+        registerButton.setTitleColor(ThemeManager.current.mainColor, for: .normal)
         registerButton.titleLabel?.font = UIFont.systemFont(ofSize: 16, weight: .medium)
         registerButton.addTarget(self, action: #selector(registerClick), for: .touchUpInside)
         view.addSubview(registerButton)
@@ -52,7 +53,7 @@ public class LoginViewController: UIViewController {
     private let welcomeText: UILabel = {
         let label = UILabel()
         label.text = "欢迎使用行者Adventure"
-        label.textColor = defaultBlackColor
+        label.textColor = ThemeManager.current.titleColor
         label.font = UIFont.systemFont(ofSize: 28, weight: .semibold)
         return label
     }()
@@ -101,6 +102,18 @@ public class LoginViewController: UIViewController {
         setUI()
         setupConstraints()
         configureLoginMethods()
+        
+        let tapGesture = UITapGestureRecognizer(target: self, action: #selector(dismissKeyboard))
+        tapGesture.cancelsTouchesInView = false
+        view.addGestureRecognizer(tapGesture)
+    }
+    
+    public override func viewWillAppear(_ animated: Bool) {
+        super.viewWillAppear(animated)
+        usernameField?.textField.text = ""
+        passwordField?.textField.text = ""
+        phoneField?.textField.text = ""
+        verificationCodeField?.textField.text = ""
     }
     
     private func setUI() {
@@ -180,6 +193,10 @@ public class LoginViewController: UIViewController {
         ])
         
         currentLoginView = passwordView
+    }
+    
+    @objc private func dismissKeyboard() {
+        view.endEditing(true)
     }
     
     @objc private func backPresonalView() {
@@ -443,7 +460,7 @@ extension LoginViewController {
         }
         
         loginButton.isEnabled = isEnabled
-        loginButton.backgroundColor = isEnabled ? defaultOrangeColor : UIColor(hex: "#FFE0B9")
+        loginButton.backgroundColor = isEnabled ? ThemeManager.current.mainColor : UIColor(hex: "#FFE0B9")
     }
     
     // 发送验证码
@@ -480,15 +497,15 @@ extension LoginViewController: LoginMethodViewDelegate {
 }
 
 extension LoginViewController: InputFieldDelegate {
-    func inputFieldDidBeginEditing(_ inputField: BaseInputField) {
+    public func inputFieldDidBeginEditing(_ inputField: BaseInputField) {
         
     }
     
-    func inputFieldDidEndEditing(_ inputField: BaseInputField) {
+    public func inputFieldDidEndEditing(_ inputField: BaseInputField) {
         
     }
     
-    func inputFieldTextDidChange(_ inputField: BaseInputField, text: String) {
+    public func inputFieldTextDidChange(_ inputField: BaseInputField, text: String) {
         // 输入内容变化时更新登录按钮状态
         updateLoginButtonState()
     }

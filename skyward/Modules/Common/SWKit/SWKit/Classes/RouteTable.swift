@@ -18,15 +18,16 @@ import Foundation
 public struct RouteTable {
     // 首页
     public static let homePageUrl = "sw://home/index"
+    public static let homeWeatherInfoUrl = "sw://home/weather/info"
     // 地图
     public static let mapPageUrl = "sw://map/index"
     public static let routeListPageUrl = "sw://map/route/list"
+    public static let routeCountUrl = "sw://map/route/count"
+    public static let trackCountUrl = "sw://map/track/count"
+    public static let POIListUrl = "sw://map/POI/list"
+    public static let POICollectListUrl = "sw://map/POICollect/list"
     // 会话页
     public static let convPageUrl = "sw://message/conv"
-    public static let startMonitorMessage = "sw://message/monitor/start"
-    public static let stopMonitorMessage = "sw://message/monitor/stop"
-    // 紧急消息页
-    public static let urgentMessagePageUrl = "sw://message/urgentMessage"
     // 我的
     public static let minePageUrl = "sw://mine/index"
     // 设置
@@ -39,8 +40,6 @@ public struct RouteTable {
     public static let logoutUrl = "sw://auth/logout"
     // 队伍页（没有队伍去插创建队伍，有队伍去队伍列表）
     public static let teamPageUrl = "sw://team/index"
-    public static let teamStartMonitorMessage = "sw://team/message/monitor/start"
-    public static let teamStopMonitorMessage = "sw://team/message/monitor/stop"
     
     //MARK: - 设备
     // 绑定设备页面

@@ -108,15 +108,6 @@ public class WiFiDeviceStorageManager {
                                   isTrackingSatellite: Bool? = nil) {
         accessQueue.async(flags: .barrier) {
             guard var device = self.devices[identifier] else {
-                // 如果没有找到设备，创建一个新的
-                var newDevice = WiFiDevice(identifier: identifier)
-                if let isConnected = isConnected {
-                    newDevice.isConnected = isConnected
-                }
-                if let isTrackingSatellite = isTrackingSatellite {
-                    newDevice.isTrackingSatellite = isTrackingSatellite
-                }
-                self.devices[identifier] = newDevice
                 return
             }
             
@@ -132,6 +123,15 @@ public class WiFiDeviceStorageManager {
         }
     }
     
+    public func allDeviceDisConnected() {
+        accessQueue.async(flags: .barrier) {
+            self.devices.keys.forEach { key in
+                self.devices[key]?.updateStatus(isConnected: false, isTrackingSatellite: false)
+            }
+        }
+    }
+
+    
     /// 更新设备连接信息（IP和端口）
     public func updateConnectionInfo(identifier: String, host: String, port: UInt16) {
         accessQueue.async(flags: .barrier) {
@@ -139,10 +139,6 @@ public class WiFiDeviceStorageManager {
                 device.host = host
                 device.port = port
                 device.lastUpdateTime = Date()
-                self.devices[identifier] = device
-            } else {
-                // 创建新设备记录
-                let device = WiFiDevice(identifier: identifier, host: host, port: port)
                 self.devices[identifier] = device
             }
         }

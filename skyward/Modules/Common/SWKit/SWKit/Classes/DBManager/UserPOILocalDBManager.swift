@@ -9,8 +9,6 @@
 import Foundation
 import WCDBSwift
 
-// 添加这个辅助扩展
-
 public class UserPOILocalDBManager {
     
     public static let shared = UserPOILocalDBManager()
@@ -58,6 +56,17 @@ public class UserPOILocalDBManager {
     @discardableResult
     public func update(poiData: UserPOILocalData, byPoiId poiId: String) -> Bool {
         let condition = UserPOILocalData.Properties.poiId == poiId
+        return update(poiData: poiData, where: condition)
+    }
+    
+    /// 根据POI ID更新用户POI数据（部分字段）
+    /// - Parameters:
+    ///   - poiData: 更新的数据
+    ///   - poiId: 要更新的记录POI ID
+    /// - Returns: 是否成功
+    @discardableResult
+    public func update(poiData: UserPOILocalData, byLat lat: Double) -> Bool {
+        let condition = UserPOILocalData.Properties.lat == lat
         return update(poiData: poiData, where: condition)
     }
     
@@ -113,6 +122,15 @@ public class UserPOILocalDBManager {
     @discardableResult
     public func delete(byCategory category: Int) -> Bool {
         let condition = UserPOILocalData.Properties.category == category
+        return dbManager.deleteFromDb(fromTable: DBTableName.userPOI.rawValue, where: condition)
+    }
+    
+    /// 根据分类删除用户POI数据
+    /// - Parameter category: 分类ID
+    /// - Returns: 是否成功
+    @discardableResult
+    public func delete(byLat lat: Double) -> Bool {
+        let condition = UserPOILocalData.Properties.lat == lat
         return dbManager.deleteFromDb(fromTable: DBTableName.userPOI.rawValue, where: condition)
     }
     
@@ -272,5 +290,149 @@ public class UserPOILocalDBManager {
         }
         
         return successCount
+    }
+}
+
+extension UserPOILocalDBManager {
+    
+    // MARK: - 同步状态相关方法
+    
+    /// 查询所有未同步的数据（isSynchronousNetwork = false）
+    /// - Returns: 未同步的POI数据数组
+    public func queryUnsyncedData() -> [UserPOILocalData]? {
+        let condition = UserPOILocalData.Properties.isSynchronousNetwork == false
+        return dbManager.queryFromDb(
+            fromTable: DBTableName.userPOI.rawValue,
+            cls: UserPOILocalData.self,
+            where: condition,
+            orderBy: [UserPOILocalData.Properties.id.order(.ascending)]
+        )
+    }
+    
+    /// 查询所有未删除且未隐藏的数据（用于显示）
+    /// - Returns: 有效的POI数据数组
+    public func queryValidData() -> [UserPOILocalData]? {
+        let condition = UserPOILocalData.Properties.isDelected == false
+            && UserPOILocalData.Properties.isHide == false
+        return dbManager.queryFromDb(
+            fromTable: DBTableName.userPOI.rawValue,
+            cls: UserPOILocalData.self,
+            where: condition,
+            orderBy: [UserPOILocalData.Properties.id.order(.ascending)]
+        )
+    }
+    
+    /// 批量更新同步状态
+    /// - Parameters:
+    ///   - poiIds: POI ID数组
+    ///   - isSynced: 同步状态
+    /// - Returns: 是否成功
+    @discardableResult
+    public func updateSyncStatus(for poiIds: [String], isSynced: Bool) -> Bool {
+        guard !poiIds.isEmpty else { return true }
+        
+        var success = true
+        for poiId in poiIds {
+            let condition = UserPOILocalData.Properties.poiId == poiId
+            let updateData = UserPOILocalData(
+                poiId: poiId,
+                name: nil,
+                lon: nil,
+                lat: nil,
+                category: nil,
+                isSynchronousNetwork: isSynced
+            )
+            
+            let properties: [PropertyConvertible] = [
+                UserPOILocalData.Properties.isSynchronousNetwork
+            ]
+            
+            let result = dbManager.updateToDb(
+                table: DBTableName.userPOI.rawValue,
+                on: properties,
+                with: updateData,
+                where: condition
+            )
+            
+            if !result {
+                success = false
+            }
+        }
+        
+        return success
+    }
+    
+    /// 更新单个POI的同步状态
+    /// - Parameters:
+    ///   - poiId: POI ID
+    ///   - isSynced: 同步状态
+    /// - Returns: 是否成功
+    @discardableResult
+    public func updateSyncStatus(for poiId: String, isSynced: Bool) -> Bool {
+        return updateSyncStatus(for: [poiId], isSynced: isSynced)
+    }
+    
+    /// 根据POI ID批量插入或更新（智能合并）- 只添加不存在的
+    /// - Parameter poiDatas: 网络获取的POI数据数组
+    /// - Returns: 新增的数量
+    @discardableResult
+    public func insertOrUpdateNetworkData(poiDatas: [UserPOILocalData]) -> Int {
+        var newCount = 0
+        var newPoiDatas: [UserPOILocalData] = []
+        
+        for poiData in poiDatas {
+            if let poiId = poiData.poiId {
+                // 检查是否存在
+                if let existingData = query(byPoiId: poiId) {
+                    // 已存在，跳过（不更新）
+//                    print("POI已存在，跳过: \(poiId)")
+                } else {
+                    // 不存在，添加（设置同步状态为true，因为来自网络）
+                    var newData = poiData
+                    newData.isSynchronousNetwork = true
+                    newPoiDatas.append(newData)
+                    newCount += 1
+                }
+            } else {
+                // 没有POI ID，直接添加
+                var newData = poiData
+                newData.isSynchronousNetwork = true
+                newPoiDatas.append(newData)
+                newCount += 1
+            }
+        }
+        
+        // 批量插入新数据
+        if !newPoiDatas.isEmpty {
+            insertOrUpdate(poiDatas: newPoiDatas)
+        }
+        
+        return newCount
+    }
+    
+    /// 获取需要同步到服务器的数据（未同步且未删除的）
+    /// - Returns: 需要同步的POI数据
+    public func getDataNeedingSync() -> [UserPOILocalData]? {
+        let condition = UserPOILocalData.Properties.isSynchronousNetwork == false
+            && UserPOILocalData.Properties.isDelected == false
+        return dbManager.queryFromDb(
+            fromTable: DBTableName.userPOI.rawValue,
+            cls: UserPOILocalData.self,
+            where: condition,
+            orderBy: [UserPOILocalData.Properties.id.order(.ascending)]
+        )
+    }
+    
+    /// 获取需要删除同步的数据（本地标记删除但未同步的）
+    /// - Returns: 需要删除同步的POI数据
+    public func getDataNeedingDeleteSync() -> [UserPOILocalData]? {
+        let condition = UserPOILocalData.Properties.isDelected == true
+            && UserPOILocalData.Properties.isSynchronousNetwork == false
+        return dbManager.queryFromDb(
+            fromTable: DBTableName.userPOI.rawValue,
+            cls: UserPOILocalData.self,
+            where: condition,
+            orderBy: [UserPOILocalData.Properties.id.order(.ascending)]
+        )
     }
 }

@@ -22,8 +22,8 @@ public class MessageGenerator {
         case emergencyNotifySend = 0x01
         case deviceBind = 0x02
         case bindEmergencyContact = 0x03
-        case imSend = 0x04
-        case requestFriendLocation = 0x05
+        case sendImMessage = 0x04
+        case sendLocationMessage = 0x05
         case receiveImMessage = 0x06
     }
     
@@ -46,7 +46,7 @@ public class MessageGenerator {
         data.append(contentsOf: timestampInt.toBytes())
         
         // 处理消息内容
-        let messageData = Data(message.utf8.prefix(70)) // 限制最大70字节
+        let messageData = Data(message.utf8)
         let msgLen = UInt16(messageData.count)
         
         // MsgLen (2字节)
@@ -105,11 +105,11 @@ public class MessageGenerator {
     }
     
     // MARK: - 0x04: 即时消息发送
-    public static func generateImSend(senderId: String, targetId: String, timestamp: Double, message: String) -> Data? {
+    public static func generateTxtMessage(senderId: String, targetId: String, timestamp: Double, message: String) -> Data? {
         var data = Data()
         
         // 消息类型 (1字节) - 0x04
-        data.append(MessageType.imSend.rawValue)
+        data.append(MessageType.sendImMessage.rawValue)
         
         // SenderID (8字节) - 从字符串转换为UInt64
         guard let senderIdUInt = UInt64(senderId) else {
@@ -138,6 +138,50 @@ public class MessageGenerator {
         
         // Msg (n字节)
         data.append(messageData)
+        /**
+         aa550000000200200006
+         04
+         1bb5 e42b c518 f000
+         1c42 4295 ca8e d000
+         69ca6147
+         0009
+         e5a5bde5a5bde5a5bd ad08 0d0a
+        */
+        return data
+    }
+    
+    // MARK: - 0x05: 发送获取好友位置的请求
+    public static func generateLocationMessage(senderId: String, targetId: String, timestamp: Double, lon: Double, lat: Double) -> Data? {
+        var data = Data()
+        
+        // 消息类型 (1字节) - 0x05
+        data.append(MessageType.sendLocationMessage.rawValue)
+        
+        // SenderID (8字节) - 从字符串转换为UInt64
+        guard let senderIdUInt = UInt64(senderId) else {
+            debugPrint("SenderID 转换失败")
+            return nil
+        }
+        data.append(contentsOf: senderIdUInt.toBytes())
+        
+        // TargetID (8字节) - 从字符串转换为UInt64
+        guard let targetIdUInt = UInt64(targetId) else {
+            debugPrint("TargetID 转换失败")
+            return nil
+        }
+        data.append(contentsOf: targetIdUInt.toBytes())
+        
+        // Timestamp (4字节) - 从Double转换为Int32
+        let timestampInt = covertedInt32Timestamp(timestamp: timestamp)
+        data.append(contentsOf: timestampInt.toBytes())
+        
+        // 经度  (4字节) - 从Double转换为Int32
+        let longitude = covertedInt32Timestamp(timestamp: lon * 1e7)
+        data.append(contentsOf: longitude.toBytes())
+        
+        // 纬度  (4字节) - 从Double转换为Int32
+        let latitude = covertedInt32Timestamp(timestamp: lat * 1e7)
+        data.append(contentsOf: latitude.toBytes())
         
         return data
     }
@@ -147,7 +191,7 @@ public class MessageGenerator {
         var data = Data()
         
         // 消息类型 (1字节) - 0x05
-        data.append(MessageType.requestFriendLocation.rawValue)
+        data.append(MessageType.sendLocationMessage.rawValue)
         
         // FriendId (1字节) - 从字符串转换为UInt8
         data.append(UInt8(friendId))

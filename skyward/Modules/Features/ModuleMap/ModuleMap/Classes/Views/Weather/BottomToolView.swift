@@ -112,11 +112,12 @@ class BottomToolView: UIView {
         isChecked = !isChecked
         if var poi = self.poiData {
             poi.isIsCheck = isChecked
-            POIDatabaseManager.shared.updatePOIWithObject(poi) { success, error in
-                if success {
-                    print("更新成功")
-                }
-            }
+//            POIDatabaseManager.shared.updateCheckStatus(id: poi.id ?? "", isCheck: isChecked) { success, error in
+//                if success {
+//                    print("打卡更新成功")
+//                }
+//            }
+            UserPublicPOIDBManager.shared.insertOrUpdate(poiData: poi)
         }
         onCheckTapped?()
     }
@@ -132,11 +133,12 @@ class BottomToolView: UIView {
         isCollected = !isCollected
         if var poi = self.poiData {
             poi.isCollection = isCollected
-            POIDatabaseManager.shared.updatePOIWithObject(poi) { success, error in
-                if success {
-                    print("更新成功")
-                }
-            }
+//            POIDatabaseManager.shared.updateCollectionStatus(id: poi.id ?? "", isCollection: isCollected) { success, error in
+//                if success {
+//                    print("收藏更新成功")
+//                }
+//            }
+            UserPublicPOIDBManager.shared.insertOrUpdate(poiData: poi)
         }
         onCollectionTapped?()
     }
@@ -218,11 +220,21 @@ class BottomToolView: UIView {
     
     func updateWithPOIData(poiData: PublicPOIData) {
         self.poiData = poiData
-        guard let isCheck = poiData.isIsCheck, let isCollection = poiData.isCollection else { return }
-        checkImageView.image = isCheck ? MapModule.image(named: "map_poi_checkin_sel") : MapModule.image(named: "map_poi_checkin_unsel")
-        collectionImageView.image = isCollection ? MapModule.image(named: "map_poi_collection_sel") : MapModule.image(named: "map_poi_collection_unsel")
-        isChecked = isCheck
-        isCollected = isCollection
-        
+        guard let id = poiData.id else { return }
+        if let userPublicPoiData = UserPublicPOIDBManager.shared.query(byId: id) {
+            if let isCheck = userPublicPoiData.isIsCheck {
+                checkImageView.image = isCheck ? MapModule.image(named: "map_poi_checkin_sel") : MapModule.image(named: "map_poi_checkin_unsel")
+                isChecked = isCheck
+            }
+            if let isCollection = userPublicPoiData.isCollection {
+                collectionImageView.image = isCollection ? MapModule.image(named: "map_poi_collection_sel") : MapModule.image(named: "map_poi_collection_unsel")
+                isCollected = isCollection
+            }
+        }else {
+            checkImageView.image = MapModule.image(named: "map_poi_checkin_unsel")
+            collectionImageView.image = MapModule.image(named: "map_poi_collection_unsel")
+            isChecked = false
+            isCollected = false
+        }
     }
 }

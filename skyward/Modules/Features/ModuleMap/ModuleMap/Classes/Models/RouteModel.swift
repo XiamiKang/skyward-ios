@@ -24,6 +24,20 @@ public enum RouteType: Int {
     }
 }
 
+public enum PublicPOIChooseType: Int {
+    case checkout
+    case collect
+
+    func name() -> String {
+        switch self {
+        case .checkout:
+            return "打卡"
+        case .collect:
+            return "收藏"
+        }
+    }
+}
+
 // 路线/轨迹记录
 struct Route: TableCodable {
     var id: String = String(Date().timeIntervalSince1970)
@@ -47,8 +61,8 @@ struct Route: TableCodable {
     var uploaded: Bool?
     var isVisible: Bool?
     // 非表字段
-    var selected: Bool?
-    var uploading: Bool?
+    var selected: Bool? = false
+    var uploading: Bool? = false
     
     enum CodingKeys: String, CodingTableKey {
         typealias Root = Route
@@ -75,6 +89,8 @@ struct Route: TableCodable {
         
         static let objectRelationalMapping = TableBinding(CodingKeys.self) {
             BindColumnConstraint(id, isPrimary: true)
+            BindColumnConstraint(uploaded, defaultTo: false)
+            BindColumnConstraint(isVisible, defaultTo: false)
         }
     }
     
@@ -88,7 +104,7 @@ struct Route: TableCodable {
         
         let startLonDesc = startLongitude.convertToDMSString(isLongitude: true)
         let startLatDesc = startLatitude.convertToDMSString(isLongitude: false)
-        let coordinateDesc = startLonDesc + "," + startLatDesc
+        let coordinateDesc = startLonDesc + ", " + startLatDesc
         
         let range = NSRange(location: 0, length: startName.count)
         let attributedString = NSMutableAttributedString(string: startName + "\n" + coordinateDesc,

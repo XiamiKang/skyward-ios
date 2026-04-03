@@ -7,6 +7,7 @@
 
 import UIKit
 import SnapKit
+import SWTheme
 
 public class LoginBaseViewController: UIViewController {
     
@@ -32,7 +33,7 @@ public class LoginBaseViewController: UIViewController {
     lazy var titleLabel: UILabel = {
         let label = UILabel()
         label.text = ""
-        label.textColor = defaultBlackColor
+        label.textColor = ThemeManager.current.titleColor
         label.font = UIFont.systemFont(ofSize: 18, weight: .semibold)
         label.textAlignment = .center
         return label

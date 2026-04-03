@@ -44,7 +44,7 @@ class ProfileFunctionFourCell: UITableViewCell {
         let label = UILabel()
         label.translatesAutoresizingMaskIntoConstraints = false
         label.font = .systemFont(ofSize: 12)
-        label.textColor = .systemGray    //#84888C
+        label.textColor = UIColor(str: "#A0A3A7")
         return label
     }()
     

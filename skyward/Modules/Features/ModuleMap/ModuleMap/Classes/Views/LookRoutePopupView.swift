@@ -11,7 +11,7 @@ import TXKit
 import SWKit
 import SWTheme
 
-class LookRoutePopupView: UIView, SWPopupContentView {
+class LookRoutePopupView: UIView {
     
     // MARK: - Properties
     var closeHandler: (() -> Void)?
@@ -28,6 +28,7 @@ class LookRoutePopupView: UIView, SWPopupContentView {
         label.font = .pingFangFontBold(ofSize: 18)
         label.textColor = ThemeManager.current.titleColor
         label.numberOfLines = 2
+        label.lineBreakMode = .byCharWrapping
         label.translatesAutoresizingMaskIntoConstraints = false
         return label
     }()
@@ -91,9 +92,13 @@ class LookRoutePopupView: UIView, SWPopupContentView {
     // MARK: - Initialization
     init(route: Route) {
         super.init(frame: .zero)
+        cornerRadius = CornerRadius.medium.rawValue
+        layer.maskedCorners = [.layerMinXMinYCorner, .layerMaxXMinYCorner]
+        
         setupUI(route: route)
         setupConstraints(route: route)
-        bottomOperateView.showUploadButton(route.uploaded == false)
+        bottomOperateView.showUploadButton(route.type == RouteType.track.rawValue && route.uploaded == false)
+        bottomOperateView.setVisible(route.isVisible == true)
         
         configure(route: route)
     }
@@ -176,15 +181,17 @@ class LookRoutePopupView: UIView, SWPopupContentView {
         
         startItemView.snp.makeConstraints { make in
             make.top.equalTo(titleLabel.snp.bottom).offset(20)
+            make.left.equalToSuperview().inset(Layout.hMargin)
         }
         
         endItemView.snp.makeConstraints { make in
             make.top.equalTo(startItemView.snp.bottom).offset(12)
+            make.left.equalToSuperview().inset(Layout.hMargin)
         }
         
         distanceItemView.snp.makeConstraints { make in
             make.top.equalTo(endItemView.snp.bottom).offset(12)
-            make.left.equalToSuperview()
+            make.left.equalToSuperview().inset(Layout.hMargin)
         }
         
         if route.type == RouteType.track.rawValue {
@@ -196,13 +203,13 @@ class LookRoutePopupView: UIView, SWPopupContentView {
             altitudeItemView.snp.makeConstraints { make in
                 make.top.equalTo(distanceItemView.snp.bottom).offset(12)
                 make.bottom.equalTo(bottomOperateView.snp.top).offset(-16)
-                make.left.equalToSuperview()
+                make.left.equalToSuperview().inset(Layout.hMargin)
             }
         } else {
             if descLabel.superview == nil {
                 distanceItemView.snp.remakeConstraints { make in
                     make.top.equalTo(endItemView.snp.bottom).offset(12)
-                    make.left.equalToSuperview()
+                    make.left.equalToSuperview().inset(Layout.hMargin)
                     make.bottom.equalTo(bottomOperateView.snp.top).offset(-16)
                 }
             } else {
@@ -217,7 +224,7 @@ class LookRoutePopupView: UIView, SWPopupContentView {
         bottomOperateView.snp.makeConstraints { make in
             make.height.equalTo(swAdaptedValue(65))
             make.bottom.equalToSuperview().inset(ScreenUtil.safeAreaBottom)
-            make.left.right.equalToSuperview().inset(Layout.hMargin)
+            make.left.right.equalToSuperview()
         }
     }
     
@@ -251,10 +258,10 @@ class LookRouteOperateView: UIStackView {
     }()
     
     private lazy var showButton: UIButton = {
-        let button = createOperateButton(imageName: "record_unlook_icon", title: "隐藏")
-        button.setTitle("显示", for: .selected)
+        let button = createOperateButton(imageName: "record_look_icon", title: "显示")
+        button.setTitle("隐藏", for: .selected)
         button.setTitleColor(ThemeManager.current.titleColor, for: .selected)
-        button.setImage(MapModule.image(named: "record_look_icon"), for: .selected)
+        button.setImage(MapModule.image(named: "record_unlook_icon"), for: .selected)
         button.tag = 2
         return button
     }()
@@ -294,7 +301,15 @@ class LookRouteOperateView: UIStackView {
         alignment = .center
         distribution = .fill
         spacing = 16
-        
+
+        // 设置左右边距
+        isLayoutMarginsRelativeArrangement = true
+        layoutMargins = UIEdgeInsets(top: 0, left: 16, bottom: 0, right: 16)
+
+        let line = UIView(frame: CGRectMake(0, 0, ScreenUtil.screenWidth, 0.8))
+        line.backgroundColor = ThemeManager.current.mediumGrayBGColor
+        addSubview(line)
+
         addButtons()
     }
     
@@ -320,7 +335,7 @@ class LookRouteOperateView: UIStackView {
         showButton.addAction(UIAction { [weak self] _ in
             if let selected = self?.showButton.isSelected {
                 self?.showButton.isSelected = !selected
-                self?.showHandler?(selected)
+                self?.showHandler?(!selected)
             }
         }, for: .touchUpInside)
         
@@ -342,15 +357,6 @@ class LookRouteOperateView: UIStackView {
         return button
     }
     
-    // MARK: - Actions
-    @objc private func buttonTapped(_ sender: UIButton) {
-        if sender == uploadButton {
-            operateHandler?(4)
-        } else {
-            operateHandler?(sender.tag)
-        }
-    }
-    
     // MARK: - Public Methods
     
     /// 显示或隐藏上传按钮
@@ -364,27 +370,27 @@ class LookRouteOperateView: UIStackView {
         // 计算可见按钮
         let visibleButtons = arrangedSubviews.filter { !$0.isHidden }
         let buttonCount = visibleButtons.count
-        
+
         if buttonCount == 0 {
             return
         }
-        
+
         // 移除所有现有约束
         for button in visibleButtons {
             button.snp.removeConstraints()
         }
-        
-        // 计算可用宽度
-        let totalWidth = bounds.width
-        
+
+        // 计算可用宽度（减去 layoutMargins 的左右边距）
+        let totalWidth = bounds.width - layoutMargins.left - layoutMargins.right
+
         // 检查是否包含上传按钮
         let hasUploadButton = visibleButtons.contains(uploadButton)
-        
+
         if hasUploadButton {
             // 包含上传按钮的情况
             let spacingTotal = CGFloat(buttonCount - 1) * spacing
             let flexibleWidth = (totalWidth - 175 - spacingTotal) / CGFloat(buttonCount - 1)
-            
+
             for button in visibleButtons {
                 if button == uploadButton {
                     button.snp.makeConstraints { make in
@@ -402,7 +408,7 @@ class LookRouteOperateView: UIStackView {
             // 不包含上传按钮的情况
             let spacingTotal = CGFloat(buttonCount - 1) * spacing
             let equalWidth = (totalWidth - spacingTotal) / CGFloat(buttonCount)
-            
+
             for button in visibleButtons {
                 button.snp.makeConstraints { make in
                     make.width.equalTo(equalWidth)
@@ -410,6 +416,10 @@ class LookRouteOperateView: UIStackView {
                 }
             }
         }
+    }
+    
+    func setVisible(_ visible: Bool) {
+        showButton.isSelected = visible
     }
     
     // MARK: - Layout

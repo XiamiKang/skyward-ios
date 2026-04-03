@@ -7,7 +7,7 @@
 
 import UIKit
 
-class DefaultInputField: BaseInputField {
+public class DefaultInputField: BaseInputField {
     
     override init(frame: CGRect) {
         super.init(frame: frame)

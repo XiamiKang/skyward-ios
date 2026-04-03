@@ -157,16 +157,25 @@ class MiniFirmwareUpgradeDialog: UIView {
     var onCancelTapped: (() -> Void)?
     var onConfirmTapped: (() -> Void)?
     
-    private var isUpgradeComplete = false
+    private var isK01Mode = false
+    public var isUpgradeComplete = false
     
     // MARK: - Initialization
-    convenience init(upgradeManager: BLEFirmwareUpgradeManager, firmwarePath: String) {
+    convenience init(upgradeManager: BLEFirmwareUpgradeManager,
+                     firmwarePath: String,
+                     isK01Mode: Bool = false) {
         self.init(frame: .zero)
         self.upgradeManager = upgradeManager
         self.firmwarePath = firmwarePath
+        self.isK01Mode = isK01Mode
         setupUI()
         setupConstraints()
         setupActions()
+        
+        // 根据模式调整UI
+        if isK01Mode {
+            messageLabel.text = "正在通过蓝牙升级固件\n请保持设备靠近手机"
+        }
     }
     
     override init(frame: CGRect) {
@@ -297,40 +306,47 @@ class MiniFirmwareUpgradeDialog: UIView {
     
     /// 显示弹窗并开始升级
     static func showAndStartUpgrade(
-        in viewController: UIViewController,
-        upgradeManager: BLEFirmwareUpgradeManager,
-        firmwarePath: String,
-        version: String,
-        onProgress: ((Double) -> Void)? = nil,
-        onComplete: ((Result<Bool, Error>) -> Void)? = nil,
-        onCancel: (() -> Void)? = nil
-    ) -> MiniFirmwareUpgradeDialog {
-        
-        let dialog = MiniFirmwareUpgradeDialog(
-            upgradeManager: upgradeManager,
-            firmwarePath: firmwarePath
-        )
-        
-        dialog.onUpgradeComplete = onComplete
-        dialog.onCancelTapped = onCancel
-        
-        viewController.view.addSubview(dialog)
-        dialog.frame = viewController.view.bounds
-        
-        // 添加淡入动画
-        dialog.containerView.transform = CGAffineTransform(scaleX: 0.8, y: 0.8)
-        dialog.alpha = 0
-        
-        UIView.animate(withDuration: 0.3) {
-            dialog.containerView.transform = .identity
-            dialog.alpha = 1
+            in viewController: UIViewController,
+            upgradeManager: BLEFirmwareUpgradeManager,
+            firmwarePath: String,
+            version: String,
+            isK01Mode: Bool = false,
+            onProgress: ((Double) -> Void)? = nil,
+            onComplete: ((Result<Bool, Error>) -> Void)? = nil,
+            onCancel: (() -> Void)? = nil
+        ) -> MiniFirmwareUpgradeDialog {
+            
+            let dialog = MiniFirmwareUpgradeDialog(
+                upgradeManager: upgradeManager,
+                firmwarePath: firmwarePath,
+                isK01Mode: isK01Mode
+            )
+            
+            dialog.onUpgradeComplete = onComplete
+            dialog.onCancelTapped = onCancel
+            
+            viewController.view.addSubview(dialog)
+            dialog.frame = viewController.view.bounds
+            
+            // 添加淡入动画
+            dialog.containerView.transform = CGAffineTransform(scaleX: 0.8, y: 0.8)
+            dialog.alpha = 0
+            
+            UIView.animate(withDuration: 0.3) {
+                dialog.containerView.transform = .identity
+                dialog.alpha = 1
+            }
+            
+            // 开始升级（如果是K01模式，升级由FRQBluetoothManager处理，这里不启动）
+            if !isK01Mode {
+                dialog.startUpgrade(version: version, onProgress: onProgress)
+            } else {
+                dialog.updateStatus("正在升级准备中...")
+                
+            }
+            
+            return dialog
         }
-        
-        // 开始升级
-        dialog.startUpgrade(version: version, onProgress: onProgress)
-        
-        return dialog
-    }
     
     /// 开始升级
     func startUpgrade(version: String, onProgress: ((Double) -> Void)? = nil) {
@@ -365,8 +381,8 @@ class MiniFirmwareUpgradeDialog: UIView {
     /// 更新进度
     func updateProgress(_ progress: Double) {
         print("升级控制器中---弹框----\(progress)")
-        let clampedProgress = max(0, min(1, progress/100))
-        let percentage = Int(progress)
+        let clampedProgress = max(0, min(1, progress))
+        let percentage = Int(progress*100)
         
         UIView.animate(withDuration: 0.3) {
             self.progressView.setProgress(Float(clampedProgress), animated: true)

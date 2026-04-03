@@ -143,6 +143,23 @@ public class SWNavigationBar: UIView {
         rightStackView.addArrangedSubview(button)
     }
     
+    public func setRightTitleWithMainColorButton(title: String, selectedTitle: String? = nil, action: @escaping () -> Void) {
+        onRightTitleButtonTapped = action
+        let button = UIButton(type: .custom)
+        button.backgroundColor = ThemeManager.current.mainColor
+        button.layer.cornerRadius = 6
+        button.setTitle(title, for: .normal)
+        if let selectedTitle = selectedTitle, !selectedTitle.isEmpty {
+            button.setTitle(selectedTitle, for: .selected)
+        }
+        button.setTitleColor(.white, for: .normal)
+        button.frame = CGRect(x: 0, y: 0, width: 50, height: 30)
+        button.titleLabel?.font = .systemFont(ofSize: 14, weight: .medium)
+        button.contentEdgeInsets = UIEdgeInsets(top: 6, left: 12, bottom: 6, right: 12)
+        button.addTarget(self, action: #selector(handleRightTitleTap), for: .touchUpInside)
+        rightStackView.addArrangedSubview(button)
+    }
+    
     public func setRightButtons(images: [UIImage?], action: @escaping (Int) -> Void) {
         onRightButtonsTapped = action
         configureStackView(rightStackView, images: images, isLeft: false)

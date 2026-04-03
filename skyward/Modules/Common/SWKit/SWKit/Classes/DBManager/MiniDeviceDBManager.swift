@@ -23,6 +23,9 @@ public class MiniDeviceDBManager: NSObject {
         var miniDevices = [MiniDeviceData]()
         for device in object {
             if isImeiExists(imei: device.imeiNum ?? "") {
+                var updataDevice = device
+                updataDevice.state = 0
+                updateMiniDeviceWithIMEI(updataDevice, imei: device.imeiNum ?? "")
                 return
             }
             miniDevices.append(device)

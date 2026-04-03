@@ -44,7 +44,7 @@ class ProfileFunctionOneCell: UITableViewCell {
         let label = UILabel()
         label.translatesAutoresizingMaskIntoConstraints = false
         label.font = .systemFont(ofSize: 14, weight: .regular)
-        label.textColor = .systemGray    //#84888C
+        label.textColor = UIColor(str: "#A0A3A7")
         return label
     }()
     
@@ -71,7 +71,7 @@ class ProfileFunctionOneCell: UITableViewCell {
         self.selectionStyle = .none
         self.backgroundColor = .clear
         
-        if let phone = UserManager.shared.emergencyContact?.phone {
+        if let phone = UserManager.shared.emergencyContact?.first?.phone {
             infoLabel.text = phone.hidePhoneNumber()
         }else {
             infoLabel.text = "未设置"
@@ -107,13 +107,15 @@ class ProfileFunctionOneCell: UITableViewCell {
         ])
     }
     
-    func changeInfoLabel(_ data: EmergencyInfoData?) {
-        if let phone = data?.phone {
-            infoLabel.text = phone.hidePhoneNumber()
+    func changeInfoLabel(_ data: [EmergencyInfoData]?) {
+        if let _ = data?.first?.phone {
+            UserManager.shared.userInfo?.isSetEmergency = true
+            infoLabel.text = "已设置"
             infoLabel.textColor = .black
         }else {
+            UserManager.shared.cleanEmergencyContact()
             infoLabel.text = "未设置"
-            infoLabel.textColor = .systemGray
+            infoLabel.textColor = UIColor(str: "#A0A3A7")
         }
     }
     

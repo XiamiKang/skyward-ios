@@ -9,6 +9,7 @@ import UIKit
 import TXKit
 import SWKit
 import Combine
+import SWTheme
 
 class EmergencyServiceViewController: PersonalBaseViewController {
     
@@ -65,7 +66,6 @@ class EmergencyServiceViewController: PersonalBaseViewController {
     }()
     
     var dataSource: [EmergencyInfoData] = []
-    var contentText: String?
     
     override func viewDidLoad() {
         super.viewDidLoad()
@@ -86,7 +86,7 @@ class EmergencyServiceViewController: PersonalBaseViewController {
     }
     
     private func setupUI() {
-        view.backgroundColor = UIColor(hex: "#F2F3F4")
+        view.backgroundColor = ThemeManager.current.mediumGrayBGColor
         
         backButton.setImage(PersonalModule.image(named: "default_back_white"), for: .normal)
         
@@ -176,16 +176,10 @@ extension EmergencyServiceViewController: UITableViewDelegate, UITableViewDataSo
     
     func tableView(_ tableView: UITableView, didSelectRowAt indexPath: IndexPath) {
         let vc = EmergencyContactViewController()
-        if dataSource.count == 0 {
-            
-        }else if dataSource.count < 3 {
-            if indexPath.row < dataSource.count {
-                let data = dataSource[indexPath.row]
-                vc.emergencyData = data
-            }
-        }else {
+        if dataSource.count > indexPath.row {
             let data = dataSource[indexPath.row]
             vc.emergencyData = data
+            vc.isHideDelete = dataSource.count < 2
         }
         navigationController?.pushViewController(vc, animated: true)
     }

@@ -21,17 +21,17 @@ public class LoginViewModel {
     typealias CommonResult = Result<EmptyData, LoginError>
     typealias CommonCompletion = (CommonResult) -> Void
     
-    typealias SmsCodeResult = Result<Response, LoginError>
-    typealias SmsCodeCompletion = (SmsCodeResult) -> Void
+    public typealias SmsCodeResult = Result<Response, LoginError>
+    public typealias SmsCodeCompletion = (SmsCodeResult) -> Void
     
     // MARK: - 登录错误枚举
-    enum LoginError: Error {
+    public enum LoginError: Error {
         case networkError(String)
         case parseError(String)
         case businessError(message: String, code: String)
         case tokenDataMissing
         
-        var errorMessage: String {
+        public var errorMessage: String {
             switch self {
             case .networkError(let message):
                 return message
@@ -44,7 +44,7 @@ public class LoginViewModel {
             }
         }
         
-        var errorCode: String {
+        public var errorCode: String {
             switch self {
             case .businessError(_, let code):
                 return code
@@ -52,6 +52,10 @@ public class LoginViewModel {
                 return "-1"
             }
         }
+    }
+    
+    public init() {
+        
     }
     
     // MARK: - 密码登录
@@ -201,7 +205,7 @@ public class LoginViewModel {
     }
     
     // MARK: - 发送验证码
-    func sendSmsCode(phone: String, type: SmsCodeType, completion: @escaping SmsCodeCompletion) {
+    public func sendSmsCode(phone: String, type: SmsCodeType, completion: @escaping SmsCodeCompletion) {
         let model = SmsCodeModel(mobile: phone, codeType: type)
         
         loginService.sendSmsCode(model) { result in

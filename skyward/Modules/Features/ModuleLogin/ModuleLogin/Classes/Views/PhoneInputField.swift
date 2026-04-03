@@ -6,13 +6,13 @@
 //
 
 import UIKit
+import SWTheme
 
-@MainActor
-class PhoneInputField: BaseInputField {
+public class PhoneInputField: BaseInputField {
     
     // MARK: - UI Components
     private let verifyCodeButton: UIButton = {
-        let button = UIButton(type: .system)
+        let button = UIButton(type: .custom)
         button.setTitle("获取验证码", for: .normal)
         button.setTitleColor(UIColor.init(hex: "#C4C7CA"), for: .normal)
         button.titleLabel?.font = .systemFont(ofSize: 14, weight: .medium)
@@ -22,7 +22,7 @@ class PhoneInputField: BaseInputField {
     }()
     
     // MARK: - Properties
-    var onVerifyCodeTapped: (() -> Void)?
+    public var onVerifyCodeTapped: (() -> Void)?
     
     // 使用 CADisplayLink 替代 Timer
     private var displayLink: CADisplayLink?
@@ -146,7 +146,7 @@ class PhoneInputField: BaseInputField {
     private func updateVerifyButtonState() {
         let isValidPhone = validate()
         verifyCodeButton.isEnabled = isValidPhone && !isCountingDown
-        verifyCodeButton.setTitleColor(isValidPhone ? defaultOrangeColor : UIColor.init(hex: "#C4C7CA"), for: .normal)
+        verifyCodeButton.setTitleColor(isValidPhone ? ThemeManager.current.mainColor : UIColor.init(hex: "#C4C7CA"), for: .normal)
         verifyCodeButton.alpha = isValidPhone ? 1.0 : 0.6
     }
     
@@ -182,7 +182,7 @@ class PhoneInputField: BaseInputField {
         }
     }
     
-    override func textFieldDidEndEditing(_ textField: UITextField) {
+    public override func textFieldDidEndEditing(_ textField: UITextField) {
         super.textFieldDidEndEditing(textField)
         
         // 结束编辑时验证手机号格式

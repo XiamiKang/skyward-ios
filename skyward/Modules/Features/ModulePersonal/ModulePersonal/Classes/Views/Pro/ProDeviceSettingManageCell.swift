@@ -28,6 +28,7 @@ class ProDeviceSettingManageCell: UICollectionViewCell {
     }
     
     private func setupUI() {
+        backgroundColor = .white
         
         imageView.translatesAutoresizingMaskIntoConstraints = false
         contentView.addSubview(imageView)

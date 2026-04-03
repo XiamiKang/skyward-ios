@@ -16,7 +16,7 @@ public class MapService {
     private let provider: NetworkProvider<MapAPI>
     
     public init() {
-        self.provider = NetworkProvider<MapAPI>()
+        self.provider = NetworkProvider<MapAPI>(plugins: [])
     }
     
     // MARK: - 获取路线列表
@@ -80,12 +80,12 @@ public class MapService {
     
     // MARK: - 获取天气数据
     @available(iOS 13.0, *)
-    public func getWeatherMap() async throws -> Response {
-        return try await provider.request(.getWeatherMap)
+    public func getCityWeatherList() async throws -> Response {
+        return try await provider.request(.getCityWeatherList)
     }
     
-    public func getWeatherMap(completion: @escaping (Result<Response, MoyaError>) -> Void) {
-        provider.request(.getWeatherMap, completion: completion)
+    public func getCityWeatherList(completion: @escaping (Result<Response, MoyaError>) -> Void) {
+        provider.request(.getCityWeatherList, completion: completion)
     }
     
     // MARK: - 搜索数据
@@ -136,6 +136,11 @@ public class MapService {
     
     public func saveUserRoute(params: [String : Any], completion: @escaping (Result<Response, MoyaError>) -> Void) {
         provider.request(.saveUserRoute(params: params), completion: completion)
+    }
+    
+    // MARK: - 获取天气信息
+    public func getWeatherInfo(_ location: CLLocationCoordinate2D, completion: @escaping (Result<Response, MoyaError>) -> Void) {
+        provider.request(.getWeatherInfo(location), completion: completion)
     }
     
     // MARK: - 获取天气预警
@@ -231,5 +236,15 @@ public class MapService {
     
     public func cancelCheckInPublicPOI(_ poiId: String, completion: @escaping (Result<Response, MoyaError>) -> Void) {
         provider.request(.cancelCheckInPublicPOI(poiId), completion: completion)
+    }
+    
+    // MARK: - 更新兴趣点
+    @available(iOS 13.0, *)
+    public func updateUserPOI(_ model: UserPOIModel) async throws -> Response {
+        return try await provider.request(.updateUserPOI(model))
+    }
+    
+    public func updateUserPOI(_ model: UserPOIModel, completion: @escaping (Result<Response, MoyaError>) -> Void) {
+        provider.request(.updateUserPOI(model), completion: completion)
     }
 }

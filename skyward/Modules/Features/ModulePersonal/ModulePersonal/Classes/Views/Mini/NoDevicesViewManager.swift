@@ -6,6 +6,7 @@
 //
 
 import UIKit
+import SWTheme
 
 // MARK: - 无设备界面管理器
 class NoDevicesViewManager: NSObject {
@@ -41,7 +42,7 @@ class NoDevicesViewManager: NSObject {
     private let retryButton: UIButton = {
         let button = UIButton(type: .system)
         button.translatesAutoresizingMaskIntoConstraints = false
-        button.backgroundColor = UIColor(hex: "#F2F3F4")
+        button.backgroundColor = ThemeManager.current.mediumGrayBGColor
         button.setTitle("重新扫描", for: .normal)
         button.setTitleColor(UIColor(hex: "#FE6A00"), for: .normal)
         button.titleLabel?.font = .systemFont(ofSize: 14, weight: .bold)

@@ -7,6 +7,7 @@
 
 import UIKit
 import SnapKit
+import SWTheme
 
 class PresonalInfoProtectionView: MaskView {
     
@@ -101,17 +102,17 @@ class PresonalInfoProtectionView: MaskView {
     }()
     
     private let closeButton: UIButton = {
-        let button = UIButton(type: .system)
+        let button = UIButton(type: .custom)
         button.setTitle("不同意", for: .normal)
         button.titleLabel?.font = UIFont.boldSystemFont(ofSize: 14)
-        button.backgroundColor = UIColor.init(hex: "#F2F3F4")
+        button.backgroundColor = ThemeManager.current.mediumGrayBGColor
         button.setTitleColor(UIColor.init(hex: "#070808"), for: .normal)
         button.layer.cornerRadius = 6
         return button
     }()
     
     private let agreeButton: UIButton = {
-        let button = UIButton(type: .system)
+        let button = UIButton(type: .custom)
         button.setTitle("同意", for: .normal)
         button.titleLabel?.font = UIFont.boldSystemFont(ofSize: 14)
         button.backgroundColor = UIColor.init(hex: "#FE6A00")

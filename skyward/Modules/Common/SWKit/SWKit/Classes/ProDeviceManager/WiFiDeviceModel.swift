@@ -53,6 +53,7 @@ public enum LockStatus: Int {
 
 // MARK: - 天线运行状态
 public enum AntennaStatus: Int {
+    case idle = 0
     case stored = 1
     case waitingGPS = 2
     case waitingIMU = 4
@@ -61,6 +62,7 @@ public enum AntennaStatus: Int {
     
     public var description: String {
         switch self {
+        case .idle: return "空闲"
         case .stored: return "收藏"
         case .waitingGPS: return "等待GPS定位"
         case .waitingIMU: return "等待惯导信息"
@@ -71,6 +73,7 @@ public enum AntennaStatus: Int {
     
     public var contentText: String {
         switch self {
+        case .idle: return "设备处于空闲中..."
         case .stored: return "设备处于非工作状态，天线收藏中..."
         case .waitingGPS: return "正在获取设备当前地理位置信息..."
         case .waitingIMU: return "正在获取设备姿态数据..."
@@ -79,6 +82,30 @@ public enum AntennaStatus: Int {
         }
     }
 }
+
+// MARK: - 卫星链路运行状态
+public enum SatelliteLinkStatus: Int {
+    case STATUS_OFF = -1
+    case HOLD_STANDBY = 0
+    case OFF_STANDBY = 1
+    case READY_LOGON = 2
+    case READY_SYNC = 3
+    case SYNC = 4
+    case NCR_RECOVERY = 5
+    
+    public var description: String {
+        switch self {
+        case .STATUS_OFF: return "未知"
+        case .HOLD_STANDBY: return "保持待机"
+        case .OFF_STANDBY: return "离线"
+        case .READY_LOGON: return "准备登录"
+        case .READY_SYNC: return "准备同步"
+        case .SYNC: return "已同步"
+        case .NCR_RECOVERY: return "NCR修复"
+        }
+    }
+}
+
 
 // MARK: - 故障码结构
 public struct FaultCodes {
@@ -126,6 +153,14 @@ public struct ProDeviceInfo {
         self.deviceSN = components[1]
         self.catMAC = components[2]
         self.catSN = components[3]
+    }
+    
+    public var firwareType: FirmwareType {
+        if deviceSN.contains("2501") {
+            return .prototype
+        } else {
+            return .base
+        }
     }
 }
 
@@ -329,4 +364,126 @@ public struct SatelliteAlignmentResult {
         self.longitude = longitude
         self.latitude = latitude
     }
+}
+
+// MARK: - 固件类型
+public enum FirmwareType: String {
+    case base = "base"           // 基础版
+    case prototype = "prototype"  // 样机版
+    case wb02 = "wb02"
+    
+    public var directoryName: String {
+        switch self {
+        case .base:
+            return "Base"
+        case .prototype:
+            return "Prototype"
+        case .wb02:
+            return "WB-02"
+        }
+    }
+    
+    // 获取对应的UserDefaults键
+    public func getCurrentVersionKey() -> String {
+        switch self {
+        case .base:
+            return FirmwareConstants.currentVersionKey
+        case .prototype:
+            return FirmwareConstants.prototypeCurrentVersionKey
+        case .wb02:
+            return FirmwareConstants.wb02CurrentVersionKey
+        }
+    }
+    
+    public func getDownloadedInfoKey() -> String {
+        switch self {
+        case .base:
+            return FirmwareConstants.firmwareDownloadedKey
+        case .prototype:
+            return FirmwareConstants.prototypeFirmwareDownloadedKey
+        case .wb02:
+            return FirmwareConstants.wb02FirmwareDownloadedKey
+        }
+    }
+    
+    public func getFilePathKey() -> String {
+        switch self {
+        case .base:
+            return FirmwareConstants.firmwareFilePathKey
+        case .prototype:
+            return FirmwareConstants.prototypeFirmwareFilePathKey
+        case .wb02:
+            return FirmwareConstants.wb02FirmwareFilePathKey
+        }
+    }
+    
+    public func getHardwareModelKey() -> String {
+        switch self {
+        case .base:
+            return FirmwareConstants.hardwareModelKey
+        case .prototype:
+            return FirmwareConstants.prototypeHardwareModelKey
+        case .wb02:
+            return FirmwareConstants.wb02HardwareModelKey
+        }
+    }
+    
+    public func getDefaultVersion() -> String {
+        switch self {
+        case .base:
+            return FirmwareConstants.defaultVersion
+        case .prototype:
+            return FirmwareConstants.prototypeDefaultVersion
+        case .wb02:
+            return FirmwareConstants.wb02DefaultVersion
+        }
+    }
+    
+    public func getDefaultHardwareModel() -> String {
+        switch self {
+        case .base:
+            return FirmwareConstants.defaultHardwareModel
+        case .prototype:
+            return FirmwareConstants.prototypeDefaultHardwareModel
+        case .wb02:
+            return FirmwareConstants.wb02DefaultHardwareModel
+        }
+    }
+    
+    // 设备类型（可以根据需要调整）
+    public var deviceType: Int {
+        return 2
+    }
+}
+
+// MARK: - 常量定义
+public struct FirmwareConstants {
+    // 固定设备类型
+    static let fixedDeviceType = 2
+    
+    public static let firmwareDirectory = "Firmware"                     // 固件存储目录
+    
+    // UserDefaults Key（简化版，只有一个版本）
+    static let currentVersionKey = "firmware_current_version"     // 本地存储的版本号(基础版)
+    static let firmwareDownloadedKey = "firmware_downloaded_info" // 已下载固件信息(基础版)
+    static let firmwareFilePathKey = "firmware_file_path"         // 固件文件路径(基础版)
+    static let hardwareModelKey = "firmware_hardware_model"       // 硬件型号(基础版)
+    static let defaultVersion = "1.0.0.0"                         // 默认版本(基础版)
+    static let defaultHardwareModel = "TX035"                     // 默认硬件型号(基础版)
+    
+    static let prototypeCurrentVersionKey = "prototype_firmware_current_version"     // 本地存储的版本号(样机版)
+    static let prototypeFirmwareDownloadedKey = "prototype_firmware_downloaded_info" // 已下载固件信息(样机版)
+    static let prototypeFirmwareFilePathKey = "prototype_firmware_file_path"         // 固件文件路径(样机版)
+    static let prototypeHardwareModelKey = "prototype_firmware_hardware_model"       // 硬件型号(样机版)
+    static let prototypeDefaultVersion = "1.0.0.0"                                   // 默认版本(样机版)
+    static let prototypeDefaultHardwareModel = "TX035-prototype"                     // 默认硬件型号(样机版)
+    
+    static let wb02CurrentVersionKey = "wb02_firmware_current_version"            // 本地存储的版本号(自研版)
+    static let wb02FirmwareDownloadedKey = "wb02_firmware_downloaded_info"        // 已下载固件信息(自研版)
+    static let wb02FirmwareFilePathKey = "wb02_firmware_file_path"                // 固件文件路径(自研版)
+    static let wb02FirmwareMsgDownloadedKey = "wb02_firmware_msg_downloaded_info" // 已下载固件信息(自研版)
+    static let wb02FirmwareMsgFilePathKey = "wb02_firmware_msg_file_path"         // 已下载固件信息(自研版)
+    static let wb02HardwareModelKey = "wb02_firmware_hardware_model"              // 硬件型号(自研版)
+    static let wb02DefaultVersion = "1.0.0.0"                                     // 默认版本(自研版)
+    static let wb02DefaultHardwareModel = "TXTS-WB-02"                            // 默认硬件型号(自研版)
 }

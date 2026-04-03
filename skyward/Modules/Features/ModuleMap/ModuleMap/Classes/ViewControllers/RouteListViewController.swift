@@ -91,6 +91,9 @@ class RouteListViewController: BaseViewController, UITableViewDataSource, UITabl
             self?.emptyView.isHidden = list.count > 0
             self?.manageButton.isHidden = list.count == 0
             self?.tableView.reloadData()
+            if self?.viewModel.type == .track, self?.segmentView.selectedIndex == 1 {
+                self?.tableView.tableHeaderView = (self?.viewModel.routeList.count ?? 0) > 0 ? self?.tipsView : nil
+            }
             self?.viewModel.syncRouteList()
         }
         
@@ -140,15 +143,16 @@ class RouteListViewController: BaseViewController, UITableViewDataSource, UITabl
         segmentView.onSelectedIndexChanged = { [weak self] index in
             if index == 0 {
                 self?.viewModel.isLocal = false
+                self?.tableView.tableHeaderView = nil
             } else {
                 self?.viewModel.isLocal = true
+                self?.tableView.tableHeaderView = (self?.viewModel.routeList.count ?? 0) > 0 ? self?.tipsView : nil
             }
             if self?.viewModel.isManageState == true {
                 self?.setManageState(false)
             }
         }
-        segmentView.configure(titles: [viewModel.localTitle, viewModel.remoteTitle], defaultIndex: 0)
-
+        segmentView.configure(titles: [viewModel.remoteTitle, viewModel.localTitle], defaultIndex: 0)
         return segmentView
     }()
     
@@ -181,7 +185,11 @@ class RouteListViewController: BaseViewController, UITableViewDataSource, UITabl
             self?.viewModel.setSelectAll(isAll)
         }
         manageBottomView.deleteHandler = { [weak self] in
-            let msg = self?.viewModel.type == .track ? "确定删除选中轨迹吗？" : "确定删除选中路线吗？"
+            if let reason = self?.viewModel.checkDisableReason() {
+                self?.view.sw_showWarningToast(reason)
+                return
+            }
+            let msg = self?.viewModel.prepareDeleteTips()
             SWAlertView.showAlert(title: nil, message: msg) {
                 self?.view.sw_showLoading()
                 self?.viewModel.deleteSelectedRoutes { [weak self]  in
@@ -190,6 +198,10 @@ class RouteListViewController: BaseViewController, UITableViewDataSource, UITabl
             }
         }
         manageBottomView.uploadHandler = { [weak self] in
+            if let reason = self?.viewModel.checkDisableReason() {
+                self?.view.sw_showWarningToast(reason)
+                return
+            }
             self?.view.sw_showLoading()
             self?.viewModel.uploadSelectedRoutes { [weak self]  in
                 self?.view.sw_hideLoading()
@@ -205,6 +217,11 @@ class RouteListViewController: BaseViewController, UITableViewDataSource, UITabl
         return manageBottomView
     }()
     
+    private lazy var tipsView: SWTopTipsView = {
+        let tipsView = SWTopTipsView(title: "更换设备可能导致轨迹丢失，建议尽快上传云端！")
+        tipsView.frame = CGRectMake(0, 0, 0, swAdaptedValue(40))
+        return tipsView
+    }()
     
     // MARK: - Actions
     private func setManageState(_ manageState: Bool) {
@@ -230,6 +247,13 @@ class RouteListViewController: BaseViewController, UITableViewDataSource, UITabl
         if viewModel.routeList.count > indexPath.row {
             let route = viewModel.routeList[indexPath.row]
             cell.configure(with: route, isManageState: viewModel.isManageState)
+            cell.onClickUploadHandler = { [weak self] in
+                self?.viewModel.uploadRoute(route) { success in
+                    if success {
+                        self?.viewModel.uploadRouteSuccess(route)
+                    }
+                }
+            }
         }
         return cell
     }
@@ -240,6 +264,9 @@ class RouteListViewController: BaseViewController, UITableViewDataSource, UITabl
         if viewModel.isManageState {
             let selected = route.selected ?? false
             viewModel.routeList[indexPath.row].selected = !selected
+  
+            let allSelected = viewModel.routeList.allSatisfy { $0.selected == true }
+            manageBottomView.setSelectAll(allSelected)
             return
         }
         
@@ -247,13 +274,51 @@ class RouteListViewController: BaseViewController, UITableViewDataSource, UITabl
         vc.deleteSuccessHandler = {
             self.viewModel.deleteRouteSuccess(route)
         }
-        vc.editSuccessHandler = { route in
-            self.viewModel.editRouteSuccess(route)
+        vc.editSuccessHandler = { updatedRoute in
+            self.viewModel.editRouteSuccess(updatedRoute)
         }
-        vc.uploadSuccessHandler = {
-            self.viewModel.uploadRouteSuccess(route)
+        vc.uploadSuccessHandler = { updatedRoute in
+            self.viewModel.uploadRouteSuccess(updatedRoute)
+        }
+        vc.visibleSuccessHandler = { updatedRoute in
+            self.viewModel.visibleRouteSuccess(updatedRoute)
+        }
+        vc.coverSuccesHandler = {
+            tableView.reloadData()
         }
         navigationController?.pushViewController(vc, animated: true)
+    }
+
+    // MARK: - UITableView Swipe Actions
+
+    @available(iOS 11.0, *)
+    public func tableView(_ tableView: UITableView, trailingSwipeActionsConfigurationForRowAt indexPath: IndexPath) -> UISwipeActionsConfiguration? {
+        // 管理模式下不显示左滑删除
+        guard viewModel.isManageState == false else {
+            return nil
+        }
+
+        let deleteAction = UIContextualAction(style: .destructive, title: "删除") { [weak self] (action, view, completionHandler) in
+            guard let self = self else {
+                completionHandler(false)
+                return
+            }
+
+            let route = self.viewModel.routeList[indexPath.row]
+            let name = self.viewModel.type == .track ? "轨迹" : "路线"
+
+            SWAlertView.showAlert(title: nil, message: "确定删除该\(name)吗？") {
+                self.view.sw_showLoading()
+                self.viewModel.deleteRoute(route) {
+                    self.view.sw_hideLoading()
+                    completionHandler(true)
+                }
+            }
+        }
+
+        deleteAction.backgroundColor = ThemeManager.current.errorColor
+
+        return UISwipeActionsConfiguration(actions: [deleteAction])
     }
 
     // MARK: - UITableView DataSource Prefetching

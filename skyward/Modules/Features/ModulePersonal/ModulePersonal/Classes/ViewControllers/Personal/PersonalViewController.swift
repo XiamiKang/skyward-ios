@@ -8,6 +8,7 @@
 import UIKit
 import SWKit
 import Combine
+import SWTheme
 
 // 功能项模型
 struct FunctionItem {
@@ -17,15 +18,39 @@ struct FunctionItem {
     var hasArrow: Bool
 }
 
+// MARK: - 新增：数据模型
+struct MyDataCounts {
+    var trackNum: Int = 0
+    var routeNum: Int = 0
+    var poiNum: Int = 0
+    var checkoutNum: Int = 0
+    var collectNum: Int = 0
+    let offlineNum: Int = 1 // 离线缓存固定为1
+}
 
 public class PersonalViewController: UIViewController {
     
     // MARK: - 数据
     private var userProfile: UserInfoData?
     private let viewModel = PersonalViewModel()
-    private var emergencyInfoData: EmergencyInfoData?
+    private var emergencyInfoData: [EmergencyInfoData]?
     private var cancellables = Set<AnyCancellable>()
-    private var poiNum = 0
+    private let profileMyDataViewHeight = UIScreen.main.bounds.width/2+10
+    
+    // 使用元组或字典来统一管理数据
+    private var myDataCounts = MyDataCounts() {
+        didSet {
+            // 当数据更新时，批量更新UI
+            profileMyDataView.updateData(
+                with: myDataCounts.trackNum,
+                POINum: myDataCounts.poiNum,
+                routeNum: myDataCounts.routeNum,
+                checkoutNum: myDataCounts.checkoutNum,
+                collectNum: myDataCounts.collectNum,
+                offlineNum: myDataCounts.offlineNum
+            )
+        }
+    }
     
     // MARK: - UI组件
     private let headBgImageView: UIImageView = {
@@ -42,9 +67,6 @@ public class PersonalViewController: UIViewController {
         tableView.separatorStyle = .none
         tableView.backgroundColor = .clear
         tableView.isScrollEnabled = false
-//        if #available(iOS 11.0, *) {
-//            tableView.contentInsetAdjustmentBehavior = .never
-//        }
         if #available(iOS 15.0, *) {
             tableView.sectionHeaderTopPadding = 0
         }
@@ -59,7 +81,10 @@ public class PersonalViewController: UIViewController {
         
         setupUI()
         setupTableView()
-        setData()
+//        setData()
+        
+        DBManager.shared.createTable(table: DBTableName.miniDevice.rawValue, of: MiniDeviceData.self)
+        DBManager.shared.createTable(table: DBTableName.miniDeviceSendResult.rawValue, of: MiniDeviceSendResultData.self)
     }
     
     public override func viewWillLayoutSubviews() {
@@ -70,8 +95,79 @@ public class PersonalViewController: UIViewController {
     public override func viewWillAppear(_ animated: Bool) {
         super.viewWillAppear(animated)
         navigationController?.setNavigationBarHidden(true, animated: animated)
+        
+        fetchAllData()
+        
         checkLoginStatus()
         tableView.reloadData()
+    }
+    
+    // 新增：统一获取所有数据的方法
+    private func fetchAllData() {
+        
+        let group = DispatchGroup()
+        
+        // 获取历史轨迹数
+        group.enter()
+        SWRouter.handle(RouteTable.trackCountUrl, callback: { [weak self] count in
+            defer { group.leave() }
+            Logger.debug("获取到历史轨迹个数为： \(count ?? "失败了")")
+            if let count = count as? Int {
+                self?.myDataCounts.trackNum = count
+            }
+        })
+        
+        // 获取规划路线数
+        group.enter()
+        SWRouter.handle(RouteTable.routeCountUrl, callback: { [weak self] count in
+            defer { group.leave() }
+            Logger.debug("获取到规划路线个数为： \(count ?? "失败了")")
+            if let count = count as? Int {
+                self?.myDataCounts.routeNum = count
+            }
+        })
+        
+        // 获取兴趣点数
+        group.enter()
+        DispatchQueue.global().async { [weak self] in
+            defer { group.leave() }
+            if let data = UserPOILocalDBManager.shared.queryAll() {
+                Logger.debug("获取到兴趣点个数为： \(data.count)")
+                DispatchQueue.main.async {
+                    self?.myDataCounts.poiNum = data.count
+                }
+            }
+        }
+        
+        // 获取打卡点数
+        group.enter()
+        DispatchQueue.global().async { [weak self] in
+            defer { group.leave() }
+            if let data = UserPublicPOIDBManager.shared.queryCheckData() {
+                Logger.debug("打卡兴趣点个数为： \(data.count)")
+                DispatchQueue.main.async {
+                    self?.myDataCounts.checkoutNum = data.count
+                }
+            }
+        }
+        
+        // 获取收藏点数
+        group.enter()
+        DispatchQueue.global().async { [weak self] in
+            defer { group.leave() }
+            if let data = UserPublicPOIDBManager.shared.queryCollectData() {
+                Logger.debug("收藏兴趣点个数为： \(data.count)")
+                DispatchQueue.main.async {
+                    self?.myDataCounts.collectNum = data.count
+                }
+            }
+        }
+        
+        // 可选：添加一个完成后的回调，可以在这里显示加载完成
+        group.notify(queue: .main) {
+            Logger.debug("所有数据获取完成")
+            // 如果需要，可以在这里添加一些完成后的处理
+        }
     }
 }
 
@@ -79,7 +175,7 @@ public class PersonalViewController: UIViewController {
 extension PersonalViewController {
     
     private func setupUI() {
-        view.backgroundColor = UIColor(str: "#F2F3F4")
+        view.backgroundColor = ThemeManager.current.mediumGrayBGColor
         
         view.addSubview(headBgImageView)
         view.addSubview(tableView)
@@ -108,16 +204,10 @@ extension PersonalViewController {
         tableView.register(ProfileFunctionFourCell.self, forCellReuseIdentifier: "ProfileFunctionFourCell")
     }
     
-    private func setData() {
-        if let poiData = UserPOILocalDBManager.shared.queryAll() {
-            poiNum = poiData.count
-            tableView.reloadSections(IndexSet(integer: 1), with: .automatic)
-        }
-    }
-    
     // 检查登录状态
     private func checkLoginStatus() {
-        viewModel.checkEmergency()
+        
+        viewModel.checkEmergencyList()
             .receive(on: DispatchQueue.main)
             .sink { _ in
                 
@@ -139,6 +229,8 @@ extension PersonalViewController {
                 self.tableView.reloadData()
             }
             .store(in: &cancellables)
+        
+        
     }
     
     // 更新登录状态
@@ -180,9 +272,8 @@ extension PersonalViewController: UITableViewDataSource, UITableViewDelegate {
             let cell = tableView.dequeueReusableCell(withIdentifier: "Cell")!
             cell.backgroundColor = .clear
             cell.selectionStyle = .none
-            profileMyDataView.frame = CGRect(x: 16, y: 5, width: UIScreen.main.bounds.width-32, height: UIScreen.main.bounds.width/2)
+            profileMyDataView.frame = CGRect(x: 16, y: 0, width: UIScreen.main.bounds.width-32, height: UIScreen.main.bounds.width/2)
             profileMyDataView.layer.cornerRadius = 10
-            profileMyDataView.updateData(with: 0, POINum: poiNum, routeNum: 0, checkoutNum: 0, collectNum: 0, offlineNum: 0)
             profileMyDataView.selectedIndex = { [weak self] index in
                 switch index {
                 case 0:
@@ -190,17 +281,20 @@ extension PersonalViewController: UITableViewDataSource, UITableViewDelegate {
                     SWRouter.handle(RouteTable.routeListPageUrl, parameters: ["type" : "1"])
                 case 1:
                     print("兴趣点")
-                    let vc = PersonalPOIManagerViewController()
-                    self?.navigationController?.pushViewController(vc, animated: true)
+                    SWRouter.handle(RouteTable.POIListUrl)
                 case 2:
                     print("绘制路线")
                     SWRouter.handle(RouteTable.routeListPageUrl, parameters: ["type" : "0"])
                 case 3:
                     print("打卡")
+                    SWRouter.handle(RouteTable.POICollectListUrl, parameters: ["type" : "0"])
                 case 4:
                     print("收藏")
+                    SWRouter.handle(RouteTable.POICollectListUrl, parameters: ["type" : "1"])
                 case 5:
                     print("离线缓存")
+                    let vc = PersonalOfflineCacheViewController()
+                    self?.navigationController?.pushViewController(vc, animated: true)
                 default:
                     print(index)
                 }
@@ -221,9 +315,6 @@ extension PersonalViewController: UITableViewDataSource, UITableViewDelegate {
                 let cell = tableView.dequeueReusableCell(withIdentifier: "ProfileFunctionTwoCell") as! ProfileFunctionTwoCell
                 cell.changeDeviceImage()
                 return cell
-                //        case 2:
-                //            let cell = tableView.dequeueReusableCell(withIdentifier: "ProfileFunctionThreeCell") as! ProfileFunctionThreeCell
-                //            return cell
             case 2:
                 let cell = tableView.dequeueReusableCell(withIdentifier: "ProfileFunctionFourCell") as! ProfileFunctionFourCell
                 return cell
@@ -241,7 +332,7 @@ extension PersonalViewController: UITableViewDataSource, UITableViewDelegate {
             return 100
         }
         if indexPath.section == 1 {
-            return UIScreen.main.bounds.width/2 + 30
+            return profileMyDataViewHeight+16
         }
         return 56
     }
@@ -254,9 +345,6 @@ extension PersonalViewController: UITableViewDataSource, UITableViewDelegate {
             case 0:
                 // 紧急救援服务
                 let emergencyVC = EmergencyServiceViewController()
-                if let emergencyInfoData = emergencyInfoData {
-                    emergencyVC.contentText = emergencyInfoData.phone != nil ? "\(emergencyInfoData.name ?? "")\("(\(emergencyInfoData.phone ?? ""))")" : "未设置"
-                }
                 navigationController?.pushViewController(emergencyVC, animated: true)
                 break
             case 1:
@@ -264,14 +352,10 @@ extension PersonalViewController: UITableViewDataSource, UITableViewDelegate {
                 let deviceVC = DeviceListViewController(selectedDeviceType: 0)
                 navigationController?.pushViewController(deviceVC, animated: true)
                 break
-                //        case 2:
-                //            // 实名认证
-                //            let realNameVC = RealNameAuthViewController()
-                //            navigationController?.pushViewController(realNameVC, animated: true)
-                //            break
             case 2:
                 // 设置
                 let settingVC = SettingViewController()
+                settingVC.userInfo = userProfile
                 navigationController?.pushViewController(settingVC, animated: true)
                 break
             default:
@@ -281,5 +365,4 @@ extension PersonalViewController: UITableViewDataSource, UITableViewDelegate {
     }
     
 }
-
 

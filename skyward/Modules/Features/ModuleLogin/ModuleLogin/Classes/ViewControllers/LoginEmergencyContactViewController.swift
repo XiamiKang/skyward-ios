@@ -20,11 +20,39 @@ class LoginEmergencyContactViewController: LoginBaseViewController {
         let button = UIButton(type: .custom)
         button.setTitle("登录", for: .normal)
         button.setTitleColor(ThemeManager.current.mainColor, for: .normal)
-        button.titleLabel?.font = .systemFont(ofSize: 14, weight: .semibold)
+        button.titleLabel?.font = .systemFont(ofSize: 16, weight: .semibold)
         button.addTarget(self, action: #selector(popLoginVC), for: .touchUpInside)
         return button
     }()
     
+    private let successImageView: UIImageView = {
+        let imageView = UIImageView()
+        imageView.translatesAutoresizingMaskIntoConstraints = false
+        imageView.contentMode = .scaleAspectFit
+        imageView.image = LoginModule.image(named: "CEX_circlefilled_success")
+        return imageView
+    }()
+    
+    private let titleTextLabel: UILabel = {
+        let label = UILabel()
+        label.translatesAutoresizingMaskIntoConstraints = false
+        label.font = .systemFont(ofSize: 18, weight: .semibold)
+        label.textColor = .black
+        label.textAlignment = .center
+        label.text = "注册成功，请绑定紧急联系人"
+        return label
+    }()
+    
+    private let contentTextLabel: UILabel = {
+        let label = UILabel()
+        label.translatesAutoresizingMaskIntoConstraints = false
+        label.font = .systemFont(ofSize: 14, weight: .regular)
+        label.textColor = UIColor(hex: "#303236")
+        label.numberOfLines = 0
+        label.text = "完成绑定后，对你的安全进行保驾护航：SOS紧急求助与报平安通知将自动发送给您的紧急联系人，让您在任何时候都能安心，并获得最及时的帮助。"
+        return label
+    }()
+
     
     // 昵称输入框
     private let nicknameTextField: UITextField = {
@@ -43,15 +71,12 @@ class LoginEmergencyContactViewController: LoginBaseViewController {
     // 昵称输入框标题
     private let nicknameTitleLabel: UILabel = {
         let label = UILabel()
-        let prefix = "*"
-        let title = prefix + " 紧急联系人昵称"
-        let range = NSRange(location: 0, length: prefix.count)
+        let title = "紧急联系人昵称"
         let attributedString = NSMutableAttributedString(string: title,
                                                          attributes: [
                                                              .font: UIFont.pingFangFontRegular(ofSize: 14),
                                                              .foregroundColor: ThemeManager.current.titleColor
                                                          ])
-        attributedString.addAttribute(.foregroundColor, value: ThemeManager.current.errorColor, range: range)
         label.attributedText = attributedString
         return label
     }()
@@ -83,15 +108,12 @@ class LoginEmergencyContactViewController: LoginBaseViewController {
     // 电话输入框标题
     private let phoneTitleLabel: UILabel = {
         let label = UILabel()
-        let prefix = "*"
-        let title = prefix + " 紧急联系人电话"
-        let range = NSRange(location: 0, length: prefix.count)
+        let title = "紧急联系人电话"
         let attributedString = NSMutableAttributedString(string: title,
                                                          attributes: [
                                                              .font: UIFont.pingFangFontRegular(ofSize: 14),
                                                              .foregroundColor: ThemeManager.current.titleColor
                                                          ])
-        attributedString.addAttribute(.foregroundColor, value: ThemeManager.current.errorColor, range: range)
         label.attributedText = attributedString
         return label
     }()
@@ -122,6 +144,9 @@ class LoginEmergencyContactViewController: LoginBaseViewController {
         titleLabel.text = ""
         
         navigationView.addSubview(loginButton)
+        view.addSubview(successImageView)
+        view.addSubview(titleTextLabel)
+        view.addSubview(contentTextLabel)
         view.addSubview(nicknameTitleLabel)
         view.addSubview(nicknameDescriptionLabel)
         view.addSubview(nicknameTextField)
@@ -129,7 +154,16 @@ class LoginEmergencyContactViewController: LoginBaseViewController {
         view.addSubview(phoneTextField)
         
         view.addSubview(bottomButton)
+        
+        let tapGesture = UITapGestureRecognizer(target: self, action: #selector(dismissKeyboard))
+        // 添加手势到视图
+        view.addGestureRecognizer(tapGesture)
     }
+    
+    @objc private func dismissKeyboard() {
+        view.endEditing(true)
+    }
+
     
     // MARK: - 输入信息获取
     var nickname: String? {
@@ -145,8 +179,31 @@ class LoginEmergencyContactViewController: LoginBaseViewController {
         let margin: CGFloat = Layout.hMargin
         let spacing: CGFloat = 24
     
+        loginButton.snp.makeConstraints { make in
+            make.centerY.equalTo(titleLabel.snp.centerY)
+            make.trailing.equalToSuperview().offset(-10)
+            make.width.equalTo(60)
+            make.height.equalTo(30)
+        }
+        
+        successImageView.snp.makeConstraints { make in
+            make.top.equalTo(navigationView.snp.bottom).offset(40)
+            make.centerX.equalTo(view.snp.centerX)
+            make.width.height.equalTo(72)
+        }
+        
+        titleTextLabel.snp.makeConstraints { make in
+            make.top.equalTo(successImageView.snp.bottom).offset(10)
+            make.centerX.equalTo(view.snp.centerX)
+        }
+        
+        contentTextLabel.snp.makeConstraints { make in
+            make.top.equalTo(titleTextLabel.snp.bottom).offset(8)
+            make.leading.trailing.equalToSuperview().inset(32)
+        }
+        
         nicknameTitleLabel.snp.makeConstraints { make in
-            make.top.equalTo(navigationView.snp.bottom).offset(Layout.vMargin)
+            make.top.equalTo(contentTextLabel.snp.bottom).offset(40)
             make.leading.equalToSuperview().inset(margin)
         }
         

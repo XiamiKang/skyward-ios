@@ -19,6 +19,12 @@ public protocol ModuleType {
     /// 安装模块
     /// 运行在didFinishLaunching中，应用启动后，所有必须的前置逻辑，例如APM初始化，各种key的配置等
     func moduleSetup()
+
+    /// 登录成功
+    func loginSuccess()
+    
+    /// 登出成功
+    func logoutSuccess()
     
     /// 图片加载
     static func image(named name: String) -> UIImage?
@@ -44,6 +50,8 @@ extension ModuleType {
     public var routeSettings: [RoutableType.Type] { return [] }
     
     public func moduleSetup() {}
+    public func loginSuccess(){}
+    public func logoutSuccess(){}
     
     static public func image(named name: String) -> UIImage? {
         return UIImage(named: name, in: Self.bundle, compatibleWith: nil)

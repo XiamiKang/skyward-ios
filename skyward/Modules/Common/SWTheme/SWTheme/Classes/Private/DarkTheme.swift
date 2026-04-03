@@ -30,6 +30,8 @@ class DarkTheme: ThemeType {
     var secondaryColor: UIColor = .init(str: "#303236")
     /// 禁用状态颜色
     var disabledColor: UIColor = .init(str: "#C4C7CA")
+    /// placeholder颜色
+    var placeholderColor: UIColor = .init(str: "#A0A3A7")
     
     // MARK: - 背景色
     /// 一级白色背景

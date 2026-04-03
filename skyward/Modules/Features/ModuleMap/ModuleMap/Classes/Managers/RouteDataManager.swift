@@ -13,12 +13,12 @@ import SWNetwork
 import WCDBSwift
 
 // MARK: - 轨迹数据管理器
-class RouteDataManager {
+public class RouteDataManager {
     // 常量定义
     private let txtExtension = "txt"
     private let gpxExtension = "gpx"
     // 本次记录的相关属性
-    private(set) var sessionRoute: Route?
+    var sessionRoute: Route?
 
     private lazy var uploadManager: UploadManager = {
         let mgr = UploadManager()
@@ -37,7 +37,7 @@ class RouteDataManager {
     
     
     func startRecord(type: RouteType) {
-        sessionRoute = Route(id: String(Int64(Date().timeIntervalSince1970)), travelTime: 0, type: type.rawValue)
+        sessionRoute = Route(id: String(Int64(Date().timeIntervalSince1970)), travelTime: 0, type: type.rawValue, uploaded: false, isVisible: false)
 
         // 创建空文件，确保后续写入时文件已存在
         if let fileURL = sessionTxtFileURL() {
@@ -51,7 +51,7 @@ class RouteDataManager {
         Logger.debug("结束记录")
     }
     
-    // MARK: - 增删改查
+    // MARK: - 本地增删改查
     // 写入记录的点到文件
     @discardableResult
     func writePointToSessionTxtFile(_ point: RecordPoint) -> Bool {
@@ -71,6 +71,7 @@ class RouteDataManager {
                 fileHandle.seekToEndOfFile()
                 fileHandle.write(pointString.data(using: .utf8)!)
             }
+            updateSessionRoute(point: point)
             return true
         } catch {
             debugPrint("写入文件失败：\(error.localizedDescription)")
@@ -124,30 +125,16 @@ class RouteDataManager {
     }
     // 保存当前记录的路线/轨迹记录到本地
     @discardableResult
-    func saveSessionRouteToLocal(_ route: Route) -> Bool {
-        
-        guard let _ = route.type else {
+    func saveSessionRouteToLocal() -> Bool {
+        guard var route = sessionRoute else {
             return false
         }
-        
-        guard let txtFileURL = sessionTxtFileURL() else {
-            return false
+        if route.routeName == nil {
+            route.routeName = DateFormatter.fullPretty2.string(from: Date())
         }
         
-        guard let gpxFileURL = gpxFileURL(route.id) else {
-            return false
-        }
-        
-        guard DBManager.shared.insertToDb(objects: [route], intoTable: DBTableName.route.rawValue) else {
-            return false
-        }
-        
-        let points = readPointsFromTxtFile(fileURL: txtFileURL)
-        
-        if generateGPXFile(from: points, targetURL: gpxFileURL, name: route.routeName) {
-            return true
-        }
-        return false
+        route.createTime = DateFormatter.fullPretty.string(from: Date())
+        return saveRouteToLocalWithSessionTxt(route)
     }
     
     // 保存云端记录的路线/轨迹记录到本地
@@ -172,6 +159,33 @@ class RouteDataManager {
         return true
     }
     
+    // 保存路线/轨迹记录到本地根据sessionTxt
+    @discardableResult
+    func saveRouteToLocalWithSessionTxt(_ route: Route) -> Bool {
+        guard let _ = route.type else {
+            return false
+        }
+        
+        guard let txtFileURL = sessionTxtFileURL() else {
+            return false
+        }
+        
+        guard let gpxFileURL = gpxFileURL(route.id) else {
+            return false
+        }
+        
+        guard DBManager.shared.insertToDb(objects: [route], intoTable: DBTableName.route.rawValue) else {
+            return false
+        }
+        
+        let points = readPointsFromTxtFile(fileURL: txtFileURL)
+        
+        if generateGPXFile(from: points, targetURL: gpxFileURL, name: route.routeName) {
+            return true
+        }
+        return false
+    }
+    
     // 根据服务端轨迹更新本地的
     @discardableResult
     func updateLocalRouteWithRemote(local: Route, remote: Route) -> Bool {
@@ -185,7 +199,7 @@ class RouteDataManager {
         }
         
         if DBManager.shared.updateToDb(table: DBTableName.route.rawValue,
-                                       on: [Route.Properties.id],
+                                       on: Route.Properties.all,
                                        with: remote,
                                        where: Route.Properties.id == local.id) {
             //把oldGPXFileURL里的文件移至newGPXFileURL
@@ -210,7 +224,7 @@ class RouteDataManager {
     
     // 删除路线/轨迹记录从本地
     @discardableResult
-    private func deleteRouteFromLocal(_ routeId: String) -> Bool {
+    func deleteRouteFromLocal(_ routeId: String) -> Bool {
         
         guard DBManager.shared.deleteFromDb(fromTable: DBTableName.route.rawValue,
                                             where: Route.Properties.id == routeId) else {
@@ -235,56 +249,127 @@ class RouteDataManager {
     // 删除当前记录的写入文件
     private func deleteSessionTxtFile() {
         guard let txtFileURL = sessionTxtFileURL() else {
+            Logger.debug("删除sessionTxt失败：sessionTxtFile不存在")
             return
         }
-        
-        Logger.debug("将要删除sessionTxt文件：\(txtFileURL)")
-        
         do {
             try FileManager.default.removeItem(at: txtFileURL)
             Logger.debug("删除sessionTxt成功：\(txtFileURL)")
         } catch {
-            Logger.debug("删除sessionTxt失败：\(error.localizedDescription)")
+            Logger.debug("删除sessionTxt失败：\(txtFileURL) error：\(error.localizedDescription)")
+        }
+    }
+
+    /// 保存封面图到本地
+    /// - Parameters:
+    ///   - coverImage: 封面图片
+    ///   - routeId: 路线/轨迹ID
+    /// - Returns: 是否保存成功
+    @discardableResult
+    static func saveRouteCoverToLocal(_ coverImage: UIImage?, routeId: String) -> Bool {
+        guard let coverImage = coverImage else {
+            Logger.debug("保存封面到本地失败：封面为空")
+            return false
+        }
+        // 优先使用 JPEG 格式（更小），如果失败则使用 PNG
+        var imageData: Data?
+        var fileExtension = "jpg"
+
+        // 尝试使用 JPEG 格式（质量 0.9）
+        if let jpegData = coverImage.jpegData(compressionQuality: 0.9) {
+            imageData = jpegData
+            fileExtension = "jpg"
+        } else if let pngData = coverImage.pngData() {
+            // JPEG 失败则使用 PNG
+            imageData = pngData
+            fileExtension = "png"
+        } else {
+            Logger.debug("保存封面到本地失败：无法转换图片数据")
+            return false
+        }
+
+        guard let coverFileURL = RouteDataManager.routeCoverFileURL(routeId, fileExtension: fileExtension) else {
+            Logger.debug("保存封面到本地失败：无法获取封面文件路径")
+            return false
+        }
+
+        do {
+            try imageData!.write(to: coverFileURL)
+            Logger.debug("保存封面到本地成功：\(coverFileURL.path)")
+            return true
+        } catch {
+            Logger.debug("保存封面到本地失败：\(error.localizedDescription)")
+            return false
+        }
+    }
+
+    /// 从本地读取封面图
+    /// - Parameter routeId: 路线/轨迹ID
+    /// - Returns: 封面图片，如果不存在或读取失败则返回nil
+    static func getRouteCoverFromLocal(routeId: String) -> UIImage? {
+        // 查找存在的封面文件（尝试所有可能的扩展名）
+        guard let coverFileURL = RouteDataManager.findRouteCoverFileURL(routeId: routeId) else {
+            Logger.debug("本地封面不存在：routeId=\(routeId)")
+            return nil
+        }
+
+        guard let imageData = try? Data(contentsOf: coverFileURL) else {
+            Logger.debug("读取封面失败：\(coverFileURL.path)")
+            return nil
+        }
+
+        return UIImage(data: imageData)
+    }
+
+    /// 删除本地封面图
+    /// - Parameter routeId: 路线/轨迹ID
+    /// - Returns: 是否删除成功
+    @discardableResult
+    static func deleteRouteCoverFromLocal(routeId: String) -> Bool {
+        // 查找存在的封面文件（尝试所有可能的扩展名）
+        guard let coverFileURL = RouteDataManager.findRouteCoverFileURL(routeId: routeId) else {
+            Logger.debug("删除封面失败：封面文件不存在，routeId=\(routeId)")
+            return false
+        }
+
+        do {
+            try FileManager.default.removeItem(at: coverFileURL)
+            Logger.debug("删除封面成功：\(coverFileURL.path)")
+            return true
+        } catch {
+            Logger.debug("删除封面失败：\(error.localizedDescription)")
+            return false
         }
     }
     
     // 根据类型获取记录的路线/轨迹
     func getRoutes(type: RouteType, onlyUnUploaded: Bool = false) -> [Route] {
+        let condition: Condition?
         if onlyUnUploaded {
-            guard let routes = DBManager.shared.queryFromDb(fromTable: DBTableName.route.rawValue,
-                                                             cls: Route.self,
-                                                             where: Route.Properties.type == type.rawValue && Route.Properties.uploaded == false,
-                                                             orderBy: [Route.Properties.id.order(.descending)]) else {
-                return []
-            }
-            return routes
+            condition = Route.Properties.type == type.rawValue && Route.Properties.uploaded == false
+        } else {
+            condition = Route.Properties.type == type.rawValue
         }
         guard let routes = DBManager.shared.queryFromDb(fromTable: DBTableName.route.rawValue,
-                                                         cls: Route.self,
-                                                         where: Route.Properties.type == type.rawValue,
-                                                         orderBy: [Route.Properties.id.order(.descending)]) else {
+                                                        cls: Route.self,
+                                                        where: condition,
+                                                        orderBy: [Route.Properties.id.order(.descending)]) else {
             return []
         }
         return routes
     }
     
-    func routeExsitInLocal(routeId: String) -> Bool {
-        guard let _ = DBManager.shared.queryFromDb(fromTable: DBTableName.route.rawValue,
-                                                   cls: Route.self,
-                                                   where: Route.Properties.id == routeId)?.first else {
-            return false
-        }
-        let points = readCoordinatesFromGPXFile(from: routeId)
-        if points.count == 0 {
-            return false
-        }
-        return true
+    /// 从本地数据库获取指定 routeId 的路线 (也可以表示该路线/轨迹是否存在本地)
+    func getLocalRoute(routeId: String) -> Route? {
+        return DBManager.shared.queryFromDb(fromTable: DBTableName.route.rawValue,
+                                            cls: Route.self,
+                                            where: Route.Properties.id == routeId)?.first
     }
     
     // MARK: - 更新session route
     
     /// 更新总距离（千米）和起始、终止的坐标
-    func updateSessionRoute(point: RecordPoint) {
+    private func updateSessionRoute(point: RecordPoint) {
         // 处理第一个点
         guard let startLongitude = sessionRoute?.startLongitude, let startLatitude = sessionRoute?.startLatitude else {
             sessionRoute?.startLongitude = point.longitude
@@ -380,98 +465,18 @@ class RouteDataManager {
             return false
         }
     }
-
-    /// 更新记录时长
-    func updateSessionRoute(timeInterval: Int = 1) {
-        guard var currentRoute = sessionRoute else {
-            return
-        }
-        currentRoute.travelTime = (currentRoute.travelTime ?? 0) + timeInterval
-        sessionRoute = currentRoute
-    }
-    
-    /// 更新路线名称和描述
-    func updateSessionRoute(name: String, desc: String? = nil) {
-        sessionRoute?.routeName = name
-        if let desc = desc {
-            sessionRoute?.description = desc
-        }
-    }
     
     func assembleSessionRoute(completion: @escaping () ->Void) {
-        guard let sessionRoute = sessionRoute else {
+        guard let route = sessionRoute else {
+            completion()
             return
         }
-        
-        // 日期格式化
-        let dateFormatter = DateFormatter()
-        dateFormatter.dateFormat = "yyyy-MM-dd HH:mm"
-        let timeString = dateFormatter.string(from: Date())
-        
-        // 存储地址信息
-        var startShortName = ""
-        var endShortName = ""
-        
-        // 使用调度组等待两个异步操作完成
-        let group = DispatchGroup()
-
-        // 起点逆地理编码
-        if let startLongitude = sessionRoute.startLongitude, let startLatitude = sessionRoute.startLatitude {
-            group.enter()
-            let startLocation = CLLocation(latitude: startLatitude, longitude: startLongitude)
-            locationManager.reverseGeocode(location: startLocation) { placemark in
-                if let address = placemark {
-                    if let city = address.locality, !city.isEmpty {
-                        startShortName.append(city)
-                    }
-                    if let district = address.subLocality, !district.isEmpty {
-                        startShortName.append(district)
-                    }
-                    
-                    if let addrName = address.areasOfInterest?.first ?? address.name {
-                        self.sessionRoute?.startName = startShortName + addrName
-                    } else {
-                        self.sessionRoute?.startName = startShortName
-                    }
-                }
-                group.leave()
-            }
-        }
-
-        // 终点逆地理编码
-        if let endLongitude = sessionRoute.endLongitude, let endLatitude = sessionRoute.endLatitude {
-            group.enter()
-            let endlocation = CLLocation(latitude: endLatitude, longitude: endLongitude)
-            locationManager.reverseGeocode(location: endlocation) { placemark in
-                if let address = placemark {
-                    if let city = address.locality, !city.isEmpty {
-                        endShortName.append(city)
-                    }
-                    if let district = address.subLocality, !district.isEmpty {
-                        endShortName.append(district)
-                    }
-                    if let addrName = address.areasOfInterest?.first ?? address.name {
-                        self.sessionRoute?.endName = endShortName + addrName
-                    } else {
-                        self.sessionRoute?.endName = endShortName
-                    }
-                }
-                group.leave()
-            }
-        }
-        
-        group.notify(queue: DispatchQueue.main) {
-            // 组装最终名称
-            if startShortName.count > 0, endShortName.count > 0 {
-                self.sessionRoute?.routeName = "\(startShortName)至\(endShortName) \(timeString)"
-            } else {
-                self.sessionRoute?.routeName = timeString
-            }
-            
+        RouteDataManager.assembleRoute(route) { [weak self] updatedRoute in
+            self?.sessionRoute = updatedRoute
             completion()
         }
     }
-    
+
     //MARK: - GPX
         
     private func getRouteGPXData(from route: Route) -> Data? {
@@ -591,26 +596,24 @@ class RouteDataManager {
     // MARK: - 目录路径
     
     private func gpxFileURL(_ routeId: String) -> URL? {
-
-        guard let routeDirectory = getRouteDirectory() else {
+        guard let routeDirectory = RouteDataManager.getRouteDirectory() else {
             return nil
         }
         
-        let fileName = String(routeId)
-        guard !fileName.isEmpty else {
+        guard !routeId.isEmpty else {
             return nil
         }
         
-        let fileURL = routeDirectory.appendingPathComponent(fileName).appendingPathExtension(gpxExtension)
+        let fileURL = routeDirectory.appendingPathComponent(routeId).appendingPathExtension(gpxExtension)
         return fileURL
     }
     
     private func sessionTxtFileURL() -> URL? {
-        guard let routeId = sessionRoute?.id, !routeId.isEmpty else {
+        guard let routeDirectory = RouteDataManager.getRouteDirectory() else {
             return nil
         }
         
-        guard let routeDirectory = getRouteDirectory() else {
+        guard let routeId = sessionRoute?.id, !routeId.isEmpty else {
             return nil
         }
         
@@ -618,7 +621,7 @@ class RouteDataManager {
         return fileURL
     }
     
-    private func getRouteDirectory() -> URL? {
+    private static func getRouteDirectory() -> URL? {
         guard !UserManager.shared.userId.isEmpty else {
             return nil
         }
@@ -636,6 +639,38 @@ class RouteDataManager {
         }
         return routeDirectory
     }
+
+    /// 获取路线/轨迹封面图文件路径
+    /// - Parameters:
+    ///   - routeId: 路线/轨迹ID
+    ///   - fileExtension: 文件扩展名（如 "png", "jpg", "jpeg"），默认为 "jpg"
+    /// - Returns: 封面图文件路径
+    private static func routeCoverFileURL(_ routeId: String, fileExtension: String = "jpg") -> URL? {
+        guard let routeDirectory = RouteDataManager.getRouteDirectory() else {
+            return nil
+        }
+
+        guard !routeId.isEmpty else {
+            return nil
+        }
+
+        let fileURL = routeDirectory.appendingPathComponent(routeId).appendingPathExtension(fileExtension)
+        return fileURL
+    }
+
+    /// 查找路线/轨迹封面图文件路径（尝试所有可能的扩展名）
+    /// - Parameter routeId: 路线/轨迹ID
+    /// - Returns: 封面图文件路径（如果找到），否则返回 nil
+    private static func findRouteCoverFileURL(routeId: String) -> URL? {
+        let extensions = ["jpg", "jpeg", "png"]
+        for ext in extensions {
+            if let fileURL = RouteDataManager.routeCoverFileURL(routeId, fileExtension: ext),
+               FileManager.default.fileExists(atPath: fileURL.path) {
+                return fileURL
+            }
+        }
+        return nil
+    }
 }
 
 // MARK: - network
@@ -646,7 +681,7 @@ extension RouteDataManager {
     ///   - route: 路线记录
     ///   - coverImage： 封面图
     ///   - fileUrl: 上传后的文件URL
-    func saveRouteToService(_ route: Route, coverImage: UIImage? = nil,  completion: ((Bool) -> Void)?) {
+    func saveRouteToServer(_ route: Route, coverImage: UIImage? = nil,  completion: ((Bool) -> Void)?) {
         guard let _ = route.type else {
             completion?(false)
             UIWindow.topWindow?.sw_showWarningToast("未知错误")
@@ -658,19 +693,20 @@ extension RouteDataManager {
         
         var coverImageUrl: String?
         var gpxFileUrl: String?
+        let localCoverImage = RouteDataManager.getRouteCoverFromLocal(routeId: route.id)
     
         let group = DispatchGroup()
 
-        if let coverImage = coverImage {
+        if let coverImage = coverImage ?? localCoverImage {
             group.enter()
-            uploadRouteCoverToService(coverImage) { fileUrl in
+            uploadRouteCoverToServer(coverImage) { fileUrl in
                 coverImageUrl = fileUrl
                 group.leave()
             }
         }
         
         group.enter()
-        uploadRouteGPXToService(route) { fileUrl in
+        uploadRouteGPXToServer(route) { fileUrl in
             gpxFileUrl = fileUrl
             group.leave()
         }
@@ -697,10 +733,14 @@ extension RouteDataManager {
 
                             if let _ = self?.sessionRoute {
                                 // 正常记录轨迹或规划路线，然后保存
-                                self?.saveSessionRouteToLocal(rspRoute)
+                                self?.saveRouteToLocalWithSessionTxt(rspRoute)
                             } else {
                                 // 记录轨迹中，app被主动或被动杀掉后重新保存
                                 self?.updateLocalRouteWithRemote(local: route, remote: rspRoute)
+                            }
+                            // 如有本地的封面需要删除
+                            if localCoverImage != nil {
+                                RouteDataManager.deleteRouteCoverFromLocal(routeId: route.id)
                             }
                             completion?(true)
                             UIWindow.topWindow?.sw_showSuccessToast("保存成功")
@@ -721,24 +761,26 @@ extension RouteDataManager {
     }
     
     // 删除路线
-    func deleteRouteFromService(routeId: String, completion: ((Bool, String?) -> Void)?) {
-        
+    func deleteRouteFromServer(routeId: String, completion: ((Bool) -> Void)?) {
         mapService.deleteRoute(routeId) { [weak self] result in
             switch result {
             case .success(let response):
                 do {
                     let bizResponse = try JSONDecoder().decode(NetworkResponse<Bool>.self, from: response.data)
                     if bizResponse.data == true {
-                        completion?(true, nil)
+                        completion?(true)
                         self?.deleteRouteFromLocal(routeId)
                     } else {
-                        completion?(false, response.description)
+                        completion?(false)
+                        UIWindow.topWindow?.sw_showWarningToast(response.description)
                     }
                 } catch {
-                    completion?(false, error.localizedDescription)
+                    completion?(false)
+                    UIWindow.topWindow?.sw_showWarningToast(error.localizedDescription)
                 }
             case .failure(let error):
-                completion?(false, error.localizedDescription)
+                completion?(false)
+                UIWindow.topWindow?.sw_showWarningToast(error.localizedDescription)
             }
         }
     }
@@ -769,31 +811,47 @@ extension RouteDataManager {
         }
     }
     
-    func updateRouteToService(_ route: Route, completion: ((Bool, String?) -> Void)?) {
+    func updateRouteToServer(_ route: Route, completion: ((Bool) -> Void)? = nil) {
         var params = [String : Any]()
         params["id"] = route.id
         params["routeName"] = route.routeName
-        self.mapService.updateRoute(params: params) { [weak self] result in
+        if let description = route.description {
+            params["description"] = description
+        }
+        if let startName = route.startName {
+            params["startName"] = startName
+        }
+        if let endName = route.endName {
+            params["endName"] = endName
+        }
+        if let coverImageUrl = route.coverImageUrl {
+            params["coverImageUrl"] = coverImageUrl
+        }
+        
+        mapService.updateRoute(params: params) { [weak self] result in
             switch result {
             case .success(let response):
                 do {
                     let bizResponse = try JSONDecoder().decode(NetworkResponse<Bool>.self, from: response.data)
                     if bizResponse.data == true {
-                        completion?(true, nil)
+                        completion?(true)
                         self?.updateLocalRoute(route: route)
                     } else {
-                        completion?(false, response.description)
+                        completion?(false)
+                        UIWindow.topWindow?.sw_showWarningToast(response.description)
                     }
                 } catch {
-                    completion?(false, error.localizedDescription)
+                    completion?(false)
+                    UIWindow.topWindow?.sw_showWarningToast(error.localizedDescription)
                 }
             case .failure(let error):
-                completion?(false, error.localizedDescription)
+                completion?(false)
+                UIWindow.topWindow?.sw_showWarningToast(error.localizedDescription)
             }
         }
     }
     
-    private func uploadRouteGPXToService(_ route: Route, completion: ((String?) -> Void)?) {
+    private func uploadRouteGPXToServer(_ route: Route, completion: ((String?) -> Void)?) {
         guard let fileData = getRouteGPXData(from: route) else {
             completion?(nil)
             return
@@ -819,7 +877,7 @@ extension RouteDataManager {
         }
     }
     
-    func uploadRouteCoverToService(_ coverImage: UIImage, completion: ((String?) -> Void)?) {
+    func uploadRouteCoverToServer(_ coverImage: UIImage, completion: ((String?) -> Void)?) {
         uploadManager.uploadImage(coverImage) { progress in
             Logger.debug("封面图上传进度： \(progress)")
         } completion: { result in
@@ -840,7 +898,7 @@ extension RouteDataManager {
     }
     
     func requestRouteList(req: RouteListReq, completion: ((RouteListRsp?) ->Void)?) {
-        self.mapService.getRouteList(req) { result in
+        mapService.getRouteList(req) { result in
             switch result {
             case .success(let response):
                 do {
@@ -850,6 +908,12 @@ extension RouteDataManager {
                         for route in routes {
                             var newRoute = route
                             newRoute.uploaded = true
+                            // 如果本地数据库存在该 route，使用本地的 isVisible
+                            if let localRoute = self.getLocalRoute(routeId: newRoute.id) {
+                                newRoute.isVisible = localRoute.isVisible
+                            } else {
+                                newRoute.isVisible = false
+                            }
                             newRoutes.append(newRoute)
                         }
                         rsp.list = newRoutes
@@ -918,120 +982,132 @@ extension RouteDataManager {
         task.resume()
     }
     
-    func checkSensitiveWords(_ name: String?, completion:((Bool, String?) ->Void)?) {
+    func checkSensitiveWords(_ name: String?, completion:((Bool) ->Void)?) {
         guard let name = name?.trimmingCharacters(in: .whitespacesAndNewlines), !name.isEmpty else {
-            completion?(false, nil)
+            completion?(false)
+            UIWindow.topWindow?.sw_showWarningToast("无效的名称")
             return
         }
-        self.mapService.checkSensitiveWords(name) { result in
+        mapService.checkSensitiveWords(name) { result in
             switch result {
             case .success(let response):
                 do {
                     let bizResponse = try JSONDecoder().decode(NetworkResponse<Bool>.self, from: response.data)
                     if bizResponse.data == true {
-                        completion?(true, nil)
+                        completion?(true)
                     } else {
-                        completion?(false, bizResponse.msg)
+                        completion?(false)
+                        UIWindow.topWindow?.sw_showWarningToast(bizResponse.msg)
                     }
                 } catch {
-                    completion?(false, error.localizedDescription)
+                    completion?(false)
+                    UIWindow.topWindow?.sw_showWarningToast(error.localizedDescription)
                 }
             case .failure(let error):
-                completion?(false, error.localizedDescription)
+                completion?(false)
+                UIWindow.topWindow?.sw_showWarningToast(error.localizedDescription)
+            }
+        }
+    }
+    
+    //MARK: - 静默上传
+    
+    static func silentSaveLocalRoutesToServer(completion: ((Bool) -> Void)?) {
+        let mgr = RouteDataManager()
+        let routes = mgr.getRoutes(type: .route, onlyUnUploaded: true)
+
+        guard !routes.isEmpty else {
+            completion?(true)
+            Logger.debug("静默上传：没有需要上传的路线")
+            return
+        }
+
+        Logger.debug("静默上传：开始上传 \(routes.count) 条路线")
+        
+        let group = DispatchGroup()
+        
+        routes.forEach { route in
+            group.enter()
+            mgr.saveRouteToServer(route) { success in
+                Logger.debug("静默上传：路线 \(route.id) 上传\(success ? "成功" : "失败")")
+                group.leave()
+            }
+        }
+
+        // 在 group.notify 闭包中捕获 mgr，确保 mgr 在所有网络请求完成前不会被释放
+        group.notify(queue: .main) { [mgr] in
+            Logger.debug("静默上传：所有路线上传完成")
+            // 强引用 mgr，确保在 saveRouteToServer 的回调中 self 不会被释放
+            _ = mgr
+            completion?(true)
+        }
+    }
+    
+    //MARK: Tools
+    
+    static func assembleRoute(_ route: Route, completion: @escaping (Route) ->Void) {
+        var updatedRoute = route
+        let timeString = DateFormatter.fullPretty2.string(from: Date())
+        
+        guard NetworkMonitor.shared.isConnected else {
+            if updatedRoute.routeName == nil {
+                updatedRoute.routeName = timeString
+            }
+            completion(updatedRoute)
+            return
+        }
+        
+        let group = DispatchGroup()
+
+        if route.startName == nil {
+            group.enter()
+            RouteDataManager.getAddressName(lon: route.startLongitude, lat: route.startLatitude) { address in
+                updatedRoute.startName = address
+                group.leave()
+            }
+        }
+
+        if route.endName == nil {
+            group.enter()
+            RouteDataManager.getAddressName(lon: route.endLongitude, lat: route.endLatitude) { address in
+                updatedRoute.endName = address
+                group.leave()
+            }
+        }
+
+        group.notify(queue: .main) {
+            if updatedRoute.routeName == nil {
+                if let startName = updatedRoute.startName, let endName = updatedRoute.endName {
+                    updatedRoute.routeName = "\(startName)至\(endName) \(timeString)"
+                } else {
+                    updatedRoute.routeName = timeString
+                }
+            }
+            
+            completion(updatedRoute)
+        }
+    }
+    
+    static func getAddressName(lon: Double?, lat: Double?, completion: @escaping (String?) ->Void) {
+        guard let lon = lon, let lat = lat else {
+            completion(nil)
+            return
+        }
+        let location = CLLocation(latitude: lat, longitude: lon)
+        LocationManager.reverseGeocode(location: location) { placemark in
+            if let address = placemark {
+                var result = ""
+                if let city = address.locality, !city.isEmpty {
+                    result.append(city)
+                }
+                if let district = address.subLocality, !district.isEmpty {
+                    result.append(district)
+                }
+                if let addrName = address.areasOfInterest?.first ?? address.name {
+                    result.append(addrName)
+                }
+                completion(result)
             }
         }
     }
 }
-
-// MARK: - 迁移老数据
-extension RouteDataManager {
-    func migrateLocalDataToNewPath() {
-        // 老的RouteRecord和TrackRecord的数据都迁移到route表中，然后route和track下的点统一以gpx格式存入到gpxFileURL中
-//        requestRouteList(req: RouteListReq(type: 0)) { rspRoutes in
-//            self.migrateRouteLocalData(rspRoutes: rspRoutes)
-//        }
-//        
-//        requestRouteList(req: RouteListReq(type: 1)) { rspRoutes in
-//            self.migrateTrackLocalData(rspTracks: rspRoutes)
-//        }
-    }
-    
-    // 迁移存量路线数据
-    func migrateRouteLocalData(rspRoutes: [Route]?) {
-        let routes = DBManager.shared.queryFromDb(fromTable: DBTableName.route.rawValue, cls: RouteRecord.self)
-        DBManager.shared.dropTable(table: DBTableName.route.rawValue)
-        
-        DBManager.shared.createTable(table: DBTableName.route.rawValue, of: Route.self)
-        
-        if let routes = routes {
-            for localRoute in routes {
-                guard let newRoute = rspRoutes?.first(where: {$0.routeName == localRoute.name && $0.description == localRoute.desc && $0.type == 0}) else {
-                    continue
-                }
-
-                //迁移该路线中的记录点
-                guard let routeId = localRoute.routeId,
-                      let points = DBManager.shared.queryFromDb(fromTable: DBTableName.routePoint.rawValue, cls: RoutePoint.self, where: RoutePoint.Properties.routeId == routeId),
-                      points.count > 0 else {
-                    continue
-                }
-                var newPoints: [RecordPoint] = []
-                for point in points {
-                    let newPoint = RecordPoint(latitude: point.latitude,
-                                               longitude: point.longitude,
-                                               altitude: point.altitude,
-                                               timestamp: Date(timeIntervalSince1970: Double(point.timestamp)))
-                    newPoints.append(newPoint)
-                }
-                if let targetURL = gpxFileURL(newRoute.id), generateGPXFile(from: newPoints, targetURL: targetURL, name: newRoute.routeName) {
-                    DBManager.shared.insertToDb(objects: [newRoute], intoTable: DBTableName.route.rawValue)
-                }
-                // 删除该路线中的记录点 统一在下面的dropTable处理routePoint
-            }
-        }
-        
-        DBManager.shared.dropTable(table: DBTableName.routePoint.rawValue)
-    }
-    
-    // 迁移存量轨迹数据
-    func migrateTrackLocalData(rspTracks: [Route]?) {
-        let tracks = DBManager.shared.queryFromDb(fromTable: DBTableName.track.rawValue, cls: TrackRecord.self)
-        DBManager.shared.dropTable(table: DBTableName.track.rawValue)
-        
-        DBManager.shared.createTable(table: DBTableName.route.rawValue, of: Route.self)
-        
-        if let tracks = tracks {
-            for localTrack in tracks {
-                //newTrack如果服务端有，用服务端的，仅本地有则新构造
-                let newTrack = rspTracks?.first(where: {$0.routeName == localTrack.name && $0.type == 1}) ?? Route(id: String(localTrack.id), routeName: localTrack.name, type: 1)
-
-                //迁移该轨迹中的记录点
-                guard let newFileURL = gpxFileURL(newTrack.id) else {
-                    continue
-                }
-
-                let oldFileURL = localTrack.fileFullURL()
-                let points = readPointsFromTxtFile(fileURL: oldFileURL)
-                if generateGPXFile(from: points, targetURL: newFileURL, name: newTrack.routeName) {
-                    DBManager.shared.insertToDb(objects: [newTrack], intoTable: DBTableName.route.rawValue)
-                }
-                // 删除该轨迹中的记录点 统一在下面的removeItem处理
-            }
-        }
-        
-        //之前所有轨迹记录的点都存在该目录下
-        guard let trackDirectory = SandBox.docmentsURL?.appendingPathComponent(UserManager.shared.userId).appendingPathComponent("track") else {
-            return
-        }
-        
-        guard FileManager.default.fileExists(atPath: trackDirectory.path) else {
-            return
-        }
-        do {
-            try FileManager.default.removeItem(at: trackDirectory)
-        } catch {
-            debugPrint("删除track目录失败：\(error.localizedDescription)")
-        }
-    }
-}
-

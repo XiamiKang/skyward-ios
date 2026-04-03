@@ -90,6 +90,9 @@ class AddRoutePopupView: UIView, SWPopupContentView {
         textView.tintColor = ThemeManager.current.mainColor
         textView.textColor = ThemeManager.current.titleColor
         textView.font = .pingFangFontMedium(ofSize: 14)
+        textView.contentInset = .zero
+        textView.textContainerInset = .zero
+        textView.textContainer.lineFragmentPadding = 0
         return textView
     }()
     
@@ -97,7 +100,7 @@ class AddRoutePopupView: UIView, SWPopupContentView {
         let label = UILabel()
         label.text = "请输入介绍（选填）"
         label.textColor = UIColor(str: "#A0A3A7")
-        label.font = .pingFangFontMedium(ofSize: 14)
+        label.font = .pingFangFontRegular(ofSize: 14)
         return label
     }()
     
@@ -111,7 +114,7 @@ class AddRoutePopupView: UIView, SWPopupContentView {
     }()
     
     private let confirmButton: UIButton = {
-        let button = UIButton(type: .system)
+        let button = UIButton(type: .custom)
         button.setTitle("保存", for: .normal)
         button.setTitleColor(.white, for: .normal)
         button.backgroundColor = ThemeManager.current.mainColor
@@ -200,6 +203,7 @@ class AddRoutePopupView: UIView, SWPopupContentView {
         // 设置描述信息
         if let desc = route.description {
             textView.text = desc
+            placeholderLabel.isHidden = !desc.isEmpty
         }
         
         debugPrint("startDesc: \(route.startDesc()?.string ?? "") endDesc: \(route.endDesc()?.string ?? "")")
@@ -262,15 +266,17 @@ class AddRoutePopupView: UIView, SWPopupContentView {
         
         startItemView.snp.makeConstraints { make in
             make.top.equalTo(nameTextField.snp.bottom).offset(24)
+            make.left.equalToSuperview().inset(Layout.hMargin)
         }
         
         endItemView.snp.makeConstraints { make in
             make.top.equalTo(startItemView.snp.bottom).offset(12)
+            make.left.equalToSuperview().inset(Layout.hMargin)
         }
         
         distanceItemView.snp.makeConstraints { make in
             make.top.equalTo(endItemView.snp.bottom).offset(12)
-            make.left.equalToSuperview()
+            make.left.equalToSuperview().inset(Layout.hMargin)
         }
         
         
@@ -283,7 +289,7 @@ class AddRoutePopupView: UIView, SWPopupContentView {
             altitudeItemView.snp.makeConstraints { make in
                 make.top.equalTo(distanceItemView.snp.bottom).offset(12)
                 make.bottom.equalTo(confirmButton.snp.top).offset(-28)
-                make.left.equalToSuperview()
+                make.left.equalToSuperview().inset(Layout.hMargin)
             }
         } else {
             inputContainerView.snp.makeConstraints { make in
@@ -320,7 +326,7 @@ class AddRoutePopupView: UIView, SWPopupContentView {
         dismissKeyboard()
         let tag = btn.tag - 1000
         let name = RouteType(rawValue: tag)?.name() ?? ""
-        SWAlertView.showAlert(title: "确定不保存\(name)吗？", message: nil, confirmTitle: "继续编辑", cancelTitle: "不保存",  cancelHandler: {
+        SWAlertView.showAlert(title: nil, message: "确定不保存\(name)吗？", confirmTitle: "继续编辑", cancelTitle: "不保存",  cancelHandler: {
             self.closeHandler?()
         })
     }
@@ -331,7 +337,7 @@ class AddRoutePopupView: UIView, SWPopupContentView {
             sw_showWarningToast("名称不能为空")
             return
         }
-        if name.count > 30 {
+        if name.count > 60 {
             sw_showWarningToast("最多输入30个字符")
             return
         }

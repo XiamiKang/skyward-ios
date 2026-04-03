@@ -14,6 +14,7 @@ import SWTheme
 class RecordTrackBottomView: UIView {
     
     var endRecordHandler: (() -> Void)?
+    var startRecordHandler: (() -> Void)?
 
     // MARK: - UI Components
 
@@ -44,15 +45,16 @@ class RecordTrackBottomView: UIView {
         return card
     }()
 
-    /// 结束记录按钮
-    private lazy var endRecordButton: UIButton = {
+    /// 记录按钮
+    private lazy var recordButton: UIButton = {
         let button = UIButton(type: .custom)
-        button.setTitle("结束记录", for: .normal)
+        button.setTitle("开始记录", for: .normal)
+        button.setTitle("结束记录", for: .selected)
         button.setTitleColor(.white, for: .normal)
         button.titleLabel?.font = .pingFangFontMedium(ofSize: 16)
         button.backgroundColor = ThemeManager.current.mainColor
         button.layer.cornerRadius = CornerRadius.medium.rawValue
-        button.addTarget(self, action: #selector(endRecordButtonTapped), for: .touchUpInside)
+        button.addTarget(self, action: #selector(recordButtonTapped), for: .touchUpInside)
         return button
     }()
 
@@ -72,10 +74,12 @@ class RecordTrackBottomView: UIView {
 
     private func setupUI() {
         backgroundColor = .black.alpha(0.8)
+        layer.cornerRadius = CornerRadius.large.rawValue
+        layer.maskedCorners = [.layerMinXMinYCorner, .layerMaxXMinYCorner]
 
         // 添加子视图
         addSubview(dataStackView)
-        addSubview(endRecordButton)
+        addSubview(recordButton)
 
         // 配置数据卡片
         dataStackView.addArrangedSubview(distanceCard)
@@ -88,7 +92,7 @@ class RecordTrackBottomView: UIView {
             make.top.left.right.equalToSuperview().inset(Layout.hMargin)
         }
 
-        endRecordButton.snp.makeConstraints { make in
+        recordButton.snp.makeConstraints { make in
             make.height.equalTo(swAdaptedValue(48))
             make.top.equalTo(dataStackView.snp.bottom).offset(Layout.vMargin)
             make.left.right.equalToSuperview().inset(Layout.hMargin)
@@ -97,8 +101,16 @@ class RecordTrackBottomView: UIView {
 
     // MARK: - Actions
 
-    @objc private func endRecordButtonTapped() {
-        endRecordHandler?()
+    @objc private func recordButtonTapped() {
+        let isRecording = recordButton.isSelected
+        if isRecording {
+            // 结束记录
+            endRecordHandler?()
+        } else {
+            // 开始记录
+            startRecordHandler?()
+        }
+        recordButton.isSelected = !isRecording
     }
 
     // MARK: - Public Methods
@@ -122,6 +134,7 @@ class RecordTrackBottomView: UIView {
         distanceCard.configure(value: "0.00km")
         durationCard.configure(value: "00:00:00")
         altitudeCard.configure(value: "--")
+        recordButton.isSelected = false
     }
 }
 

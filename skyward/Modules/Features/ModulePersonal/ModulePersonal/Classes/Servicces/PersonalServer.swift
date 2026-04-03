@@ -139,16 +139,6 @@ public class PersonalServer {
         provider.request(.getDeviceFirmware(model), completion: completion)
     }
     
-    // MARK: - 获取紧急联系人
-    @available(iOS 13.0, *)
-    public func getEmergencyContact() async throws -> Response {
-        return try await provider.request(.getEmergencyContact)
-    }
-    
-    public func getEmergencyContact(_ completion: @escaping (Result<Response, MoyaError>) -> Void) {
-        provider.request(.getEmergencyContact, completion: completion)
-    }
-    
     // MARK: - 获取用户信息
     @available(iOS 13.0, *)
     public func getUserInfo() async throws -> Response {
@@ -177,5 +167,65 @@ public class PersonalServer {
     
     public func deleteEmergencyContact(_ id: String, completion: @escaping (Result<Response, MoyaError>) -> Void) {
         provider.request(.deleteEmergencyContact(id: id), completion: completion)
+    }
+    
+    // MARK: - 获取APP更新版本
+    @available(iOS 13.0, *)
+    public func checkAppVersion(versionStr: String) async throws -> Response {
+        return try await provider.request(.checkAppVersion(versionStr: versionStr))
+    }
+    
+    public func checkAppVersion(_ versionStr: String, completion: @escaping (Result<Response, MoyaError>) -> Void) {
+        provider.request(.checkAppVersion(versionStr: versionStr), completion: completion)
+    }
+    
+    // MARK: - 实名认证
+    @available(iOS 13.0, *)
+    public func checkRealNameAuth(model: RealNameModel) async throws -> Response {
+        return try await provider.request(.checkRealNameAuth(model))
+    }
+    
+    public func checkRealNameAuth(model: RealNameModel, completion: @escaping (Result<Response, MoyaError>) -> Void) {
+        provider.request(.checkRealNameAuth(model), completion: completion)
+    }
+    
+    // MARK: - 修改手机号获取验证码验证原手机号
+    @available(iOS 13.0, *)
+    public func changePhoneSendSmsCode() async throws -> Response {
+        return try await provider.request(.changePhoneGetVerifySmsCode)
+    }
+    
+    public func changePhoneSendSmsCode(completion: @escaping (Result<Response, MoyaError>) -> Void) {
+        provider.request(.changePhoneGetVerifySmsCode, completion: completion)
+    }
+    
+    // MARK: - 修改手机号验证原手机号
+    @available(iOS 13.0, *)
+    public func checkPhone(smsCode: String) async throws -> Response {
+        return try await provider.request(.checkPhone(smsCode))
+    }
+    
+    public func checkPhone(smsCode: String, completion: @escaping (Result<Response, MoyaError>) -> Void) {
+        provider.request(.checkPhone(smsCode), completion: completion)
+    }
+    
+    // MARK: - 修改手机号
+    @available(iOS 13.0, *)
+    public func updateUserPhont(phone: String, smsCode: String) async throws -> Response {
+        return try await provider.request(.updateUserPhone(phone, smsCode: smsCode))
+    }
+    
+    public func updateUserPhont(phone: String, smsCode: String, completion: @escaping (Result<Response, MoyaError>) -> Void) {
+        provider.request(.updateUserPhone(phone, smsCode: smsCode), completion: completion)
+    }
+    
+    // MARK: - 获取行者Pro设备固件信息
+    @available(iOS 13.0, *)
+    public func getProDeviceFirmware(_ model: Wb02DeviceFirmwareModel) async throws -> Response {
+        return try await provider.request(.getWb02DeviceFirmware(model))
+    }
+    
+    public func getProDeviceFirmware(_ model: Wb02DeviceFirmwareModel, completion: @escaping (Result<Response, MoyaError>) -> Void) {
+        provider.request(.getWb02DeviceFirmware(model), completion: completion)
     }
 }

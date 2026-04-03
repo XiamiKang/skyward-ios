@@ -10,7 +10,6 @@ import CoreBluetooth
 import CryptoKit
 import CommonCrypto
 
-
 // MARK: - 协议命令实现扩展
 public extension BluetoothManager {
     
@@ -46,19 +45,13 @@ public extension BluetoothManager {
     }
     
     // MARK: - 5.3 设置工作模式 (0x0003)
-    func setWorkMode(_ mode: UInt8) {
-        var messageContent = Data()
-        messageContent.append(mode)
-        
-        sendCommand(.setWorkMode, messageContent: messageContent)
+    func setWorkMode(_ data: Data) {
+        sendCommand(.setWorkMode, messageContent: data)
     }
     
     // MARK: - 5.4 设置设备状态上报时间 (0x0004)
-    func setStatusReportFrequency(_ frequency: UInt8) {
-        var messageContent = Data()
-        messageContent.append(frequency)
-        
-        sendCommand(.setStatusReportTime, messageContent: messageContent)
+    func setStatusReportFrequency(_ data: Data) {
+        sendCommand(.setStatusReportTime, messageContent: data)
     }
     
     // MARK: - 5.5 平台自定义内容信息下发 (0x0005)
@@ -68,24 +61,30 @@ public extension BluetoothManager {
     
     // MARK: - 5.6 APP自定义内容信息上报 (0x0006)
     func sendAppCustomData(_ data: Data) {
+        debugPrint("自定义消息----\(data.hexString)")
         sendCommand(.appCustomData, messageContent: data)
     }
     
-    // MARK: - 5.8 APP触发报警报平安 (0x0008)
-    func triggerAlarm(_ type: UInt8) {
+    // MARK: - 5.8 APP触发报平安 (0x0008)
+    func sendSafe() {
         var messageContent = Data()
-        messageContent.append(type)
+        messageContent.append(0x01)
+        
+        sendCommand(.appTriggerAlarm, messageContent: messageContent)
+    }
+    
+    // MARK: - 5.8 APP触发报警 (0x0008)
+    func openSOS() {
+        var messageContent = Data()
+        messageContent.append(0x00)
         
         sendCommand(.appTriggerAlarm, messageContent: messageContent)
     }
     
     
     // MARK: - 5.9 设置设备定位信息上报后台时间间隔 (0x0009)
-    func setPositionReportInterval(_ interval: UInt16) {
-        var messageContent = Data()
-        messageContent.append(interval.bigEndianData)
-        
-        sendCommand(.setPositionReport, messageContent: messageContent)
+    func setPositionReportInterval(_ data: Data) {
+        sendCommand(.setPositionReport, messageContent: data)
     }
     
     // MARK: - 5.11 获取手机定位及时间信息 (0x000B)
@@ -110,11 +109,8 @@ public extension BluetoothManager {
     }
     
     // MARK: - 5.14 定位信息存储时间间隔设置 (0x000E)
-    func setPositionStoreInterval(_ interval: UInt32) {
-        var messageContent = Data()
-        messageContent.append(interval.bigEndianData)
-        
-        sendCommand(.setPositionStoreInterval, messageContent: messageContent)
+    func setPositionStoreInterval(_ data: Data) {
+        sendCommand(.setPositionStoreInterval, messageContent: data)
     }
     
     // MARK: - 5.15 APP读取存储的定位信息 (0x000F)
@@ -189,7 +185,7 @@ public extension BluetoothManager {
         messageContent.append(packetData)
         
         // 构建完整的通信帧（不直接发送）
-        let frame = createFrame(commandCode: .firmwareData, messageContent: messageContent)
+        let frame = createTXTSFrame(commandCode: Command.firmwareData.chengduCode, messageContent: messageContent)
         let frameData = frame.frameData
         
         print("📦 发送固件数据包 \(packetIndex):")
@@ -236,14 +232,24 @@ public extension BluetoothManager {
         print("发送获取卫星收发记录命令")
     }
     
+    // MARK: - 5.21 重启设备 (0x0016)
     func resetDevice() {
-        let result: UInt8 = 0x00
         var messageContent = Data()
-        messageContent.append(result)
+        messageContent.append(0x00)
         
         sendCommand(.resetDevice, messageContent: messageContent)
         
         print("发送复位命令")
+    }
+    
+    // MARK: - 5.22 关闭SOS (0x0018)
+    func closeSOS() {
+        var messageContent = Data()
+        messageContent.append(0x00)
+        
+        sendCommand(.closeSOS, messageContent: messageContent)
+        
+        print("发送关闭SOS命令")
     }
     
     // MARK: - 工具方法
@@ -319,7 +325,7 @@ extension BluetoothManager {
                     return
                 }
                 
-                progressCallback(10) // 开始升级，进度10%
+                progressCallback(0.1) // 开始升级，进度10%
                 
                 // Step 2: 发送固件数据
                 let sendSuccess = try await sendFirmwareDataInChunks(
@@ -338,7 +344,7 @@ extension BluetoothManager {
                 
                 if endSuccess {
                     completion(true, nil)
-                    progressCallback(100)
+                    progressCallback(1)
                 } else {
                     completion(false, "结束升级失败")
                 }
@@ -391,7 +397,7 @@ extension BluetoothManager {
             ) { notification in
                 guard let userInfo = notification.userInfo,
                       let frame = userInfo["frame"] as? ResponseFrame,
-                      frame.commandCode == .startFirmwareUpgrade,
+                      frame.commandCode == Command.startFirmwareUpgrade.chengduCode,
                       let responseStatus = userInfo["responseStatus"] as? ResponseStatus else {
                     return
                 }
@@ -451,7 +457,7 @@ extension BluetoothManager {
             print("✅ 数据块 \(i+1)/\(fileChunkCount) 发送成功，耗时: \(String(format: "%.2f", elapsedTime))秒")
             
             // 更新进度
-            let progress = 10 + (Double(i + 1) / Double(fileChunkCount))*0.9
+            let progress = 0.1 + (Double(i + 1) / Double(fileChunkCount))*0.9
             print("发送包进度--------------\(progress)")
             progressCallback(progress)
             
@@ -491,7 +497,7 @@ extension BluetoothManager {
             ) { notification in
                 guard let userInfo = notification.userInfo,
                       let frame = userInfo["frame"] as? ResponseFrame,
-                      frame.commandCode == .firmwareData,
+                      frame.commandCode == Command.firmwareData.chengduCode,
                       let responseSerial = frame.responseSerial,
                       let responseStatus = userInfo["responseStatus"] as? ResponseStatus else {
                     return
@@ -552,7 +558,7 @@ extension BluetoothManager {
             ) { notification in
                 guard let userInfo = notification.userInfo,
                       let frame = userInfo["frame"] as? ResponseFrame,
-                      frame.commandCode == .endFirmwareUpgrade,
+                      frame.commandCode == Command.endFirmwareUpgrade.chengduCode,
                       let responseStatus = userInfo["responseStatus"] as? ResponseStatus else {
                     return
                 }
@@ -634,7 +640,7 @@ extension BluetoothManager {
                 guard let self = self,
                       let userInfo = notification.userInfo,
                       let frame = userInfo["frame"] as? ResponseFrame,
-                      frame.commandCode == .firmwareData,
+                      frame.commandCode == Command.firmwareData.chengduCode,
                       let responseStatus = userInfo["responseStatus"] as? ResponseStatus else {
                     return
                 }
@@ -662,8 +668,8 @@ extension BluetoothManager {
             )
             
             // 设置超时
-            DispatchQueue.main.asyncAfter(deadline: .now() + 5.0) { [weak self] in
-                guard let self = self, !lastPacketSuccess else { return }
+            DispatchQueue.main.asyncAfter(deadline: .now() + 5.0) {
+                guard !lastPacketSuccess else { return }
                 
                 // 移除观察者
                 if let observer = notificationObserver {
@@ -748,7 +754,7 @@ extension BluetoothManager {
 extension BluetoothManager {
     
     /// 发送需要FAF5分包的数据
-    private func sendDataWithFAF5Packet(_ data: Data, packetStatus: PacketStatus, packetId: UInt32 = 0) {
+    public func sendDataWithFAF5Packet(_ data: Data, packetStatus: PacketStatus, packetId: UInt32 = 0) {
         print("📤 发送FAF5分包数据: 状态=\(packetStatus), 编号=\(packetId), 长度=\(data.count)")
         
         // 构建FAF5数据包

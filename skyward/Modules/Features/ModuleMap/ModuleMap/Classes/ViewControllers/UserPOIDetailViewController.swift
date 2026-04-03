@@ -9,14 +9,18 @@ import UIKit
 import CoreLocation
 import SWKit
 import SDWebImage
+import SWTheme
 
 class UserPOIDetailViewController: UIViewController {
     
     private let viewModel = WeatherViewModel()
     private let mapViewModel = MapViewModel()
-    var poiData: UserPOIData?
+    var poiData: UserPOILocalData?
     private var coordinate: CLLocationCoordinate2D
     public var deletedUserPOISuccess: (() -> Void)?
+    public var editUserPOI: ((UserPOILocalData) -> Void)?
+    public var hideOrShowUserPOISuccess: ((Bool) -> Void)?
+    
     // 天气数据
     private var weatherData: WeatherData?
     private var hoursData: [EveryHoursWeatherData]?
@@ -38,9 +42,9 @@ class UserPOIDetailViewController: UIViewController {
     // 头部视图
     private let headerView = UIView()
     private let locationLabel = UILabel()
-    private let closeButton = UIButton(type: .system)
+    private let closeButton = UIButton(type: .custom)
     
-    init(poiData: UserPOIData) {
+    init(poiData: UserPOILocalData) {
         self.poiData = poiData
         self.coordinate = CLLocationCoordinate2D(latitude: poiData.lat ?? 0.0, longitude: poiData.lon ?? 0.0)
         super.init(nibName: nil, bundle: nil)
@@ -79,6 +83,11 @@ class UserPOIDetailViewController: UIViewController {
         
         if let data = self.poiData {
             userPOIHeadView.locationLabel.text = data.name
+            userPOIHeadView.addressLabel.text = "位置：\(data.address ?? "--")"
+            let longitudeStr = String(format: "%.6f", data.lon ?? 00)
+            let latitudeStr = String(format: "%.6f", data.lat ?? 00)
+            userPOIHeadView.latAndLogLabel.text = "经纬度：\(longitudeStr)°E, \(latitudeStr)°N"
+            userPOIHeadView.altitudeLabel.text = "海拔：\(data.altitude ?? 00)米"
         }
         userPOIHeadView.closeButton.addTarget(self, action: #selector(closeTapped), for: .touchUpInside)
         contentContainerView.addSubview(userPOIHeadView)
@@ -115,7 +124,7 @@ class UserPOIDetailViewController: UIViewController {
         
         // 添加顶部边框
         let border = UIView()
-        border.backgroundColor = UIColor.systemGray5
+        border.backgroundColor = ThemeManager.current.mediumGrayBGColor
         bottomToolView.addSubview(border)
         border.translatesAutoresizingMaskIntoConstraints = false
         NSLayoutConstraint.activate([
@@ -128,6 +137,14 @@ class UserPOIDetailViewController: UIViewController {
         // 设置按钮点击事件
         bottomToolView.onDeleteTapped = { [weak self] in
             self?.handleDeleteTapped()
+        }
+        
+        bottomToolView.onEditTapped = { [weak self] in
+            self?.handleEditTapped()
+        }
+        
+        bottomToolView.onShowTapped = { [weak self] isShowPoi in
+            self?.handleShowTapped(isShowPoi)
         }
         
         bottomToolView.onNavigationTapped = { [weak self] in
@@ -165,7 +182,7 @@ class UserPOIDetailViewController: UIViewController {
             userPOIHeadView.topAnchor.constraint(equalTo: contentContainerView.topAnchor, constant: 10),
             userPOIHeadView.leadingAnchor.constraint(equalTo: contentContainerView.leadingAnchor),
             userPOIHeadView.trailingAnchor.constraint(equalTo: contentContainerView.trailingAnchor),
-            userPOIHeadView.heightAnchor.constraint(equalToConstant: 40),
+            userPOIHeadView.heightAnchor.constraint(equalToConstant: 100),
             
             // 选择视图约束
             titleSegmentedView.topAnchor.constraint(equalTo: userPOIHeadView.bottomAnchor, constant: 10),
@@ -198,8 +215,15 @@ class UserPOIDetailViewController: UIViewController {
         print("删除按钮点击")
         SWAlertView.showAlert(title: "删除兴趣点", message: "你确定要删除该兴趣点吗？") { [weak self] in
             guard let self = self else { return }
-            if let poiId = self.poiData?.poiId {
-                self.mapViewModel.deleteUserPoi(poiId)
+            if var poiData = self.poiData {
+                
+                self.view.sw_showSuccessToast("删除成功")
+                poiData.isDelected = true
+                UserPOILocalDBManager.shared.update(poiData: poiData, byLat: poiData.lat ?? 00)
+                self.deletedUserPOISuccess?()
+                self.dismiss(animated: true)
+                
+                self.mapViewModel.deleteUserPoi(poiData.poiId ?? "")
                     .receive(on: DispatchQueue.main)
                     .sink { [weak self] completion in
                         if case .failure(_) = completion {
@@ -208,10 +232,9 @@ class UserPOIDetailViewController: UIViewController {
                     } receiveValue: { [weak self] success in
                         guard let self = self else { return }
                         if success {
-                            self.view.sw_showSuccessToast("删除成功")
-                            self.deletedUserPOISuccess?()
+                            UserPOILocalDBManager.shared.delete(byLat: poiData.lat ?? 00)
                         }else {
-                            self.view.sw_showWarningToast("删除失败")
+                            
                         }
                         DispatchQueue.main.asyncAfter(deadline: .now() + 1) {
                             self.closeTapped()
@@ -225,17 +248,22 @@ class UserPOIDetailViewController: UIViewController {
         }
     }
     
+    private func handleEditTapped() {
+        print("编辑按钮点击")
+        guard let poiData = poiData else { return }
+        editUserPOI?(poiData)
+        dismiss(animated: false)
+    }
+    
+    private func handleShowTapped(_ isShowPOI: Bool) {
+        print("隐藏按钮点击")
+        hideOrShowUserPOISuccess?(isShowPOI)
+    }
+    
     private func handleNavigationTapped() {
         print("导航按钮点击")
         // 实现导航功能
-        LocationManager().getCurrentLocation { [weak self] location, error in
-            guard let self = self else { return }
-            let startLat = location?.coordinate.latitude ?? 0.0
-            let startLon = location?.coordinate.latitude ?? 0.0
-            let endLat = self.coordinate.latitude
-            let endLon = self.coordinate.longitude
-            mapViewModel.openAmapNavigation(startLat: startLat, startLon: startLon, endLat: endLat, endLon: endLon, destinationName: self.poiData?.name ?? "")
-        }
+        LocationManager().navigationToGaodeMap(with: self.coordinate, destinationName: self.poiData?.name ?? "")
     }
     
     // MARK: - bindViewModel
@@ -423,6 +451,9 @@ extension UserPOIDetailViewController: UISheetPresentationControllerDelegate {
 class UserPOIHeadView: UIView {
     
     public let locationLabel = UILabel()
+    public let addressLabel = UILabel()
+    public let latAndLogLabel = UILabel()
+    public let altitudeLabel = UILabel()
     public let closeButton = UIButton(type: .custom)
     
     override init(frame: CGRect) {
@@ -436,14 +467,32 @@ class UserPOIHeadView: UIView {
     
     private func setupUI() {
         self.backgroundColor = .white
-        // 位置信息
-        locationLabel.font = .systemFont(ofSize: 18, weight: .semibold)
+        // 名称信息
+        locationLabel.font = .systemFont(ofSize: 18, weight: .medium)
         locationLabel.textColor = .black
         addSubview(locationLabel)
         
+        // 地址信息
+        addressLabel.font = .systemFont(ofSize: 14, weight: .regular)
+        addressLabel.textColor = UIColor(str: "#84888C")
+        addressLabel.text = "位置：--"
+        addSubview(addressLabel)
+        
+        // 经纬度信息
+        latAndLogLabel.font = .systemFont(ofSize: 14, weight: .regular)
+        latAndLogLabel.textColor = UIColor(str: "#84888C")
+        latAndLogLabel.text = "经纬度：--"
+        addSubview(latAndLogLabel)
+        
+        // 海拔信息
+        altitudeLabel.font = .systemFont(ofSize: 14, weight: .regular)
+        altitudeLabel.textColor = UIColor(str: "#84888C")
+        altitudeLabel.text = "海拔：--"
+        addSubview(altitudeLabel)
+        
         // 关闭按钮
-        closeButton.setImage(UIImage(systemName: "xmark.circle.fill"), for: .normal)
-        closeButton.tintColor = .systemGray
+        closeButton.setImage(MapModule.image(named: "default_close"), for: .normal)
+        closeButton.tintColor = ThemeManager.current.mediumGrayBGColor
         addSubview(closeButton)
         
         setupConstraints()
@@ -451,12 +500,27 @@ class UserPOIHeadView: UIView {
     
     private func setupConstraints() {
         locationLabel.translatesAutoresizingMaskIntoConstraints = false
+        addressLabel.translatesAutoresizingMaskIntoConstraints = false
+        latAndLogLabel.translatesAutoresizingMaskIntoConstraints = false
+        altitudeLabel.translatesAutoresizingMaskIntoConstraints = false
         closeButton.translatesAutoresizingMaskIntoConstraints = false
         
         NSLayoutConstraint.activate([
             locationLabel.topAnchor.constraint(equalTo: topAnchor, constant: 16),
             locationLabel.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 16),
             locationLabel.trailingAnchor.constraint(equalTo: closeButton.leadingAnchor, constant: -8),
+            
+            addressLabel.topAnchor.constraint(equalTo: locationLabel.bottomAnchor, constant: 5),
+            addressLabel.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 16),
+            addressLabel.trailingAnchor.constraint(equalTo: closeButton.leadingAnchor, constant: -8),
+            
+            latAndLogLabel.topAnchor.constraint(equalTo: addressLabel.bottomAnchor, constant: 5),
+            latAndLogLabel.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 16),
+            latAndLogLabel.trailingAnchor.constraint(equalTo: closeButton.leadingAnchor, constant: -8),
+            
+            altitudeLabel.topAnchor.constraint(equalTo: latAndLogLabel.bottomAnchor, constant: 5),
+            altitudeLabel.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 16),
+            altitudeLabel.trailingAnchor.constraint(equalTo: closeButton.leadingAnchor, constant: -8),
             
             closeButton.centerYAnchor.constraint(equalTo: locationLabel.centerYAnchor),
             closeButton.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -16),
@@ -542,7 +606,7 @@ class UserPOIMsgView: UIView {
         ])
     }
     
-    func setImageAndContentUI(with userPOIData: UserPOIData) {
+    func setImageAndContentUI(with userPOIData: UserPOILocalData) {
         
         if userPOIData.category == 1 {
             typeTextLabel.text = "露营地"
@@ -554,13 +618,30 @@ class UserPOIMsgView: UIView {
             typeTextLabel.text = "加油站"
         }
         
-        if userPOIData.imgUrlList?.count != 0  {
+        var imageList: [String] = []
+        if let data1 = userPOIData.imageData1 {
+            imageList.append(data1)
+        }
+        if let data2 = userPOIData.imageData2 {
+            imageList.append(data2)
+        }
+        if let data3 = userPOIData.imageData3 {
+            imageList.append(data3)
+        }
+        if imageList.count != 0  {
             let itemSize: CGFloat = (UIScreen.main.bounds.width - 30 - 32) / 3
             let spacing: CGFloat = 15
-            for (index, imageUrl) in userPOIData.imgUrlList!.enumerated() {
+            for (index, imageUrl) in imageList.enumerated() {
                 let imageView = UIImageView()
-                if let avatarUrl = URL(string: imageUrl) {
-                    imageView.sd_setImage(with: avatarUrl)
+                if imageUrl.contains("http") {
+                    imageView.sd_setImage(with: URL(string: imageUrl))
+                }else {
+                    if FileManager.default.fileExists(atPath: imageUrl) {
+                        let image = UIImage(contentsOfFile: imageUrl)
+                        imageView.image = image
+                    } else {
+                        print("文件不存在: \(imageUrl)")
+                    }
                 }
                 imageView.contentMode = .scaleAspectFill
                 imageView.layer.cornerRadius = 8

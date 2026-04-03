@@ -11,52 +11,8 @@ import CoreLocation
 
 // MARK: - 数据解析具体实现
 extension BluetoothManager {
-    
-    // 辅助方法：从Data中解析UInt64（大端序）
-    private func parseUInt64(from data: Data, at offset: inout Int) -> UInt64 {
-        var value: UInt64 = 0
-        value |= UInt64(data[offset]) << 56
-        value |= UInt64(data[offset + 1]) << 48
-        value |= UInt64(data[offset + 2]) << 40
-        value |= UInt64(data[offset + 3]) << 32
-        value |= UInt64(data[offset + 4]) << 24
-        value |= UInt64(data[offset + 5]) << 16
-        value |= UInt64(data[offset + 6]) << 8
-        value |= UInt64(data[offset + 7])
-        offset += 8
-        return value
-    }
-    
-    // 辅助方法：从Data中解析UInt32（大端序）
-    private func parseUInt32(from data: Data, at offset: inout Int) -> UInt32 {
-        var value: UInt32 = 0
-        value |= UInt32(data[offset]) << 24
-        value |= UInt32(data[offset + 1]) << 16
-        value |= UInt32(data[offset + 2]) << 8
-        value |= UInt32(data[offset + 3])
-        offset += 4
-        return value
-    }
-    
-    // 辅助方法：从Data中解析Int32（大端序）
-    private func parseInt32(from data: Data, at offset: inout Int) -> Int32 {
-        var value: Int32 = 0
-        value |= Int32(data[offset]) << 24
-        value |= Int32(data[offset + 1]) << 16
-        value |= Int32(data[offset + 2]) << 8
-        value |= Int32(data[offset + 3])
-        offset += 4
-        return value
-    }
-    
-    // 辅助方法：从Data中解析UInt16（大端序）
-    private func parseUInt16(from data: Data, at offset: inout Int) -> UInt16 {
-        let value = UInt16(data[offset]) << 8 | UInt16(data[offset + 1])
-        offset += 2
-        return value
-    }
-    
-    private func handleDeviceInfoResponse(_ data: Data) {
+
+    func handleDeviceInfoResponse(_ data: Data) {
         guard data.count >= 33 else {
             print("设备信息数据长度错误: \(data.count)")
             return
@@ -118,9 +74,9 @@ extension BluetoothManager {
         )
     }
     
-    
-    private func handleStatusInfoResponse(_ data: Data) {
-        // 重新计算数据长度：run_time(4) + temp(4) + humi(4) + bat(1) + mds(1) + wm(1) + srpf(1) + lat(4) + lathem(1) + lon(4) + lonhem(1) + alt(4) + st(1) + pos_rpt(4) + low_power_t(4) + position_t(4) = 47字节
+    func handleStatusInfoResponse(_ data: Data) {
+        // 重新计算数据长度：run_time(4) + temp(4) + humi(4) + bat(1) + mds(1) + wm(1) + srpf(1) + lat(4) + lathem(1) + lon(4) + lonhem(1) + alt(4) + st(1) + pos_rpt(4) + low_power_t(4) + position_t(4) + sos_Type(1)？？ + iridium(1)？？ = 43 + 2（可选）字节
+        
         guard data.count >= 43 else {
             print("状态信息数据长度错误: \(data.count)，期望至少43字节")
             return
@@ -183,6 +139,24 @@ extension BluetoothManager {
         // 安全读取定位信息存储周期 (4字节)
         let positionStoreTime = parseUInt32(from: data, at: &offset)
         
+        // 读取SOS状态 (1字节) - 可选字段
+        var sosStatus: UInt8 = 0x01 // 默认值
+        if offset < data.count {
+            sosStatus = data[offset]
+            offset += 1
+        } else {
+            print("⚠️ 未找到SOS状态字段，使用默认值")
+        }
+        
+        // 读取铱星质量状态 (1字节) - 可选字段
+        var iridium: UInt8 = 0x00 // 默认值
+        if offset < data.count {
+            iridium = data[offset]
+            offset += 1
+        } else {
+            print("⚠️ 未找到铱星质量状态字段，使用默认值")
+        }
+        
         let statusInfo = StatusInfo(
             runTime: runTime,
             temperature: temperature,
@@ -199,24 +173,28 @@ extension BluetoothManager {
             motionStatus: motionStatus,
             positionReport: positionReport,
             lowPowerTime: lowPowerTime,
-            positionStoreTime: positionStoreTime
+            positionStoreTime: positionStoreTime,
+            sosStatus: sosStatus,
+            iridium: iridium
         )
         
-        print("✅ 收到状态信息:")
-        print("  运行时长: \(runTime) 秒 (\(formatTimeInterval(runTime)))")
-        print("  温度: \(Float(temperature) / 100.0)°C")
-        print("  湿度: \(Float(humidity) / 100.0)%")
-        print("  电池电量: \(battery)%")
-        print("  模组状态: 0x\(String(format: "%02X", moduleStatus))")
-        print("  工作模式: \(getWorkModeDescription(workMode))")
-        print("  状态上报间隔: \(statusReportFreq) 秒")
-        print("  纬度: \(formatCoordinate(latitude, isLatitude: true))°\(latitudeHemisphere == 1 ? "N" : "S")")
-        print("  经度: \(formatCoordinate(longitude, isLatitude: false))°\(longitudeHemisphere == 1 ? "E" : "W")")
-        print("  海拔: \(Float(altitude) / 10.0) 米")
-        print("  运动状态: \(getMotionStatusDescription(motionStatus))")
-        print("  定位上报间隔: \(positionReport) 秒")
-        print("  低功耗唤醒时间: \(lowPowerTime) 秒")
-        print("  定位存储周期: \(positionStoreTime) 秒")
+//        print("✅ 收到状态信息:\(data)")
+//        print("  运行时长: \(runTime) 秒 (\(formatTimeInterval(runTime)))")
+//        print("  温度: \(Float(temperature) / 100.0)°C")
+//        print("  湿度: \(Float(humidity) / 100.0)%")
+//        print("  电池电量: \(battery)%")
+//        print("  模组状态: 0x\(String(format: "%02X", moduleStatus))")
+//        print("  工作模式: \(getWorkModeDescription(workMode))")
+//        print("  状态上报间隔: \(statusReportFreq) 秒")
+//        print("  纬度: \(formatCoordinate(latitude, isLatitude: true))°\(latitudeHemisphere == 1 ? "N" : "S")")
+//        print("  经度: \(formatCoordinate(longitude, isLatitude: false))°\(longitudeHemisphere == 1 ? "E" : "W")")
+//        print("  海拔: \(Float(altitude) / 10.0) 米")
+//        print("  运动状态: \(getMotionStatusDescription(motionStatus))")
+//        print("  定位上报间隔: \(positionReport) 秒")
+//        print("  低功耗唤醒时间: \(lowPowerTime) 秒")
+//        print("  定位存储周期: \(positionStoreTime) 秒")
+        print("  sos状态: \(sosStatus != 1 ? "开启" : "关闭")")
+//        print("  铱星信号质量: \(String(format: "%02X", iridium))")
         
         // 解析模组状态详细位
         let bleStatus = (moduleStatus & 0x01) != 0 ? "异常" : "正常"
@@ -224,11 +202,40 @@ extension BluetoothManager {
         let gnssStatus = (moduleStatus & 0x04) != 0 ? "异常" : "正常"
         print("  模组状态详情 - BLE:\(bleStatus) 卫星:\(satelliteStatus) GNSS:\(gnssStatus)")
         
+        checkSOSStatusChange(sosStatus: sosStatus)
+        
+        
         NotificationCenter.default.post(
             name: .didReceiveStatusInfo,
             object: nil,
             userInfo: ["statusInfo": statusInfo]
         )
+    }
+    
+    /// 检查SOS状态变化
+    private func checkSOSStatusChange(sosStatus: UInt8) {
+        // 获取APP端的SOS状态
+        let isSOSStateOpen = SOSManager.shared.checkUserSOSState()
+        
+        // 设备端SOS状态: sosStatus != 1 表示开启, sosStatus == 1 表示关闭
+        let isDeviceSOSOpen = sosStatus != 1
+        
+        // 如果状态不一致，且没有正在显示的弹窗，则弹窗询问用户
+        if isSOSStateOpen != isDeviceSOSOpen && !isShowingSOSAlert {
+            print("SOS状态不一致 - APP端: \(isSOSStateOpen ? "开启" : "关闭"), 设备端: \(isDeviceSOSOpen ? "开启" : "关闭")")
+            
+            isShowingSOSAlert = true
+            
+            DispatchQueue.main.asyncAfter(deadline: .now() + 1) { [weak self] in
+                let alertView = SOSAlertView()
+                alertView.showInWindow()
+                
+                // 假设弹窗会在关闭时调用回调，这里简单延迟5秒后重置标志
+                DispatchQueue.main.asyncAfter(deadline: .now() + 5) {
+                    self?.isShowingSOSAlert = false
+                }
+            }
+        }
     }
     
     public func handleAlarmReport(_ data: Data) {
@@ -287,15 +294,15 @@ extension BluetoothManager {
             battery: battery
         )
         
-        print("🚨 收到报警信息:")
-        print("  设备ID: \(deviceId)")
-        print("  时间戳: \(timestamp) (\(Date(timeIntervalSince1970: TimeInterval(timestamp))))")
-        print("  纬度: \(formatCoordinate(latitude, isLatitude: true))°\(latitudeHemisphere == 1 ? "N" : "S")")
-        print("  经度: \(formatCoordinate(longitude, isLatitude: false))°\(longitudeHemisphere == 1 ? "E" : "W")")
-        print("  海拔: \(Float(altitude) / 10.0) 米")
-        print("  运动状态: \(getMotionStatusDescription(motionStatus))")
-        print("  告警类型: \(getAlarmTypeDescription(alarmType))")
-        print("  电池电量: \(battery)%")
+//        print("🚨 收到报警信息:")
+//        print("  设备ID: \(deviceId)")
+//        print("  时间戳: \(timestamp) (\(Date(timeIntervalSince1970: TimeInterval(timestamp))))")
+//        print("  纬度: \(formatCoordinate(latitude, isLatitude: true))°\(latitudeHemisphere == 1 ? "N" : "S")")
+//        print("  经度: \(formatCoordinate(longitude, isLatitude: false))°\(longitudeHemisphere == 1 ? "E" : "W")")
+//        print("  海拔: \(Float(altitude) / 10.0) 米")
+//        print("  运动状态: \(getMotionStatusDescription(motionStatus))")
+//        print("  告警类型: \(getAlarmTypeDescription(alarmType))")
+//        print("  电池电量: \(battery)%")
         
         NotificationCenter.default.post(
             name: .didReceiveAlarmReport,
@@ -304,7 +311,85 @@ extension BluetoothManager {
         )
     }
     
-    private func handlePositionReport(_ data: Data) {
+    /// 解析报警信息
+    /// - Parameter data: 原始数据（固定11字节）
+    public func handleK01AlarmReport(_ data: Data) {
+        guard data.count >= 11 else {
+            print("K01报警信息数据长度错误: \(data.count)")
+            return
+        }
+        
+        let bytes = [UInt8](data)
+        
+        // 1. 解析字节1 (index 0)
+        let byte1 = bytes[0]
+        var alarmType: AlarmType
+        var battery: Int?
+        
+        if byte1 == 0x02 {
+            // 情况2：关闭SOS模式，alarmType = 2，无电量
+            alarmType = .cancelSOS
+            battery = nil
+        } else {
+            // 情况1：正常模式，alarmType 和电量共享一个字节
+            let alarmTypeRaw = (byte1 >> 7) & 0x01
+            guard let type = AlarmType(rawValue: Int(alarmTypeRaw)) else {
+                print("K01报警类型解析错误")
+                return
+            }
+            alarmType = type
+            battery = Int(byte1 & 0x7F)  // 低7位为电量（0-100）
+        }
+        
+        // 2. 解析字节2 (index 1): 标志位
+        let byte2 = bytes[1]
+        let longitudeDirectionRaw = (byte2 >> 3) & 0x01
+        let latitudeDirectionRaw = (byte2 >> 2) & 0x01
+        let lon24Bit = (byte2 >> 1) & 0x01
+        let time24Bit = byte2 & 0x01
+        
+        let longitudeDirection = Direction(rawValue: Int(longitudeDirectionRaw)) ?? .east
+        let latitudeDirection = Direction(rawValue: Int(latitudeDirectionRaw)) ?? .east
+        
+        // 3. 解析时间 (字节3-5: index 2,3,4)
+        let timeLow24 = (UInt32(bytes[2]) << 16) | (UInt32(bytes[3]) << 8) | UInt32(bytes[4])
+        let timeValue = (UInt32(time24Bit) << 24) | timeLow24
+        let timestamp = Date(timeIntervalSince1970: TimeInterval(timeValue))
+        
+        // 4. 解析经度 (字节6-8: index 5,6,7)
+        let lonLow24 = (UInt32(bytes[5]) << 16) | (UInt32(bytes[6]) << 8) | UInt32(bytes[7])
+        let longitudeValue = (UInt32(lon24Bit) << 24) | lonLow24
+        var longitude = Double(longitudeValue) / 100000.0
+        
+        if longitudeDirection == .west {
+            longitude = -longitude
+        }
+        
+        // 5. 解析纬度 (字节9-11: index 8,9,10)
+        let latitudeValue = (UInt32(bytes[8]) << 16) | (UInt32(bytes[9]) << 8) | UInt32(bytes[10])
+        var latitude = Double(latitudeValue) / 100000.0
+        
+        if latitudeDirection == .west {  // west 表示南纬
+            latitude = -latitude
+        }
+        
+        let alarmInfo = K01AlarmInfo(
+            alarmType: alarmType,
+            battery: battery,
+            longitudeDirection: longitudeDirection,
+            latitudeDirection: latitudeDirection,
+            timestamp: timestamp,
+            longitude: longitude,
+            latitude: latitude
+        )
+        NotificationCenter.default.post(
+            name: .didReceiveAlarmReport,
+            object: nil,
+            userInfo: ["alarmInfo": alarmInfo]
+        )
+    }
+    
+    func handlePositionReport(_ data: Data) {
         guard data.count >= 32 else {
             print("定位信息数据长度错误: \(data.count)")
             return
@@ -387,18 +472,18 @@ extension BluetoothManager {
             
             positions.append(positionInfo)
             
-            print("  定位点 \(i+1):")
-            print("    时间: \(Date(timeIntervalSince1970: TimeInterval(timestamp)))")
-            print("    坐标: \(formatCoordinate(latitude, isLatitude: true))°\(latitudeHemisphere == 1 ? "N" : "S"), \(formatCoordinate(longitude, isLatitude: false))°\(longitudeHemisphere == 1 ? "E" : "W")")
-            print("    海拔: \(Float(altitude) / 10.0) 米")
+//            print("  定位点 \(i+1):")
+//            print("    时间: \(Date(timeIntervalSince1970: TimeInterval(timestamp)))")
+//            print("    坐标: \(formatCoordinate(latitude, isLatitude: true))°\(latitudeHemisphere == 1 ? "N" : "S"), \(formatCoordinate(longitude, isLatitude: false))°\(longitudeHemisphere == 1 ? "E" : "W")")
+//            print("    海拔: \(Float(altitude) / 10.0) 米")
         }
         
-        print("📍 收到定位信息上报:")
-        print("  设备ID: \(deviceId)")
-        print("  定位数据条数: \(numPositions)")
-        print("  上报间隔: \(positionReport) 秒")
-        print("  首条时间: \(Date(timeIntervalSince1970: TimeInterval(firstTimestamp)))")
-        print("  解析到 \(positions.count) 条定位数据")
+//        print("📍 收到定位信息上报:")
+//        print("  设备ID: \(deviceId)")
+//        print("  定位数据条数: \(numPositions)")
+//        print("  上报间隔: \(positionReport) 秒")
+//        print("  首条时间: \(Date(timeIntervalSince1970: TimeInterval(firstTimestamp)))")
+//        print("  解析到 \(positions.count) 条定位数据")
         
         NotificationCenter.default.post(
             name: .didReceivePositionReport,
@@ -413,7 +498,200 @@ extension BluetoothManager {
         )
     }
     
+    func handlePlatformNotification(_ data: Data) {
+        if let notificationText = String(data: data, encoding: .utf8) {
+            NotificationCenter.default.post(
+                name: .didReceivePlatformNotification,
+                object: nil,
+                userInfo: ["text": notificationText]
+            )
+        }
+    }
+    
+    func handleSatelliteInfoNotification(_ data: Data) {
+        let satelliteInfo = data.hexString
+        print("Mini设备卫星状态--字符串--\(satelliteInfo)")
+        NotificationCenter.default.post(
+            name: .didReceiveSatelliteInfo,
+            object: nil,
+            userInfo: ["satelliteInfo": satelliteInfo]
+        )
+    }
+    
+    func handleDeviceBufferInfoNotification(_ data: Data) {
+        NotificationCenter.default.post(
+            name: .didDeviceBufferInfo,
+            object: nil,
+            userInfo: ["deviceBufferInfo": data]
+        )
+    }
+    
+    func handleK01DeviceBufferInfoNotification(_ data: Data) {
+        NotificationCenter.default.post(
+            name: .didDeviceBufferInfo,
+            object: nil,
+            userInfo: ["deviceBufferInfo": data]
+        )
+    }
+    
+    func handlePhoneLocation() {
+        print("📱 收到获取手机定位的请求")
+        
+        // 1. 获取当前时间戳（UNIX时间戳）
+        let timestamp = UInt32(Date().timeIntervalSince1970)
+        
+        // 2. 检查定位服务是否可用
+        DispatchQueue.global(qos: .userInitiated).async { [weak self] in
+            guard let self = self else { return }
+            
+            if CLLocationManager.locationServicesEnabled() {
+                // 2.1 检查授权状态
+                let authorizationStatus = CLLocationManager().authorizationStatus
+                switch authorizationStatus {
+                case .authorizedWhenInUse, .authorizedAlways:
+                    // 有定位权限，获取最新位置
+                    if let location = CLLocationManager().location {
+                        let coordinate = location.coordinate
+                        let altitude = location.altitude
+                        
+                        // 纬度计算（乘以10000）
+                        let latitude = Int32(coordinate.latitude * 10000 * 100)
+                        // 纬度半球：北半球为1，南半球为2
+                        let latitudeHemisphere: UInt8 = coordinate.latitude >= 0 ? 1 : 2
+                        
+                        // 经度计算（乘以10000）
+                        let longitude = Int32(coordinate.longitude * 10000 * 100)
+                        // 经度半球：东经为1，西经为2
+                        let longitudeHemisphere: UInt8 = coordinate.longitude >= 0 ? 1 : 2
+                        
+                        // 海拔计算（乘以10）
+                        let altitudeValue = Int32(altitude * 10)
+                        
+                        // 构建位置信息
+                        let positionInfo = PositionInfo(
+                            timestamp: timestamp,
+                            latitude: latitude,
+                            latitudeHemisphere: latitudeHemisphere,
+                            longitude: longitude,
+                            longitudeHemisphere: longitudeHemisphere,
+                            altitude: altitudeValue
+                        )
+                        
+//                        print("✅ 获取到手机定位信息:")
+//                        print("  时间戳: \(timestamp) (\(Date(timeIntervalSince1970: TimeInterval(timestamp))))")
+//                        print("  纬度: \(formatCoordinate(latitude, isLatitude: true))°\(latitudeHemisphere == 1 ? "N" : "S")")
+//                        print("  经度: \(formatCoordinate(longitude, isLatitude: false))°\(longitudeHemisphere == 1 ? "E" : "W")")
+//                        print("  海拔: \(Float(altitudeValue) / 10.0) 米")
+                        
+                        sendPhoneLocation(positionInfo)
+                    } else {
+                        // 没有获取到位置数据
+                        print("没有获取到位置数据")
+                    }
+                    
+                case .denied, .restricted:
+                    // 用户拒绝或限制定位权限
+                    print("定位权限被拒绝")
+                    
+                    
+                case .notDetermined:
+                    // 尚未请求权限
+                    print("定位权限未确定")
+                    
+                @unknown default:
+                    print("未知的定位状态")
+                }
+            } else {
+                // 定位服务未开启
+                print("定位服务未开启")
+            }
+        }
+    }
+    
+    func handleCustomMsg(_ data: Data) {
+        NotificationCenter.default.post(
+            name: .didReceiveDeviceCustomMsg,
+            object: nil,
+            userInfo: ["data": data]
+        )
+    }
+    
+    func handleSatelliteSendResultNotification(_ data: Data) {
+        
+        guard let connectedScannedPeripheral = connectedScannedPeripheral, let imeiNum = connectedScannedPeripheral.imeiNum else {return}
+        
+        guard data.count >= 2 else {
+            print("卫星收发信息数据长度错误: \(data.count)")
+            return
+        }
+        
+        let commandByte = data[0]
+        let resultByte = data[1]
+        
+        // 使用枚举初始化
+        let command = SatelliteCommand(rawValue: commandByte) ?? .unknown
+        let result = SatelliteSendResult(rawValue: resultByte) ?? .unknown
+        
+        let miniDeviceSendResultData = MiniDeviceSendResultData(
+                imeiNum: imeiNum,
+                command: command,
+                result: result,
+                time: Date()
+            )
+        MiniDeviceSendResultDBManager.shared.insertFromMiniDeviceSendResultList([miniDeviceSendResultData])
+        
+        NotificationCenter.default.post(
+            name: .didReceiveSatelliteSendResult,
+            object: nil,
+            userInfo: nil
+        )
+    }
+    
     // MARK: - 辅助方法
+    // 辅助方法：从Data中解析UInt64（大端序）
+    private func parseUInt64(from data: Data, at offset: inout Int) -> UInt64 {
+        var value: UInt64 = 0
+        value |= UInt64(data[offset]) << 56
+        value |= UInt64(data[offset + 1]) << 48
+        value |= UInt64(data[offset + 2]) << 40
+        value |= UInt64(data[offset + 3]) << 32
+        value |= UInt64(data[offset + 4]) << 24
+        value |= UInt64(data[offset + 5]) << 16
+        value |= UInt64(data[offset + 6]) << 8
+        value |= UInt64(data[offset + 7])
+        offset += 8
+        return value
+    }
+    
+    // 辅助方法：从Data中解析UInt32（大端序）
+    private func parseUInt32(from data: Data, at offset: inout Int) -> UInt32 {
+        var value: UInt32 = 0
+        value |= UInt32(data[offset]) << 24
+        value |= UInt32(data[offset + 1]) << 16
+        value |= UInt32(data[offset + 2]) << 8
+        value |= UInt32(data[offset + 3])
+        offset += 4
+        return value
+    }
+    
+    // 辅助方法：从Data中解析Int32（大端序）
+    private func parseInt32(from data: Data, at offset: inout Int) -> Int32 {
+        var value: Int32 = 0
+        value |= Int32(data[offset]) << 24
+        value |= Int32(data[offset + 1]) << 16
+        value |= Int32(data[offset + 2]) << 8
+        value |= Int32(data[offset + 3])
+        offset += 4
+        return value
+    }
+    
+    // 辅助方法：从Data中解析UInt16（大端序）
+    private func parseUInt16(from data: Data, at offset: inout Int) -> UInt16 {
+        let value = UInt16(data[offset]) << 8 | UInt16(data[offset + 1])
+        offset += 2
+        return value
+    }
+    
     // 坐标格式化辅助方法
     private func formatCoordinate(_ value: Int32, isLatitude: Bool) -> String {
         let decimalValue = Float(value) / 10000.0
@@ -465,530 +743,6 @@ extension BluetoothManager {
         default: return "未知(\(type))"
         }
     }
-    
-    private func handlePlatformNotification(_ data: Data) {
-        if let notificationText = String(data: data, encoding: .utf8) {
-            NotificationCenter.default.post(
-                name: .didReceivePlatformNotification,
-                object: nil,
-                userInfo: ["text": notificationText]
-            )
-        }
-    }
-    
-    private func handleSatelliteInfoNotification(_ data: Data) {
-        let satelliteInfo = data.hexString
-        print("Mini设备卫星状态--字符串--\(satelliteInfo)")
-        NotificationCenter.default.post(
-            name: .didReceiveSatelliteInfo,
-            object: nil,
-            userInfo: ["satelliteInfo": satelliteInfo]
-        )
-    }
-    
-    private func handleDeviceBufferInfoNotification(_ data: Data) {
-        NotificationCenter.default.post(
-            name: .didDeviceBufferInfo,
-            object: nil,
-            userInfo: ["deviceBufferInfo": data]
-        )
-    }
-    
-    private func handlePhoneLocation() {
-        print("📱 收到获取手机定位的请求")
-        
-        // 1. 获取当前时间戳（UNIX时间戳）
-        let timestamp = UInt32(Date().timeIntervalSince1970)
-        
-        // 2. 检查定位服务是否可用
-        DispatchQueue.global(qos: .userInitiated).async { [weak self] in
-            guard let self = self else { return }
-            
-            if CLLocationManager.locationServicesEnabled() {
-                // 2.1 检查授权状态
-                let authorizationStatus = CLLocationManager().authorizationStatus
-                switch authorizationStatus {
-                case .authorizedWhenInUse, .authorizedAlways:
-                    // 有定位权限，获取最新位置
-                    if let location = CLLocationManager().location {
-                        let coordinate = location.coordinate
-                        let altitude = location.altitude
-                        
-                        // 纬度计算（乘以10000）
-                        let latitude = Int32(coordinate.latitude * 10000 * 100)
-                        // 纬度半球：北半球为1，南半球为2
-                        let latitudeHemisphere: UInt8 = coordinate.latitude >= 0 ? 1 : 2
-                        
-                        // 经度计算（乘以10000）
-                        let longitude = Int32(coordinate.longitude * 10000 * 100)
-                        // 经度半球：东经为1，西经为2
-                        let longitudeHemisphere: UInt8 = coordinate.longitude >= 0 ? 1 : 2
-                        
-                        // 海拔计算（乘以10）
-                        let altitudeValue = Int32(altitude * 10)
-                        
-                        // 构建位置信息
-                        let positionInfo = PositionInfo(
-                            timestamp: timestamp,
-                            latitude: latitude,
-                            latitudeHemisphere: latitudeHemisphere,
-                            longitude: longitude,
-                            longitudeHemisphere: longitudeHemisphere,
-                            altitude: altitudeValue
-                        )
-                        
-                        print("✅ 获取到手机定位信息:")
-                        print("  时间戳: \(timestamp) (\(Date(timeIntervalSince1970: TimeInterval(timestamp))))")
-                        print("  纬度: \(formatCoordinate(latitude, isLatitude: true))°\(latitudeHemisphere == 1 ? "N" : "S")")
-                        print("  经度: \(formatCoordinate(longitude, isLatitude: false))°\(longitudeHemisphere == 1 ? "E" : "W")")
-                        print("  海拔: \(Float(altitudeValue) / 10.0) 米")
-                        
-                        sendPhoneLocation(positionInfo)
-                    } else {
-                        // 没有获取到位置数据
-                        print("没有获取到位置数据")
-                    }
-                    
-                case .denied, .restricted:
-                    // 用户拒绝或限制定位权限
-                    print("定位权限被拒绝")
-                    
-                    
-                case .notDetermined:
-                    // 尚未请求权限
-                    print("定位权限未确定")
-                    
-                @unknown default:
-                    print("未知的定位状态")
-                }
-            } else {
-                // 定位服务未开启
-                print("定位服务未开启")
-            }
-        }
-    }
-
-}
-
-
-// MARK: - 扩展数据类型转换
-public extension UInt16 {
-    var bigEndianData: Data {
-        var value = self.bigEndian
-        return Data(bytes: &value, count: MemoryLayout<UInt16>.size)
-    }
-}
-
-public extension UInt32 {
-    var bigEndianData: Data {
-        var value = self.bigEndian
-        return Data(bytes: &value, count: MemoryLayout<UInt32>.size)
-    }
-}
-
-public extension UInt64 {
-    var bigEndianData: Data {
-        var value = self.bigEndian
-        return Data(bytes: &value, count: MemoryLayout<UInt64>.size)
-    }
-}
-
-// 添加有符号整数的扩展
-public extension Int16 {
-    var bigEndianData: Data {
-        var value = self.bigEndian
-        return Data(bytes: &value, count: MemoryLayout<Int16>.size)
-    }
-}
-
-public extension Int32 {
-    var bigEndianData: Data {
-        var value = self.bigEndian
-        return Data(bytes: &value, count: MemoryLayout<Int32>.size)
-    }
-}
-
-public extension Data {
-    var hexString: String {
-        return map { String(format: "%02X", $0) }.joined()
-    }
-}
-
-// MARK: - 数据解析扩展
-public extension BluetoothManager {
-    
-    // 解析通信帧
-    func parseCommunicationFrame(_ data: Data) -> CommunicationFrame? {
-        guard data.count >= 14 else {
-            print("数据长度不足: \(data.count)")
-            return nil
-        }
-        
-        var offset = 0
-        
-        // 安全读取帧头 (2字节)
-        let header = (UInt16(data[offset]) << 8) | UInt16(data[offset + 1])
-        offset += 2
-        
-        guard header == 0xAA55 else {
-            print("帧头错误: 0x\(String(format: "%04X", header))")
-            return nil
-        }
-        
-        // 安全读取流水码 (4字节)
-        let serialNumber = (UInt32(data[offset]) << 24) |
-                           (UInt32(data[offset + 1]) << 16) |
-                           (UInt32(data[offset + 2]) << 8) |
-                           UInt32(data[offset + 3])
-        offset += 4
-        
-        // 安全读取数据长度 (2字节) - 根据文档，这是信息内容的长度
-        let dataLength = (UInt16(data[offset]) << 8) | UInt16(data[offset + 1])
-        offset += 2
-        
-        // 修正：数据长度字段只包含信息内容的长度（不包含命令编号）
-        // 所以总帧长度应该是：帧头2 + 流水码4 + 数据长度2 + 命令编号2 + 信息内容(dataLength) + 校验码2 + 结束符2
-        let messageLength = Int(dataLength) // 信息内容长度
-        let expectedTotalLength = 2 + 4 + 2 + 2 + messageLength + 2 + 2
-        
-        guard data.count == expectedTotalLength else {
-            print("数据长度不匹配: 期望\(expectedTotalLength)，实际\(data.count)，数据长度字段: \(dataLength)")
-            print("详细计算: 帧头2 + 流水码4 + 数据长度2 + 命令编号2 + 信息内容\(messageLength) + 校验码2 + 结束符2")
-            return nil
-        }
-        
-        // 安全读取命令编号 (2字节)
-        let commandCodeValue = (UInt16(data[offset]) << 8) | UInt16(data[offset + 1])
-        guard let commandCode = CommandCode(rawValue: commandCodeValue) else {
-            print("未知命令编号: 0x\(String(format: "%04X", commandCodeValue))")
-            return nil
-        }
-        offset += 2
-        
-        // 解析信息内容
-        guard offset + messageLength <= data.count else {
-            print("信息内容长度错误: offset=\(offset), messageLength=\(messageLength), data.count=\(data.count)")
-            return nil
-        }
-        let messageContent = data.subdata(in: offset..<offset + messageLength)
-        offset += messageLength
-        
-        // 安全读取校验码 (2字节)
-        let checksum = (UInt16(data[offset]) << 8) | UInt16(data[offset + 1])
-        offset += 2
-        
-        // 安全读取结束符 (2字节)
-        let terminator = (UInt16(data[offset]) << 8) | UInt16(data[offset + 1])
-        offset += 2
-        
-        guard terminator == 0x0D0A else {
-            print("结束符错误: 0x\(String(format: "%04X", terminator))")
-            return nil
-        }
-        
-        // 验证校验码
-        let checksumData = data.subdata(in: 0..<(2 + 4 + 2 + 2 + messageLength))
-        
-        let calculatedChecksum = crcCalculator.calculate(checksumData)
-        
-        guard checksum == calculatedChecksum else {
-            print("校验码错误: 计算值0x\(String(format: "%04X", calculatedChecksum))，接收值0x\(String(format: "%04X", checksum))")
-            print("校验数据: \(checksumData.hexString)")
-            return nil
-        }
-        
-        print("✅ 通信帧解析成功:")
-        print("  帧头: 0x\(String(format: "%04X", header))")
-        print("  流水码: \(serialNumber)")
-        print("  数据长度字段: \(dataLength)")
-        print("  命令编号: 0x\(String(format: "%04X", commandCode.rawValue))")
-        print("  信息内容长度: \(messageContent.count)")
-        print("  信息内容: \(messageContent.hexString)")
-        print("  校验码: 0x\(String(format: "%04X", checksum))")
-        print("  结束符: 0x\(String(format: "%04X", terminator))")
-        
-        return CommunicationFrame(
-            header: header,
-            serialNumber: serialNumber,
-            dataLength: dataLength,
-            commandCode: commandCode,
-            messageContent: messageContent,
-            checksum: checksum,
-            terminator: terminator
-        )
-    }
-    
-    
-    
-    // 解析BLE广播数据
-    func parseAdvertisementData(_ advertisementData: [String: Any]) -> (mac: Data?, advVersion: UInt8?, bond: UInt8?, pid: UInt16?, did: UInt64?)? {
-        guard let manufacturerData = advertisementData[CBAdvertisementDataManufacturerDataKey] as? Data,
-              manufacturerData.count >= 2 else {
-            return nil
-        }
-        
-        // 检查厂商ID（小端）
-        let companyId = (UInt16(manufacturerData[1]) << 8) | UInt16(manufacturerData[0])
-        guard companyId == 0x1273 else { // 你的公司ID
-            return nil
-        }
-        
-        var offset = 2
-        guard manufacturerData.count >= offset + 25 else {
-            return nil
-        }
-        
-        // 解析MAC地址（小端，6字节）
-        let mac = manufacturerData.subdata(in: offset..<offset + 6)
-        offset += 6
-        
-        // 解析广播版本（1字节）
-        let advVersion = manufacturerData[offset]
-        offset += 1
-        
-        // 解析绑定状态（1字节）
-        let bond = manufacturerData[offset]
-        offset += 1
-        
-        // 解析产品ID（小端，2字节）
-        let pid = (UInt16(manufacturerData[offset + 1]) << 8) | UInt16(manufacturerData[offset])
-        offset += 2
-        
-        // 解析设备ID（小端，8字节）
-        var didBytes = [UInt8](manufacturerData[offset..<offset + 8])
-        didBytes.reverse() // 转换为大端用于显示
-        let did = didBytes.withUnsafeBytes { $0.load(as: UInt64.self) }
-        
-        return (mac: mac, advVersion: advVersion, bond: bond, pid: pid, did: did)
-    }
-}
-
-
-// MARK: - 数据接收处理
-public extension BluetoothManager {
-    
-    func handleReceivedData(_ data: Data, from characteristic: CBCharacteristic) {
-        if let packet = parsePacketData(data) {
-            print("解析到分包数据:")
-            print("  帧头: 0x\(String(format: "%04X", packet.header))")
-            print("  状态: \(packet.status)")
-            print("  编号: \(packet.packetId)")
-            print("  长度: \(packet.dataLength)")
-            print("  数据: \(packet.data.hexString)")
-            
-            
-            if let completeData = packetAssembler.processPacket(packet) {
-                print("✅ 组包完成，完整数据长度: \(completeData.count) 字节")
-                processApplicationData(completeData)
-            } else if packet.status == .noPacket {
-                processApplicationData(packet.data)
-            }
-        } else {
-            if let stringValue = String(data: data, encoding: .utf8) {
-                print("收到文本数据: \(stringValue)")
-                NotificationCenter.default.post(
-                    name: .didReceiveBluetoothData,
-                    object: nil,
-                    userInfo: ["data": stringValue, "type": "text"]
-                )
-            } else {
-                let hexString = data.hexString
-                print("收到二进制数据: \(hexString)")
-                NotificationCenter.default.post(
-                    name: .didReceiveBluetoothData,
-                    object: nil,
-                    userInfo: ["data": data, "type": "binary", "hex": hexString]
-                )
-            }
-        }
-    }
-    
-    // 解析分包数据
-    private func parsePacketData(_ data: Data) -> PacketData? {
-        guard data.count >= 9 else {
-            print("数据长度不足")
-            return nil
-        }
-        
-        var offset = 0
-        
-        // 安全读取帧头 (2字节)
-        let header = (UInt16(data[offset]) << 8) | UInt16(data[offset + 1])
-        offset += 2
-        
-        guard header == 0xFAF5 else {
-            print("帧头错误: 0x\(String(format: "%04X", header))")
-            return nil
-        }
-        
-        // 读取分包状态 (1字节)
-        let statusValue = data[offset]
-        guard let status = PacketStatus(rawValue: statusValue) else {
-            print("未知的分包状态: 0x\(String(format: "%02X", statusValue))")
-            return nil
-        }
-        offset += 1
-        
-        // 安全读取分包数据编号 (4字节)
-        let packetId = (UInt32(data[offset]) << 24) |
-                       (UInt32(data[offset + 1]) << 16) |
-                       (UInt32(data[offset + 2]) << 8) |
-                       UInt32(data[offset + 3])
-        offset += 4
-        
-        // 安全读取数据长度 (2字节)
-        let dataLength = (UInt16(data[offset]) << 8) | UInt16(data[offset + 1])
-        offset += 2
-        
-        guard offset + Int(dataLength) <= data.count else {
-            print("数据长度不匹配: 期望 \(offset + Int(dataLength))，实际 \(data.count)")
-            return nil
-        }
-        
-        let packetData = data.subdata(in: offset..<offset + Int(dataLength))
-        
-        return PacketData(
-            header: header,
-            status: status,
-            packetId: packetId,
-            dataLength: dataLength,
-            data: packetData
-        )
-    }
-    
-    private func processApplicationData(_ data: Data) {
-        print("处理应用数据: \(data.hexString)")
-        
-        if let frame = parseCommunicationFrame(data) {
-            print("✅ 解析到通信帧:")
-            print("  流水码: \(frame.serialNumber)")
-            print("  命令编号: 0x\(String(format: "%04X", frame.commandCode.rawValue))")
-            print("  信息内容: \(frame.messageContent.hexString)")
-            
-            if frame.messageContent.count == 5 {
-                // 消息长度==5
-                if let responseFrame = parseResponseFrame(data) {
-                    handleResponseFrame(responseFrame)
-                }
-            } else {
-                handleCommandFrame(frame)
-            }
-        } else {
-            print("无法解析为通信帧")
-            NotificationCenter.default.post(
-                name: .didReceiveBluetoothData,
-                object: nil,
-                userInfo: [
-                    "data": data,
-                    "type": "raw",
-                    "hex": data.hexString
-                ]
-            )
-        }
-    }
-    
-    private func parseResponseFrame(_ data: Data) -> ResponseFrame? {
-        guard let frame = parseCommunicationFrame(data) else {
-            return nil
-        }
-        
-        guard frame.messageContent.count == 5 else {
-            print("应答帧信息内容长度错误: \(frame.messageContent.count)")
-            return nil
-        }
-        
-        return ResponseFrame(
-            header: frame.header,
-            serialNumber: frame.serialNumber,
-            dataLength: frame.dataLength,
-            commandCode: frame.commandCode,
-            messageContent: frame.messageContent,
-            checksum: frame.checksum,
-            terminator: frame.terminator
-        )
-    }
-    
-    private func handleCommandFrame(_ frame: CommunicationFrame) {
-        print("处理命令帧: \(frame.commandCode)")
-        
-        switch frame.commandCode {
-        case .deviceInfo:
-            handleDeviceInfoResponse(frame.messageContent)
-        case .statusInfo:
-            handleStatusInfoResponse(frame.messageContent)
-        case .alarmReport:
-            handleAlarmReport(frame.messageContent)
-        case .positionReport:
-            handlePositionReport(frame.messageContent)
-        case .platformNotification:
-            handlePlatformNotification(frame.messageContent)
-        case .getPhoneLocation:
-            handlePhoneLocation()
-        case .platformCustomData:
-            NotificationCenter.default.post(
-                name: .didReceiveDeviceCustomMsg,
-                object: nil,
-                userInfo: ["data": frame.messageContent]
-            )
-        case .getSatelliteRecords:
-            print("缓存区数据===\(frame.messageContent.hexString)")
-            handleDeviceBufferInfoNotification(frame.messageContent)
-        case .getSatelliteSignal:
-            handleSatelliteInfoNotification(frame.messageContent)
-            
-        default:
-            print("未处理的命令: \(frame.commandCode)")
-        }
-        
-        NotificationCenter.default.post(
-            name: .didReceiveCommandFrame,
-            object: nil,
-            userInfo: ["frame": frame]
-        )
-    }
-    
-    private func handleResponseFrame(_ frame: ResponseFrame) {
-        guard let responseSerial = frame.responseSerial,
-              let responseStatus = frame.responseStatus else {
-            print("应答帧解析失败")
-            return
-        }
-        
-        print("✅ 收到应答帧:")
-        print("  对应流水码: \(responseSerial)")
-        print("  应答状态: \(responseStatus)")
-        
-        // 处理固件数据应答
-        if frame.commandCode == .appTriggerAlarm {
-            NotificationCenter.default.post(
-                name: .didSaveOfSOSResponseMsg,
-                object: nil,
-                userInfo: [
-                    "result": responseStatus
-                ]
-            )
-        }
-        
-        if frame.commandCode == .setBindStatus {
-            NotificationCenter.default.post(
-                name: .unBindMiniDeviceResponseMsg,
-                object: nil,
-                userInfo: [
-                    "result": responseStatus
-                ]
-            )
-        }
-        
-        NotificationCenter.default.post(
-            name: .didReceiveResponseFrame,
-            object: nil,
-            userInfo: [
-                "frame": frame,
-                "responseSerial": responseSerial,
-                "responseStatus": responseStatus
-            ]
-        )
-    }
 }
 
 // MARK: - 广播数据解析扩展
@@ -1029,15 +783,14 @@ public extension BluetoothManager {
         // 7. 解析设备ID/IMEI (8字节)
         guard offset + 8 <= manufacturerData.count else { return nil }
         let deviceIdData = manufacturerData.subdata(in: offset..<offset + 8)
-        print(" 设备ID(IMEI)的数据: \(deviceIdData.hexString)")
         let deviceId = parseDeviceId(deviceIdData)
         
-//        print("✅ 解析到BLE广播数据:")
-//        print("  MAC地址: \(macAddress)")
-//        print("  广播版本: \(advVersion)")
-//        print("  绑定状态: \(bondStatus == 1 ? "已绑定" : "未绑定")")
-//        print("  产品ID: 0x\(String(format: "%04X", productId))")
-//        print("  设备ID(IMEI): \(deviceId)")
+        print("✅ 解析到BLE广播数据:")
+        print("  MAC地址: \(macAddress)")
+        print("  广播版本: \(advVersion)")
+        print("  绑定状态: \(bondStatus == 1 ? "已绑定" : "未绑定")")
+        print("  产品ID: 0x\(String(format: "%04X", productId))")
+        print("  设备ID(IMEI): \(deviceId)")
         
         return BLEAdvertisementData(
             macAddress: macAddress,
@@ -1087,10 +840,35 @@ public func formatVersion(_ version: UInt32) -> String {
     return "v\(major).\(minor).\(patch).\(build)"
 }
 
+public func formatHardware(_ version: UInt32) -> String {
+    let major = (version >> 24) & 0xFF
+    let minor = (version >> 16) & 0xFF
+    let patch = (version >> 8) & 0xFF
+    let build = version & 0xFF
+    return "\(major).\(minor).\(patch).\(build)"
+}
+
 public func formatVersion(_ version: UInt16) -> String {
     let major = (version >> 8) & 0xFF
     let build = version & 0xFF
     return "v\(major).\(build)"
 }
+
+public func uint64ToAsciiString(_ value: UInt64) -> String {
+    // 将UInt64转换为字节数组（大端序）
+    var bigEndianValue = value.bigEndian
+    let data = withUnsafeBytes(of: &bigEndianValue) { Data($0) }
+    
+    // 过滤掉空字节（\0）并转换为ASCII字符串
+    let asciiString = data.compactMap { byte -> String? in
+        // 只转换可打印ASCII字符（32-126）或特定需要的字符
+        guard byte != 0 else { return nil }  // 忽略空字节
+        return String(UnicodeScalar(byte))
+    }.joined()
+    
+    return asciiString
+}
+
+
 
 

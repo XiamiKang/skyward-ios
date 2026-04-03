@@ -27,6 +27,9 @@ public class NetworkMonitor {
             let isConnected = path.status == .satisfied
             self?.isConnected = isConnected
             print("网络状态变化: \(isConnected ? "有网络" : "无网络")")
+//            if !isConnected {
+//                NotificationCenter.default.post(name: .networkStatusConnect, object: nil)
+//            }
         }
         
         monitor.start(queue: queue)
@@ -42,4 +45,9 @@ public class NetworkMonitor {
     deinit {
         stopMonitoring()
     }
+}
+
+
+public extension Notification.Name {
+    static let networkStatusConnect = Notification.Name("networkStatusConnect")
 }

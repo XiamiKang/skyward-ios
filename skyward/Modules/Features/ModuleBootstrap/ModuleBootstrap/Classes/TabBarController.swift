@@ -60,7 +60,7 @@ class TabBarController: UITabBarController {
     override func viewDidLoad() {
         super.viewDidLoad()
         view.backgroundColor = .white
-        self.viewControllers = [homeVC, mapVC, mineVC]
+        self.viewControllers = [homeVC, mapVC, messageVC, mineVC]
         self.selectedIndex = 0
     }
     
@@ -83,8 +83,8 @@ class TabBarController: UITabBarController {
         return vc
     }()
     
-    private lazy var messageVC: MessageViewController = {
-        let vc = MessageViewController()
+    private lazy var messageVC: ConvListViewController = {
+        let vc = ConvListViewController()
         let normalImage = BootstrapModule.image(named: "tabbar_message_normal")
         let selectedImage = BootstrapModule.image(named: "tabbar_message_select")?.withRenderingMode(.alwaysOriginal)
         vc.tabBarItem = UITabBarItem(title: "消息", image: normalImage, selectedImage: selectedImage)

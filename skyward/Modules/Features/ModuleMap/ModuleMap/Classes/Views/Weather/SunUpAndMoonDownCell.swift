@@ -23,6 +23,7 @@ class SunUpAndMoonDownCell: UITableViewCell {
     }
     
     private func setupUI() {
+        backgroundColor = .white
         selectionStyle = .none
         
         title.text = "太阳和月亮"

@@ -94,7 +94,7 @@ public class TeamMapViewModel: ObservableObject {
                     UIWindow.topWindow?.sw_showWarningToast("为获取到会话id")
                     return
                 }
-                guard let msgData = MessageGenerator.generateImSend(senderId: UserManager.shared.userId,
+                guard let msgData = MessageGenerator.generateTxtMessage(senderId: UserManager.shared.userId,
                                                                     targetId: convId,
                                                                     timestamp: Date().timeIntervalSince1970,
                                                                     message: msg) else {

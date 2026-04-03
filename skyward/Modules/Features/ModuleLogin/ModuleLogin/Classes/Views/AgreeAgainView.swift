@@ -85,7 +85,7 @@ class AgreeAgainView: MaskView {
     }()
     
     private let closeButton: UIButton = {
-        let button = UIButton(type: .system)
+        let button = UIButton(type: .custom)
         button.setTitle("不同意，退出应用", for: .normal)
         button.titleLabel?.font = UIFont.systemFont(ofSize: 14, weight: .semibold)
         button.setTitleColor(UIColor.init(hex: "#FE6A00"), for: .normal)
@@ -93,7 +93,7 @@ class AgreeAgainView: MaskView {
     }()
     
     private let agreeButton: UIButton = {
-        let button = UIButton(type: .system)
+        let button = UIButton(type: .custom)
         button.setTitle("同意", for: .normal)
         button.titleLabel?.font = UIFont.systemFont(ofSize: 14, weight: .semibold)
         button.backgroundColor = UIColor.init(hex: "#FE6A00")

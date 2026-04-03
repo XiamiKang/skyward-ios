@@ -264,7 +264,7 @@ class TeamMapViewController: BaseViewController {
         }, for: .touchUpInside)
         view.sosButton.addAction(UIAction {[weak self] _ in
             self?.dismissKeyboard()
-            ReportManager.report(.sos)
+            ReportManager.report(.openSOS)
         }, for: .touchUpInside)
         return view
     }()

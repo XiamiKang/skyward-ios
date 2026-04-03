@@ -8,6 +8,7 @@
 import UIKit
 import Combine
 import SWKit
+import SWTheme
 
 class PersonalNickNameViewController: PersonalBaseViewController {
     
@@ -57,7 +58,7 @@ class PersonalNickNameViewController: PersonalBaseViewController {
         customNavView.addSubview(saveButton)
         
         // Background View
-        textBgView.backgroundColor = UIColor(str: "#F2F3F4")
+        textBgView.backgroundColor = ThemeManager.current.mediumGrayBGColor
         textBgView.layer.cornerRadius = 8
         textBgView.layer.masksToBounds = true
         view.addSubview(textBgView)

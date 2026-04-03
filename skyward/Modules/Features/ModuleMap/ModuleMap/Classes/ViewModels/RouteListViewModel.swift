@@ -65,26 +65,19 @@ class RouteListViewModel: ObservableObject {
     private var dataLoading: Bool = false
     private var localRouteList: [Route] = []
     private var remoteRouteList: [Route]?
-    private var total: Int = 0 {
-        didSet {
-            if type == .track {
-                naviTitle = "历史轨迹(\(total))"
-                remoteTitle = "云端(\(total - localRouteList.count))"
-                localTitle = "本地(\(localRouteList.count))"
-            } else {
-                naviTitle = "绘制路线(\(total))"
-            }
-        }
-    }
+    private var total: Int = 0
+    
+    private var needRefreshRemote = false
     
     var isLocal: Bool = false {
         didSet {
             if isLocal {
                 routeList = localRouteList
             } else {
-                if let remoteRouteList = remoteRouteList {
+                if let remoteRouteList = remoteRouteList, needRefreshRemote == false {
                     routeList = remoteRouteList
                 } else {
+                    needRefreshRemote = false
                     isLoading = true
                     refresh {
                         self.isLoading = false
@@ -92,6 +85,11 @@ class RouteListViewModel: ObservableObject {
                 }
             }
         }
+    }
+    
+    // 是否有下一页数据
+    private var hasNextPage: Bool {
+        return routeList.count < total
     }
     
     // MARK: - Initialization
@@ -106,20 +104,26 @@ class RouteListViewModel: ObservableObject {
         if type == .track {
             localRouteList = dataManager.getRoutes(type: .track, onlyUnUploaded: true)
             naviTitle = "历史轨迹"
+            isLocal = false
         } else {
+            localRouteList = dataManager.getRoutes(type: .route, onlyUnUploaded: true)
             naviTitle = "绘制路线"
+            isLoading = true
+            refresh {
+                self.isLoading = false
+            }
         }
-        
-        // 会主动去加载数据
-        isLocal = false
     }
     
     func syncRouteList() {
-        if isLocal {
-            localRouteList = routeList
-        } else {
-            remoteRouteList = routeList
+        if type == .track {
+            if isLocal {
+                localRouteList = routeList
+            } else {
+                remoteRouteList = routeList
+            }
         }
+        updateTitle()
     }
     
     func refresh(completion: @escaping () -> Void) {
@@ -133,8 +137,12 @@ class RouteListViewModel: ObservableObject {
         dataManager.requestRouteList(req: self.req) { [weak self] rsp in
             self?.dataLoading = false
             completion()
-            self?.routeList = rsp?.list ?? []
             self?.total = (rsp?.total ?? 0) + (self?.localRouteList.count ?? 0)
+            if self?.type == .track {
+                self?.routeList = rsp?.list ?? []
+            } else {
+                self?.routeList = (self?.localRouteList ?? []) + (rsp?.list ?? [])
+            }
         }
     }
     
@@ -172,11 +180,6 @@ class RouteListViewModel: ObservableObject {
         loadMore(completion: completion)
     }
 
-    // 是否有下一页数据
-    var hasNextPage: Bool {
-        return routeList.count < total
-    }
-
     // MARK: - 状态管理
     
     func setManageState(_ manageState: Bool) {
@@ -192,20 +195,43 @@ class RouteListViewModel: ObservableObject {
         }
     }
     
-    // MARK: - 列表数据编辑管理
+    private func updateTitle() {
+        if type == .track {
+            naviTitle = "历史轨迹(\(total))"
+            remoteTitle = "云端(\(total - localRouteList.count))"
+            localTitle = "本地(\(localRouteList.count))"
+        } else {
+            naviTitle = "绘制路线(\(total))"
+        }
+    }
     
+    // MARK: - 列表数据编辑管理
+
+    func deleteRoute(_ route: Route, completion: (() -> Void)?) {
+        deleteRoutes([route], completion: completion)
+    }
+
     func deleteRoutes(_ routes: [Route], completion: (() -> Void)?) {
+        if isLocal {
+            // 本地删除
+            routes.forEach { route in
+                if self.dataManager.deleteRouteFromLocal(route.id) {
+                    self.deleteRouteSuccess(route)
+                }
+            }
+            completion?()
+            return
+        }
+        
         // 取出routes中所有id
         let ids = routes.map { $0.id }
         dataManager.deleteRoutesFromServer(routeIds: ids) { [weak self] success in
             if success {
                 // 删除成功后，从routeList中删除这些route
-                var tempRouteList = self?.routeList ?? []
-                tempRouteList.removeAll { route in
+                self?.total -= ids.count
+                self?.routeList.removeAll { route in
                     ids.contains(route.id)
                 }
-                
-                self?.routeList = tempRouteList
             }
             completion?()
         }
@@ -213,29 +239,42 @@ class RouteListViewModel: ObservableObject {
     
     // 删除已选择的route
     func deleteSelectedRoutes(completion: (() -> Void)?) {
-        let routes = routeList.filter { $0.selected == true }
-        deleteRoutes(routes, completion: completion)
+        let selectedRoutes = routeList.filter { $0.selected == true }
+        if selectedRoutes.count == 0 {
+            completion?()
+            return
+        }
+        deleteRoutes(selectedRoutes, completion: completion)
+    }
+    
+    func uploadRoute(_ route: Route, completion: ((Bool) -> Void)?) {
+        if let index = routeList.firstIndex(where: { $0.id == route.id }) {
+            routeList[index].uploading = true
+        }
+        RouteDataManager.assembleRoute(route) { updatedRoute in
+            self.dataManager.saveRouteToServer(updatedRoute, completion: completion)
+        }
     }
     
     // 上传已选择的route（需要等待层控制，不能上传中再做其他操作）
     func uploadSelectedRoutes(completion: (() -> Void)?) {
         // 已选择的route默认uploaded为false, 否则不合法
-        let routes = routeList.filter { $0.selected == true }
+        let selectedRoutes = routeList.filter { $0.selected == true }
+        if selectedRoutes.count == 0 {
+            completion?()
+            return
+        }
         // 上传目前没有批量上传，只有遍历去传
         // 定义一个容器来存储上传结果的回调，等所有上传完成后再统一刷新tableview， 比如["id" : success]
         var uploadResults: [String: Bool] = [:]
-        routes.forEach { route in
-            dataManager.saveRouteToService(route) { [weak self] success in
+        selectedRoutes.forEach { route in
+            self.uploadRoute(route) { [weak self] success in
                 uploadResults[route.id] = success
                 // 判断是否所有上传都完成了，如果是，则调用completion
-                if uploadResults.count == routes.count {
+                if uploadResults.count == selectedRoutes.count {
                     // 从routeList中移除上传成功的route
-                    var tempRouteList = self?.routeList ?? []
-                    tempRouteList.removeAll { route in
-                        uploadResults[route.id] == true && route.selected == true
-                    }
-                    self?.routeList = tempRouteList
-                    
+                    self?.routeList.removeAll { uploadResults[$0.id] == true }
+                    self?.remoteRouteList?.insert(contentsOf: selectedRoutes.filter { uploadResults[$0.id] == true }, at: 0)
                     completion?()
                 }
             }
@@ -245,11 +284,10 @@ class RouteListViewModel: ObservableObject {
     // MARK: - 处理详情页的操作结果
     
     func deleteRouteSuccess(_ route: Route) {
-        var tempRouteList = routeList
-        if let index = tempRouteList.firstIndex(where: { $0.id == route.id }) {
-            tempRouteList.remove(at: index)
-            routeList = tempRouteList
-        }
+        // 1.从当前列表（routeList）移除该轨迹
+        // 2.同步列表syncRouteList（内部有判断） 由列表刷新来触发syncRouteList
+        total -= 1
+        routeList.removeAll { $0.id == route.id }
     }
     
     func editRouteSuccess(_ route: Route) {
@@ -261,10 +299,35 @@ class RouteListViewModel: ObservableObject {
     }
     
     func uploadRouteSuccess(_ route: Route) {
-        var tempRouteList = routeList
-        if let index = tempRouteList.firstIndex(where: { $0.id == route.id }) {
-            tempRouteList[index].uploaded = true
-            routeList = tempRouteList
+        guard type == .track else {
+            return
+        }
+        // 1.从当前列表（routeList）移除该轨迹
+        // 2.同步列表syncRouteList（内部有判断）由列表刷新来触发syncRouteList
+        // 3.把该轨迹添加到remoteRouteList
+        routeList.removeAll { $0.id == route.id }
+//        remoteRouteList?.insert(route, at: 0)
+        needRefreshRemote = true
+    }
+    
+    func visibleRouteSuccess(_ route: Route) {
+        if let index = routeList.firstIndex(where: { $0.id == route.id }) {
+            routeList[index] = route
         }
     }
+    
+    // MARK: - 操作合法检查
+    
+    func checkDisableReason() -> String? {
+        let selectedRoutes = routeList.filter { $0.selected == true }
+        if selectedRoutes.count == 0 {
+            return type == .track ? "请先勾选历史轨迹" : "请先勾选绘制路线"
+        }
+        return nil
+    }
+    
+    func prepareDeleteTips() -> String {
+        return type == .track ? "确定删除选中轨迹吗？" : "确定删除选中路线吗？"
+    }
+    
 }

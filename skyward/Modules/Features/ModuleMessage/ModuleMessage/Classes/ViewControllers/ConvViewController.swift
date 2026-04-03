@@ -5,184 +5,538 @@
 //  Created by zhaobo on 2025/11/19.
 //
 
+import CoreLocation
 import TXKit
 import SnapKit
 import SWTheme
 import SWKit
 
 class ConvViewController: BaseViewController {
-    var tableView: UITableView!
+    var onCurrentConversationLatestMessageDidChangedHandler: (() -> Void)?
     
-//    private var messages: [Message] = []
-    private var messages: [NoticeItem] = []
+    private var viewModel: ConvViewModel!
+    private var isLoadingMore = false
+    // 用于保存inputBottomView的底部约束，以便动态调整
+    private var inputBottomConstraint: Constraint?
+    // 保存messageTextView的高度约束，以便动态调整
+    private var textViewHeightConstraint: Constraint?
+    // 保存templateView的顶部约束，以便动态调整
+    private var templateViewHeightConstraint: Constraint?
+
+    // 保存原始的底部内边距
+    private let originalBottomInset = ScreenUtil.safeAreaBottom
+
+    // TextView 高度限制
+    private let minTextViewHeight: CGFloat = swAdaptedValue(20)
+    private let maxTextViewHeight: CGFloat = swAdaptedValue(100)
+
+    // templateView 是否显示
+    private var isTemplateViewVisible = false
     
-    private let inputContainerView = UIView()
-    private let messageInputTextView = UITextView()
-    private let sendButton = UIButton(type: .system)
+    // MARK: - UI Components
     
-    private var userId: String = UserManager.shared.userId
-    private var homeCache: SWCache?
+    private let tableView: UITableView = {
+        let tableView = UITableView()
+        tableView.backgroundColor = ThemeManager.current.mediumGrayBGColor
+        tableView.separatorStyle = .none
+        tableView.allowsSelection = false
+        tableView.keyboardDismissMode = .onDrag
+        tableView.contentInset = UIEdgeInsets(top: Layout.vMargin, left: 0, bottom: 0, right: 0)
+        tableView.register(cellType: TxtMessageCell.self)
+        tableView.register(cellType: LocationMessageCell.self)
+        return tableView
+    }()
     
-    var latestMessage: NewMessageModel?
+    private let bottomView: UIView = {
+        let bottomView = UIView()
+        bottomView.backgroundColor = .white
+        return bottomView
+    }()
     
-    var noticeReponse: NoticeModel = NoticeModel(totalCount: 0, safeCount: 0, sosCount: 0, weatherCount: 0, safeList: [], sosList: [], weatherList: [])
+    private let inputContainerView: UIView = {
+        let view = UIView()
+        view.backgroundColor = ThemeManager.current.mediumGrayBGColor
+        view.cornerRadius = CornerRadius.medium.rawValue
+        return view
+    }()
+
+    private let messageTextView: UITextView = {
+        let textView = UITextView()
+        textView.backgroundColor = .clear
+        textView.textColor = ThemeManager.current.titleColor
+        textView.font = .pingFangFontRegular(ofSize: 14)
+        textView.contentInset = .zero
+        textView.textContainerInset = .zero
+        textView.textContainer.lineFragmentPadding = 0
+        textView.tintColor = ThemeManager.current.mainColor
+        return textView
+    }()
+
+    private let templateButton: UIButton = {
+        let button = UIButton()
+        button.setImage(MessageModule.image(named: "message_template_icon"), for: .normal)
+        return button
+    }()
+
+    private let sendButton: UIButton = {
+        let button = UIButton()
+        button.backgroundColor = ThemeManager.current.mainColor
+        button.setTitle("发送", for: .normal)
+        button.setTitleColor(.white, for: .normal)
+        button.titleLabel?.font = UIFont.pingFangFontMedium(ofSize: 14)
+        button.cornerRadius = CornerRadius.medium.rawValue
+        return button
+    }()
+
+    private let locationButton: UIButton = {
+        let button = UIButton()
+        button.setImage(MessageModule.image(named: "message_location"), for: .normal)
+        return button
+    }()
+
+    private let placeHolderLabel: UILabel = {
+        let label = UILabel()
+        label.font = .pingFangFontRegular(ofSize: 14)
+        label.text = "请输入/选择模版（70字符）"
+        label.textColor = ThemeManager.current.placeholderColor
+        return label
+    }()
+
+    private lazy var navigationBar: SWNavigationBar = {
+        let bar = SWNavigationBar()
+        bar.setTitle(viewModel.conversation.name)
+        bar.setLeftBackButton { [weak self] in
+            self?.navigationController?.popViewController(animated: true)
+        }
+        return bar
+    }()
     
-    // MARK: - Override
+    private lazy var templateView: TemplateView = {
+        let templates = ["车辆抛锚，请求救援。急需饮水、食物、医疗包。",
+                         "灾害致人受伤，急需医疗急救、饮用水、食物。情况危急，请求速援！",
+                         "人员被困，车辆受损。急需医疗救助、饮水食物、车辆拖拽。"]
+        let templateView = TemplateView(templates: templates)
+        templateView.backgroundColor = ThemeManager.current.mediumGrayBGColor
+        templateView.onSelectedHandler = { [weak self] template in
+            self?.messageTextView.text = template
+            self?.textViewValueDidChanged()
+        }
+        return templateView
+    }()
+    
+    private lazy var disableLabel: UILabel = {
+        let label = UILabel()
+        label.isHidden = true
+        label.text = "SOS报警状态已关闭，不能继续发消息"
+        label.textColor = ThemeManager.current.placeholderColor
+        label.font = .pingFangFontRegular(ofSize: 16)
+        label.textAlignment = .center
+        return label
+    }()
+    
+    // MARK: - Life Cycle
+    init(conversation: Conversation) {
+        super.init(nibName: nil, bundle: nil)
+        
+        self.viewModel = ConvViewModel(conversation: conversation)
+    }
+    
+    required init?(coder: NSCoder) {
+        fatalError("init(coder:) has not been implemented")
+    }
     
     override func viewDidLoad() {
         super.viewDidLoad()
-//        title = otherUser.name
-        view.backgroundColor = ThemeManager.current.backgroundColor
-        setupTableView()
-        setupCaches()
-        loadCacheData()
-    }
-    
-    private func setupTableView() {
-        // 初始化 tableView
-        tableView = UITableView(frame: .zero, style: .plain)
-        tableView.backgroundColor = .clear
-        tableView.separatorStyle = .none
-        tableView.allowsSelection = false
-        tableView.contentInset = UIEdgeInsets(top: 8, left: 0, bottom: 8, right: 0)
-        
-        tableView.register(cellType: MessageCell.self)
-        tableView.delegate = self
-        tableView.dataSource = self
-        
-        tableView.keyboardDismissMode = .onDrag // 滑动隐藏键盘
-        view.addSubview(tableView)
-        
-        // 设置输入容器
-        inputContainerView.backgroundColor = UIColor.systemGray6
-        inputContainerView.layer.cornerRadius = 16
-        inputContainerView.clipsToBounds = true
-        view.addSubview(inputContainerView)
-        
-        // 设置输入框
-        messageInputTextView.font = UIFont.systemFont(ofSize: 16)
-        messageInputTextView.text = "请输入消息..."
-        messageInputTextView.textColor = UIColor.placeholderText
-        messageInputTextView.layer.cornerRadius = 12
-        messageInputTextView.textContainerInset = UIEdgeInsets(top: 8, left: 8, bottom: 8, right: 8)
-        messageInputTextView.isScrollEnabled = false
-        messageInputTextView.delegate = self
-        inputContainerView.addSubview(messageInputTextView)
-        
-        // 设置发送按钮
-        sendButton.setTitle("发送", for: .normal)
-        sendButton.titleLabel?.font = UIFont.systemFont(ofSize: 16, weight: .medium)
-        sendButton.setTitleColor(.white, for: .normal)
-        sendButton.backgroundColor = UIColor.systemBlue
-        sendButton.layer.cornerRadius = 12
-        sendButton.isEnabled = false // 初始禁用
-        sendButton.addTarget(self, action: #selector(sendButtonTapped), for: .touchUpInside)
-        inputContainerView.addSubview(sendButton)
-        
-        // 布局
-        tableView.snp.makeConstraints { make in
-            make.top.equalTo(view.safeAreaLayoutGuide)
-            make.leading.trailing.equalToSuperview()
-            make.bottom.equalTo(inputContainerView.snp.top).offset(-8)
-        }
-        
-        inputContainerView.snp.makeConstraints { make in
-            make.leading.trailing.equalToSuperview().inset(16)
-            make.bottom.equalTo(view.safeAreaLayoutGuide).offset(-8)
-            make.height.equalTo(50)
-        }
-        
-        messageInputTextView.snp.makeConstraints { make in
-            make.top.bottom.equalToSuperview().inset(4)
-            make.leading.equalToSuperview().offset(8)
-            make.trailing.equalTo(sendButton.snp.leading).offset(-8)
-        }
-        
-        sendButton.snp.makeConstraints { make in
-            make.top.bottom.equalToSuperview().inset(6)
-            make.trailing.equalToSuperview().offset(-8)
-            make.width.equalTo(60)
+
+        viewModel.loadPage()
+        if viewModel.sendMessageForbidden() {
+            switchDisableSendMessageState()
+        } else {
+            // 注册键盘通知
+            registerKeyboardNotifications()
+            setupTapGestureToDismissKeyboard()
         }
     }
     
     override func viewWillAppear(_ animated: Bool) {
         super.viewWillAppear(animated)
-        NotificationCenter.default.addObserver(self, selector: #selector(keyboardWillShow), name: UIResponder.keyboardWillShowNotification, object: nil)
-        NotificationCenter.default.addObserver(self, selector: #selector(keyboardWillHide), name: UIResponder.keyboardWillHideNotification, object: nil)
+        let rightImgIcon = BluetoothManager.shared.connectedPeripheral == nil ? "device_mini_unlink" : "device_mini_linked"
+        navigationBar.setRightButtons(images: [MessageModule.image(named: rightImgIcon)]) { [weak self] index in
+            self?.view.endEditing(true)
+            SWRouter.handle(RouteTable.bindDevicePageUrl, parameters:["selectedIndex" : "0"])
+        }
+    }
+    
+    // MARK: - Override
+    
+    override var hasNavBar: Bool {
+        return false
+    }
+    
+    override func setupViews() {
+        // - Main Views
+        view.addSubview(navigationBar)
+        view.addSubview(tableView)
+        view.addSubview(templateView)
+        view.addSubview(bottomView)
+        view.addSubview(disableLabel)
+
+        // - Bottom View Subviews
+        bottomView.addSubview(locationButton)
+        bottomView.addSubview(sendButton)
+        bottomView.addSubview(inputContainerView)
+
+        // - Input Container Subviews
+        inputContainerView.addSubview(messageTextView)
+        inputContainerView.addSubview(templateButton)
+        inputContainerView.addSubview(placeHolderLabel)
+
+        // - Delegates & Actions
+        tableView.delegate = self
+        tableView.dataSource = self
+        messageTextView.delegate = self
+        
+        let refreshControl = UIRefreshControl()
+        refreshControl.tintColor = ThemeManager.current.mainColor
+        refreshControl.addTarget(self, action: #selector(loadHistory), for: .valueChanged)
+        tableView.refreshControl = refreshControl
+
+        templateButton.addTarget(self, action: #selector(templateButtonTapped), for: .touchUpInside)
+        sendButton.addTarget(self, action: #selector(sendButtonTapped), for: .touchUpInside)
+        locationButton.addTarget(self, action: #selector(locationButtonTapped), for: .touchUpInside)
+        
+        if viewModel.sendMessageForbidden() {
+            switchDisableSendMessageState()
+        }
+    }
+    
+    override func setupConstraints() {
+        // - Main Views Constraints
+
+        // Navigation Bar
+        navigationBar.snp.makeConstraints { make in
+            make.height.equalTo(44)
+            make.left.right.equalToSuperview()
+            make.top.equalTo(view.safeAreaLayoutGuide)
+        }
+
+        // Table View
+        tableView.snp.makeConstraints { make in
+            make.top.equalTo(navigationBar.snp.bottom)
+            make.left.right.equalToSuperview()
+            make.bottom.equalTo(bottomView.snp.top)
+        }
+
+        // Template View
+        templateView.snp.makeConstraints { make in
+            make.bottom.leading.trailing.equalToSuperview()
+            templateViewHeightConstraint = make.height.equalTo(0).constraint
+        }
+
+        // Bottom View
+        bottomView.snp.makeConstraints { make in
+            make.left.right.equalToSuperview()
+            inputBottomConstraint = make.bottom.equalToSuperview().inset(originalBottomInset).constraint
+        }
+        
+        disableLabel.snp.makeConstraints { make in
+            make.height.equalTo(swAdaptedValue(56))
+            make.left.right.equalToSuperview()
+            make.bottom.equalToSuperview().inset(originalBottomInset)
+        }
+
+        // - Bottom View Subviews Constraints
+
+        // Location Button
+        locationButton.snp.makeConstraints { make in
+            make.size.equalTo(CGSize(width: swAdaptedValue(24), height: swAdaptedValue(24)))
+            make.centerY.equalTo(inputContainerView)
+            make.leading.equalToSuperview().inset(Layout.hMargin)
+        }
+
+        // Send Button
+        sendButton.snp.makeConstraints { make in
+            make.size.equalTo(CGSize(width: swAdaptedValue(52), height: swAdaptedValue(40)))
+            make.centerY.equalTo(inputContainerView)
+            make.trailing.equalToSuperview().inset(Layout.hMargin)
+        }
+
+        // Input Container View
+        inputContainerView.snp.makeConstraints { make in
+            make.top.bottom.equalToSuperview().inset(Layout.hSpacing)
+            make.leading.equalTo(locationButton.snp.trailing).offset(Layout.hSpacing)
+            make.trailing.equalTo(sendButton.snp.leading).offset(-Layout.hSpacing)
+        }
+
+        // - Input Container Subviews Constraints
+
+        // Message Text View
+        messageTextView.snp.makeConstraints { make in
+            textViewHeightConstraint = make.height.equalTo(minTextViewHeight).constraint
+            make.top.bottom.equalToSuperview().inset(swAdaptedValue(10))
+            make.leading.equalToSuperview().offset(Layout.hInset)
+            make.trailing.equalTo(templateButton.snp.leading)
+        }
+
+        // Template Button
+        templateButton.snp.makeConstraints { make in
+            make.size.equalTo(CGSize(width: swAdaptedValue(36), height: swAdaptedValue(36)))
+            make.centerY.equalToSuperview()
+            make.trailing.equalToSuperview()
+        }
+
+        // Placeholder Label
+        placeHolderLabel.snp.makeConstraints { make in
+            make.left.centerY.equalTo(messageTextView)
+        }
+    }
+    
+    public override func bindViewModel() {
+        super.bindViewModel()
+        //会话列表
+        bindPublisher(viewModel.$messageList.eraseToAnyPublisher()) { [weak self] _ in
+            self?.tableView.reloadData()
+            self?.viewModel.updateLastMessageId()
+        }
+        //加载完数据
+        bindPublisher(viewModel.$didLoadPage.eraseToAnyPublisher()) { [weak self] res in
+            if res {
+                self?.scrollToBottom(animated: false)
+                /**
+                 服务中心首次加载，需要同步会话列表latestMessage
+                 服务中心本地创建的，不是会话列表接口返回的, 所以会话列表的服务中心最开始没有latestMessage，这里主动去补全
+                 */
+                if self?.viewModel.conversation.id == MessageManager.serviceConversationId {
+                    self?.onCurrentConversationLatestMessageDidChangedHandler?()
+                }
+            }
+        }
+        //发送完消息
+        bindPublisher(viewModel.$didSendMessage.eraseToAnyPublisher()) { [weak self] res in
+            self?.messageTextView.text = nil
+            self?.textViewValueDidChanged()
+            if res {
+                self?.scrollToBottom(animated: true)
+            }
+            self?.onCurrentConversationLatestMessageDidChangedHandler?()
+        }
+        //接收到消息
+        bindPublisher(viewModel.$didReceiveMessage.eraseToAnyPublisher()) { [weak self] _ in
+            // 延迟执行，等待 tableView 完成布局
+            DispatchQueue.main.async {
+                // 只有在底部时才滚动
+                if self?.isTableViewAtBottom() == true {
+                    self?.scrollToBottom(animated: true)
+                }
+            }
+        }
+    }
+    
+    // MARK: - Actions
+
+    @objc private func loadHistory() {
+        if isLoadingMore {
+            tableView.refreshControl?.endRefreshing()
+            return
+        }
+        
+        isLoadingMore = true
+        
+        _Concurrency.Task {
+            await viewModel.loadHistory()
+            isLoadingMore = false
+            
+            DispatchQueue.main.async {
+                self.tableView.refreshControl?.endRefreshing()
+                if self.viewModel.hasMoreData == false {
+                    self.tableView.refreshControl = nil
+                }
+            }
+        }
     }
 
-    override func viewWillDisappear(_ animated: Bool) {
-        super.viewWillDisappear(animated)
-        NotificationCenter.default.removeObserver(self)
+    @objc private func templateButtonTapped() {
+        if isTemplateViewVisible {
+            hideTemplateView()
+        } else {
+            // 如果键盘弹起，先收起键盘
+            if messageTextView.isFirstResponder {
+                messageTextView.resignFirstResponder()
+                DispatchQueue.mp_asyncAfter(0.2) {
+                    self.showTemplateView()
+                }
+            } else {
+                showTemplateView()
+            }
+        }
     }
 
-    @objc private func keyboardWillShow(_ notification: Notification) {
-        guard let keyboardFrame = (notification.userInfo?[UIResponder.keyboardFrameEndUserInfoKey] as? NSValue)?.cgRectValue else { return }
-        let keyboardHeight = keyboardFrame.height
-        tableView.contentInset.bottom = keyboardHeight + 64 // 64 = inputContainer高度 + 间距
-        tableView.scrollIndicatorInsets.bottom = keyboardHeight + 64
+    /// 显示 templateView
+    private func showTemplateView() {
+        guard !isTemplateViewVisible else { return }
+        isTemplateViewVisible = true
+
+        // 更新约束，显示 templateView
+        templateViewHeightConstraint?.update(offset: swAdaptedValue(160) + originalBottomInset)
+        inputBottomConstraint?.update(inset: swAdaptedValue(160) + originalBottomInset)
+
+        UIView.animate(withDuration: 0.3) {
+            self.view.layoutIfNeeded()
+            self.scrollToBottom(animated: true)
+        }
     }
 
-    @objc private func keyboardWillHide(_ notification: Notification) {
-        tableView.contentInset.bottom = 0
-        tableView.scrollIndicatorInsets.bottom = 0
+    /// 隐藏 templateView
+    private func hideTemplateView() {
+        guard isTemplateViewVisible else { return }
+        isTemplateViewVisible = false
+
+        // 更新约束，隐藏 templateView
+        templateViewHeightConstraint?.update(offset: 0)
+        inputBottomConstraint?.update(inset: originalBottomInset)
+
+        UIView.animate(withDuration: 0.3) {
+            self.view.layoutIfNeeded()
+        }
     }
     
     @objc private func sendButtonTapped() {
-            let content = messageInputTextView.text.trimmingCharacters(in: .whitespacesAndNewlines)
-            guard !content.isEmpty, content != "请输入消息..." else { return }
-            
-            // 创建新消息
-//            let newMessage = Message(id: "6", content: content, sender: currentUser, timestamp: Date())
-        
-//            messages.append(newMessage)
-            tableView.reloadData()
-            tableView.scrollToRow(at: IndexPath(row: messages.count - 1, section: 0), at: .bottom, animated: true)
-            
-            // 清空输入框
-            messageInputTextView.text = ""
-            messageInputTextView.textColor = UIColor.placeholderText
-            sendButton.isEnabled = false
-            sendButton.backgroundColor = UIColor.systemBlue.withAlphaComponent(0.5)
+        let content = messageTextView.text.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !content.isEmpty else { return }
+        guard content.count <= 70 else {
+            view.sw_showWarningToast("消息长度不能超过70个字符")
+            return
         }
+        guard let message = viewModel.generateTxtMessage(content: content) else {
+            return
+        }
+        sendMessage(message)
+    }
     
+    @objc private func locationButtonTapped() {
+        let vc = ChoosePOIAddressViewController()
+        vc.onSelectedAddressHandler = { address in
+            guard let message = self.viewModel.generateLocationMessage(address: address) else {
+                return
+            }
+            self.sendMessage(message)
+        }
+        navigationController?.pushViewController(vc, animated: true)
+    }
+    
+    private func scrollToBottom(animated: Bool) {
+        DispatchQueue.main.async {
+            let rows = self.viewModel.messageList.count
+            guard rows > 0 else { return }
+            
+            let lastIndexPath = IndexPath(row: rows - 1, section: 0)
+            self.tableView.scrollToRow(at: lastIndexPath, at: .bottom, animated: animated)
+        }
+    }
+    
+    //MARK: - Message
+    
+    func sendMessage(_ message: Message) {
+        if viewModel.sendMessageForbidden() {
+            switchDisableSendMessageState()
+            return
+        }
+
+        viewModel.sendMessage(message)
+    }
+    
+    private func switchDisableSendMessageState() {
+        bottomView.isHidden = true
+        disableLabel.isHidden = false
+    }
+    
+    // MARK: - Helper Methods
+
+    /// 判断 tableView 是否滚动到底部
+    private func isTableViewAtBottom() -> Bool {
+        let contentHeight = tableView.contentSize.height
+        let height = tableView.bounds.height
+        let offset = tableView.contentOffset.y
+
+        // contentInset.top 不影响最大 offset，只影响起始位置
+        // 最大 offset = contentHeight - height + contentInset.bottom
+        let maxOffset = contentHeight - height + tableView.contentInset.bottom
+
+        // 允许 150pt 的误差
+        let threshold: CGFloat = 150
+        return offset >= (maxOffset - threshold)
+    }
 }
+
+// MARK: - UITableViewDelegate
 
 extension ConvViewController: UITableViewDelegate, UITableViewDataSource {
     func tableView(_ tableView: UITableView, numberOfRowsInSection section: Int) -> Int {
-        return messages.count
+        return viewModel.messageList.count
     }
     
     func tableView(_ tableView: UITableView, cellForRowAt indexPath: IndexPath) -> UITableViewCell {
-        let cell = tableView.dequeueReusableCell(for: indexPath, cellType: MessageCell.self)
-//        cell.configure(with: messages[indexPath.row])
+        var message = viewModel.messageList[indexPath.row]
+        let previousTimestamp = indexPath.row > 0 ? viewModel.messageList[indexPath.row - 1].sendTimeTimestamp : nil
+        message.previousMessageTimestamp = previousTimestamp
+
+        // 根据消息类型选择cell
+        let cell: MessageCell
+        if message.messageType == .location {
+            cell = tableView.dequeueReusableCell(for: indexPath, cellType: LocationMessageCell.self)
+            
+            let locCell = cell as! LocationMessageCell
+            locCell.onLocationTapHandler = { [weak self] in
+                if let data = self?.viewModel.covertToAroundPOIData(message.location) {
+                    self?.navigationController?.pushViewController(ShowPOIAddressViewController(aroundPOIData: data), animated: true)
+                }
+            }
+        } else {
+            cell = tableView.dequeueReusableCell(for: indexPath, cellType: TxtMessageCell.self)
+        }
+        cell.configure(message: message)
+
+        // 设置重发回调
+        cell.onReSendHandler = { [weak self] in
+            SWAlertView.showAlert(message: "消息发送失败，是否继续发送？") {
+                message.sendTimeTimestamp = Int64(Date().timeIntervalSince1970 * 1000)
+                self?.sendMessage(message)
+            }
+        }
         return cell
     }
 }
 
 extension ConvViewController: UITextViewDelegate {
     
-    func textViewDidBeginEditing(_ textView: UITextView) {
-        if textView.text == "请输入消息..." {
-            textView.text = ""
-            textView.textColor = .black
-        }
-    }
-    
-    func textViewDidEndEditing(_ textView: UITextView) {
-        if textView.text.isEmpty {
-            textView.text = "请输入消息..."
-            textView.textColor = UIColor.placeholderText
-        }
-    }
-    
     func textViewDidChange(_ textView: UITextView) {
-        let hasContent = !(textView.text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
-        sendButton.isEnabled = hasContent
-        sendButton.backgroundColor = hasContent ? UIColor.systemBlue : UIColor.systemBlue.withAlphaComponent(0.5)
-        
-        // 自动调整高度（可选，本例固定高度）
-        // 如果需要动态高度，可监听 contentSize 并更新约束
+        textViewValueDidChanged()
+    }
+    
+    private func textViewValueDidChanged() {
+        placeHolderLabel.isHidden = !messageTextView.text.isEmpty
+        adjustTextViewHeight()
+    }
+
+    /// 调整 TextView 高度
+    private func adjustTextViewHeight() {
+        // 计算内容高度
+        let contentSize = messageTextView.sizeThatFits(CGSize(width: messageTextView.frame.width, height: CGFloat.greatestFiniteMagnitude))
+        let targetHeight = contentSize.height
+
+        // 限制在最小和最大高度之间
+        let newHeight = max(minTextViewHeight, min(maxTextViewHeight, targetHeight))
+
+        // 更新高度约束
+        textViewHeightConstraint?.update(offset: newHeight)
+
+        // 平滑动画更新布局
+        UIView.animate(withDuration: 0.2) {
+            self.view.layoutIfNeeded()
+        }
+
+        // 更新 TextView 的滚动能力
+        messageTextView.isScrollEnabled = newHeight >= maxTextViewHeight
     }
     
     func textView(_ textView: UITextView, shouldChangeTextIn range: NSRange, replacementText text: String) -> Bool {
@@ -196,172 +550,86 @@ extension ConvViewController: UITextViewDelegate {
 }
 
 
-extension ConvViewController {
+// MARK: - Keyboard Handling
+
+extension ConvViewController: UIGestureRecognizerDelegate {
     
-    // MARK: - Cache
-    
-    private func setupCaches() {
-        do {
-            homeCache = try SWCache(dirName: CacheModuleName.home.module)
-        } catch {
-            print("❌ SWCache 创建失败: \(error)")
-            print("错误详情: \(error.localizedDescription)")
-        }
+    /// 注册键盘通知
+    private func registerKeyboardNotifications() {
+        NotificationCenter.default.addObserver(self,
+                                               selector: #selector(keyboardWillShow),
+                                               name: UIResponder.keyboardWillShowNotification,
+                                               object: nil)
+        NotificationCenter.default.addObserver(self,
+                                               selector: #selector(keyboardWillHide),
+                                               name: UIResponder.keyboardWillHideNotification,
+                                               object: nil)
     }
     
-    @MainActor private func loadCacheData() {
-        // 加载最新消息缓存
-        loadCacheValue(forKey: getLatestMessageSubscribeTopic()) { [weak self] (data: Data?) in
-            guard let self = self, let data = data else { return }
-            self.latestMessage = try? JSONDecoder().decode(NewMessageModel.self, from: data)
-            self.updateNoticeList()
+    /// 键盘将要显示的处理方法
+    @objc private func keyboardWillShow(notification: Notification) {
+        guard messageTextView.isFirstResponder else {
+            return
         }
+        guard let keyboardFrame = notification.userInfo?[UIResponder.keyboardFrameEndUserInfoKey] as? CGRect,
+              let duration = notification.userInfo?[UIResponder.keyboardAnimationDurationUserInfoKey] as? TimeInterval,
+              let curve = notification.userInfo?[UIResponder.keyboardAnimationCurveUserInfoKey] as? UInt else {
+            return
+        }
+
+        // 如果 templateView 显示中，先隐藏
+        if isTemplateViewVisible {
+            hideTemplateView()
+        }
+
+        // 计算键盘高度
+        let keyboardHeight = keyboardFrame.height
         
-        // 加载通知列表缓存
-        loadCacheValue(forKey: getNoticeListSubscribeTopic()) { [weak self] (data: Data?) in
-            guard let self = self, let data = data else { return }
-            if let reponse = try? JSONDecoder().decode(NoticeModel.self, from: data) {
-                self.noticeReponse = reponse
-            }
-            self.updateNoticeList()
+        // 调整inputBottomView的底部约束
+        inputBottomConstraint?.update(inset: keyboardHeight)
+        
+        // 使用与键盘相同的动画参数更新约束
+        UIView.animate(withDuration: duration, delay: 0, options: UIView.AnimationOptions(rawValue: curve)) {
+            self.view.layoutIfNeeded()
+            self.scrollToBottom(animated: false)
         }
     }
     
-    private func loadCacheValue(forKey key: String,completion: @escaping (Data?) -> Void) {
-        guard let cache = homeCache else {
-            completion(nil)
+    /// 键盘将要隐藏的处理方法
+    @objc private func keyboardWillHide(notification: Notification) {
+        guard let duration = notification.userInfo?[UIResponder.keyboardAnimationDurationUserInfoKey] as? TimeInterval,
+              let curve = notification.userInfo?[UIResponder.keyboardAnimationCurveUserInfoKey] as? UInt else {
             return
         }
         
-        cache.value(forKey: key) { result in
-            switch result {
-            case .success(let cacheResult):
-                switch cacheResult {
-                case .memory(let data), .disk(let data):
-                    completion(data)
-                case .none:
-                    print("没有缓存数据 for key: \(key)")
-                    completion(nil)
-                }
-            case .failure(let error):
-                print("❌ 加载缓存失败 for key: \(key): \(error)")
-                completion(nil)
-            }
+        // 恢复inputBottomView的原始底部约束
+        inputBottomConstraint?.update(inset: originalBottomInset)
+        
+        // 使用与键盘相同的动画参数更新约束
+        UIView.animate(withDuration: duration, delay: 0, options: UIView.AnimationOptions(rawValue: curve)) {
+            self.view.layoutIfNeeded()
+            self.scrollToBottom(animated: false)
         }
     }
     
-    private func updateNoticeList() {
-
-        // 根据选中类型获取对应的通知列表
-        var filteredNotices = noticeReponse.allNotices
-        
-        // 处理最新消息，声明为可选类型
-        var latestNotice: NoticeItem?
-        if let latestMessage = latestMessage {
-            latestNotice = NoticeItem(noticeId: nil,
-                                         noticeType: 4,
-                                         noticeContent: latestMessage.message,
-                                         reportId: latestMessage.sendId,
-                                         noticeTime: latestMessage.sendTime)
-        }
-        
-        
-        
-        // 按noticeTime降序排序
-        filteredNotices.sort { item1, item2 in
-            guard let time1 = item1.noticeTime else { return false }  // 没有时间的排在后面
-            guard let time2 = item2.noticeTime else { return true }   // 有时间的排在前面
-            return time1 < time2  // 降序排序（时间大的排前面）
-        }
-        
-        if let latestNotice = latestNotice {
-            filteredNotices.append(latestNotice)
-        }
-        
-        messages = filteredNotices
-        
-        // 在主线程更新UI
-        DispatchQueue.main.async {
-            self.tableView.reloadData()
-            
-            DispatchQueue.mp_asyncAfter(0.1) {
-                let count = self.tableView(self.tableView, numberOfRowsInSection: 0)
-                guard count > 0 else {
-                    return
-                }
-                self.tableView.scrollToRow(at: IndexPath(row: count - 1, section: 0), at: .bottom, animated: false)
-            }
-        }
+    private func setupTapGestureToDismissKeyboard() {
+        // 创建点击手势
+        let tapGesture = UITapGestureRecognizer(target: self, action: #selector(dismissKeyboard))
+        // 设置点击手势的委托，以便在某些情况下不触发（比如点击了按钮）
+        tapGesture.delegate = self
+        // 添加手势到视图
+        view.addGestureRecognizer(tapGesture)
     }
     
-    // MARK: - Helper Methods
-    private func getNoticeListSubscribeTopic() -> String {
-        return "txts/home/servertoapp/notice/list/" + userId
+    @objc private func dismissKeyboard() {
+        // 收起键盘并隐藏 templateView
+        view.endEditing(true)
+        hideTemplateView()
     }
 
-    private func getLatestMessageSubscribeTopic() -> String {
-        return "txts/home/servertoapp/urgentMessage/latest/" + userId
+    func gestureRecognizer(_ gestureRecognizer: UIGestureRecognizer, shouldReceive touch: UITouch) -> Bool {
+        // 如果点击的是按钮、ScrollView 或 templateView，不触发收起键盘的手势
+        return !(touch.view is UIButton || touch.view is UIScrollView || touch.view?.isDescendant(of: templateView) == true)
     }
 }
 
-
-struct NoticeItem: Codable {
-    public let noticeId: String?
-    public let noticeType: Int
-    public let noticeContent: String?
-    public let reportId: String?
-    public let noticeTime: Int64?
-    
-    public init(
-        noticeId: String?,
-        noticeType: Int,
-        noticeContent: String?,
-        reportId: String?,
-        noticeTime: Int64?
-    ) {
-        self.noticeId = noticeId
-        self.noticeType = noticeType
-        self.noticeContent = noticeContent
-        self.reportId = reportId
-        self.noticeTime = noticeTime
-    }
-}
-
-struct NewMessageModel: Codable {
-    public let message: String?
-    public let sendTime: Int64?
-    public let sendId: String?
-}
-
- struct NoticeModel: Codable {
-    public let totalCount: Int
-    public let safeCount: Int
-    public let sosCount: Int
-    public let weatherCount: Int
-    public let safeList: [NoticeItem]
-    public let sosList: [NoticeItem]
-    public let weatherList: [NoticeItem]
-    
-    public init(
-        totalCount: Int,
-        safeCount: Int,
-        sosCount: Int,
-        weatherCount: Int,
-        safeList: [NoticeItem],
-        sosList: [NoticeItem],
-        weatherList: [NoticeItem]
-    ) {
-        self.totalCount = totalCount
-        self.safeCount = safeCount
-        self.sosCount = sosCount
-        self.weatherCount = weatherCount
-        self.safeList = safeList
-        self.sosList = sosList
-        self.weatherList = weatherList
-    }
-    
-    // 获取所有通知列表
-    public var allNotices: [NoticeItem] {
-        return sosList + safeList + weatherList
-    }
-}

@@ -7,6 +7,7 @@
 
 import UIKit
 import SWKit
+import SWTheme
 
 struct ProDeviceMsgInfo {
     let title: String
@@ -40,7 +41,7 @@ class ProDeviceMsgViewController: PersonalBaseViewController {
         button.translatesAutoresizingMaskIntoConstraints = false
         button.setTitle("取消绑定", for: .normal)
         button.setTitleColor(UIColor(hex: "#F7594B"), for: .normal)
-        button.backgroundColor = UIColor(hex: "#F2F3F4")
+        button.backgroundColor = ThemeManager.current.mediumGrayBGColor
         button.titleLabel?.font = .systemFont(ofSize: 16, weight: .medium)
         button.layer.masksToBounds = true
         button.layer.cornerRadius = 8
@@ -140,10 +141,10 @@ class ProDeviceMsgViewController: PersonalBaseViewController {
     
     private func loadDeviceInfoFromCache() {
         let userDefaults = UserDefaults.standard
-        let deviceSN = userDefaults.string(forKey: "LastDeviceSN") ?? "无缓存数据"
-        let acuVersion = userDefaults.string(forKey: "LastACUVersion") ?? "无缓存数据"
-        let catMAC = userDefaults.string(forKey: "LastCatMAC") ?? "无缓存数据"
-        let catSN = userDefaults.string(forKey: "LastCatSN") ?? "无缓存数据"
+        let deviceSN = userDefaults.string(forKey: "LastDeviceSN") ?? "--"
+        let acuVersion = userDefaults.string(forKey: "LastACUVersion") ?? "--"
+        let catMAC = userDefaults.string(forKey: "LastCatMAC") ?? "--"
+        let catSN = userDefaults.string(forKey: "LastCatSN") ?? "--"
         
         dataSource = [
             [ProDeviceMsgInfo(title: "设备SN", value: deviceSN),
@@ -175,7 +176,7 @@ extension ProDeviceMsgViewController: UITableViewDelegate, UITableViewDataSource
         let view = UIView()
         view.backgroundColor = .white
         let lineLabel = UILabel(frame: CGRect(x: 16, y: 0, width: UIScreen.main.bounds.width-32, height: 1))
-        lineLabel.backgroundColor = .systemGray5
+        lineLabel.backgroundColor = ThemeManager.current.mediumGrayBGColor
         view.addSubview(lineLabel)
         return view
     }

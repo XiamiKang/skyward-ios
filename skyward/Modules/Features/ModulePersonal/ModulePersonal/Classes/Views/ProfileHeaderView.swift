@@ -23,8 +23,6 @@ class ProfileMessageCell: UITableViewCell {
         imageView.contentMode = .scaleAspectFill
         imageView.clipsToBounds = true
         imageView.layer.cornerRadius = 30
-        imageView.backgroundColor = .systemGray5
-        imageView.tintColor = .systemGray
         imageView.image = PersonalModule.image(named: "my_avatar")
         return imageView
     }()
@@ -67,6 +65,7 @@ class ProfileMessageCell: UITableViewCell {
     // MARK: - UI设置
     private func setupUI() {
         backgroundColor = .clear
+        selectionStyle = .none
         
         contentView.addSubview(avatarImageView)
         contentView.addSubview(nameLabel)
@@ -75,7 +74,7 @@ class ProfileMessageCell: UITableViewCell {
         
         // 头像的约束
         NSLayoutConstraint.activate([
-            avatarImageView.bottomAnchor.constraint(equalTo: contentView.bottomAnchor, constant: -20),
+            avatarImageView.bottomAnchor.constraint(equalTo: contentView.bottomAnchor, constant: -16),
             avatarImageView.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 16),
             avatarImageView.widthAnchor.constraint(equalToConstant: 60),
             avatarImageView.heightAnchor.constraint(equalToConstant: 60),

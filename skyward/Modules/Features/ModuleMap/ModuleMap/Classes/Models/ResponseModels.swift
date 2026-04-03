@@ -25,15 +25,6 @@ public struct RouteData: Codable {
     public let type: Int?
 }
 
-public struct MapSearchPointMsgData: Codable {
-    public let regionCode: String?
-    public let name: String?
-    public let address: String?
-    public let longitude: Double?
-    public let latitude: Double?
-    public let altitude: String?
-}
-
 public struct WeatherData: Codable {
     public let obsTime: String?          //观测时间
     public let altitude: String?         //海拔高度（米）
@@ -194,12 +185,4 @@ public struct WeatherWarningData: Codable {
     public let related: String?         //与本条预警相关联的预警ID
 }
 
-public struct UserPOIData: Codable {
-    public let poiId: String?
-    public let name: String?
-    public let description: String?
-    public let lon: Double?
-    public let lat: Double?
-    public let category: Int?
-    public let imgUrlList: [String]?
-}
+

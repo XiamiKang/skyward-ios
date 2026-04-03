@@ -25,7 +25,6 @@ class RouteListCell: BaseCell {
     private let coverImageView: UIImageView = {
         let imageV = UIImageView()
         imageV.backgroundColor = ThemeManager.current.mediumGrayBGColor
-        imageV.contentMode = .scaleAspectFill
         imageV.cornerRadius = CornerRadius.large.rawValue
         return imageV
     }()
@@ -40,6 +39,11 @@ class RouteListCell: BaseCell {
         label.cornerRadius = CornerRadius.small.rawValue
         label.layer.maskedCorners = [.layerMinXMaxYCorner]
         return label
+    }()
+    
+    private let rightContentView: UIView = {
+        let view = UIView()
+        return view
     }()
     
     private let nameLabel: UILabel = {
@@ -68,12 +72,19 @@ class RouteListCell: BaseCell {
         let button = UIButton(frame: CGRect(x: 0, y: 0, width: swAdaptedValue(24), height: swAdaptedValue(39)))
         button.titleLabel?.font = .pingFangFontRegular(ofSize: 12)
         button.setImage(MapModule.image(named: "record_upload_icon"), for: .normal)
+        button.setImage(MapModule.image(named: "route_uploading_icon"), for: .highlighted)
+        button.setImage(MapModule.image(named: "route_uploading_icon"), for: .disabled)
         button.setTitle("上传", for: .normal)
+        button.setTitle("上传中", for: .highlighted)
+        button.setTitle("上传中", for: .disabled)
         button.setTitleColor(ThemeManager.current.titleColor, for: .normal)
         button.setTitleColor(ThemeManager.current.titleColor, for: .highlighted)
+        button.setTitleColor(ThemeManager.current.titleColor, for: .disabled)
         button.imageUpTitleDown(spacing: 2)
         return button
     }()
+
+    private var rotationAnimation: CABasicAnimation?
     
     
     override init(style: UITableViewCell.CellStyle, reuseIdentifier: String?) {
@@ -86,6 +97,7 @@ class RouteListCell: BaseCell {
         paragraphStyle.minimumLineHeight = swAdaptedValue(20)
         paragraphStyle.maximumLineHeight = swAdaptedValue(20)
         paragraphStyle.alignment = .left
+        paragraphStyle.lineBreakMode = .byCharWrapping
         
         setupUI()
         
@@ -103,10 +115,11 @@ class RouteListCell: BaseCell {
         checkboxImageView.isHidden = true
         uploadLabel.isHidden = true
         uploadButton.isHidden = true
+        uploadButton.isEnabled = true
 
         // 重置内容
         coverImageView.sd_cancelCurrentImageLoad()  // 取消图片加载
-        coverImageView.image = nil
+        coverImageView.image = nil                   // 清空图片
         nameLabel.text = ""
         descLabel.text = ""
         timeLabel.text = ""
@@ -121,16 +134,24 @@ class RouteListCell: BaseCell {
         nameLabel.snp.updateConstraints { make in
             make.right.equalToSuperview().inset(Layout.hMargin)
         }
+        uploadButton.snp.updateConstraints { make in
+            make.width.equalTo(swAdaptedValue(24))
+        }
+
+        // 停止加载动画
+        stopLoadingAnimation()
     }
     
     private func setupUI() {
         contentView.addSubview(checkboxImageView)
         contentView.addSubview(coverImageView)
         coverImageView.addSubview(uploadLabel)
-        contentView.addSubview(nameLabel)
-        contentView.addSubview(descLabel)
-        contentView.addSubview(timeLabel)
-        contentView.addSubview(uploadButton)
+        
+        contentView.addSubview(rightContentView)
+        rightContentView.addSubview(nameLabel)
+        rightContentView.addSubview(descLabel)
+        rightContentView.addSubview(timeLabel)
+        rightContentView.addSubview(uploadButton)
         
         checkboxImageView.snp.makeConstraints { make in
             make.width.height.equalTo(swAdaptedValue(24))
@@ -149,9 +170,17 @@ class RouteListCell: BaseCell {
             make.top.right.equalToSuperview()
         }
         
-        nameLabel.snp.makeConstraints { make in
-            make.top.equalTo(coverImageView)
+        // right
+        
+        rightContentView.snp.makeConstraints { make in
+            make.centerY.equalTo(coverImageView)
             make.left.equalTo(coverImageView.snp.right).offset(Layout.hInset)
+            make.right.equalToSuperview()
+        }
+        
+        nameLabel.snp.makeConstraints { make in
+            make.height.greaterThanOrEqualTo(swAdaptedValue(20))
+            make.top.left.equalToSuperview()
             make.right.equalToSuperview().inset(Layout.hMargin)
         }
         
@@ -165,6 +194,7 @@ class RouteListCell: BaseCell {
             make.height.equalTo(swAdaptedValue(17))
             make.left.right.equalTo(nameLabel)
             make.top.equalTo(descLabel.snp.bottom).offset(swAdaptedValue(4))
+            make.bottom.equalToSuperview()
         }
         
         uploadButton.snp.makeConstraints { make in
@@ -183,11 +213,33 @@ class RouteListCell: BaseCell {
             checkboxImageView.image = MapModule.image(named: "route_unselected")
         }
         
-        uploadLabel.isHidden = route.uploaded == true
-        uploadButton.isHidden = route.uploaded == true
+        uploadLabel.isHidden = route.uploaded == true || route.type == RouteType.route.rawValue
+        uploadButton.isHidden = uploadLabel.isHidden
         
+        if route.uploading == true {
+            uploadButton.isEnabled = false
+            startLoadingAnimation()
+        } else {
+            uploadButton.isEnabled = true
+            stopLoadingAnimation()
+        }
+
+        // 统一处理封面图加载
+        let placeholder = SWKitModule.image(named: "thumb_icon")
         if let coverUrl = route.coverImageUrl, let URL = URL(string: coverUrl) {
-            coverImageView.sd_setImage(with: URL)
+            coverImageView.sd_setImage(with: URL, placeholderImage: placeholder) { [weak self] image, _, _, _ in
+                if image != nil {
+                    self?.coverImageView.contentMode = .scaleAspectFill
+                } else {
+                    self?.coverImageView.contentMode = .center
+                }
+            }
+        } else if let localCoverImage = RouteDataManager.getRouteCoverFromLocal(routeId: route.id) {
+            coverImageView.image = localCoverImage
+            coverImageView.contentMode = .scaleAspectFill
+        } else {
+            coverImageView.image = placeholder
+            coverImageView.contentMode = .center
         }
         
         nameLabel.attributedText = NSAttributedString(string: route.routeName ?? "--",
@@ -198,6 +250,8 @@ class RouteListCell: BaseCell {
             } else {
                 descLabel.text = "距离：\(String(format: "%.2f", distance))km"
             }
+        } else {
+            descLabel.text = "距离：--"
         }
         
         if let createTime = route.createTime {
@@ -220,8 +274,20 @@ class RouteListCell: BaseCell {
                 make.right.equalToSuperview().inset(Layout.hMargin)
             }
         } else {
-            nameLabel.snp.updateConstraints { make in
-                make.right.equalToSuperview().inset(Layout.hMargin + swAdaptedValue(24) + 4)
+            if route.uploading == true {
+                nameLabel.snp.updateConstraints { make in
+                    make.right.equalToSuperview().inset(Layout.hMargin + swAdaptedValue(40) + 2)
+                }
+                uploadButton.snp.updateConstraints { make in
+                    make.width.equalTo(swAdaptedValue(40))
+                }
+            } else {
+                nameLabel.snp.updateConstraints { make in
+                    make.right.equalToSuperview().inset(Layout.hMargin + swAdaptedValue(24) + 4)
+                }
+                uploadButton.snp.updateConstraints { make in
+                    make.width.equalTo(swAdaptedValue(24))
+                }
             }
         }
         
@@ -229,6 +295,27 @@ class RouteListCell: BaseCell {
     
     @objc private func clickUpload() {
         onClickUploadHandler?()
+    }
+
+    // MARK: - Loading Animation
+
+    private func startLoadingAnimation() {
+        guard rotationAnimation == nil, let imageView = uploadButton.imageView else { return }
+
+        let rotation = CABasicAnimation(keyPath: "transform.rotation.z")
+        rotation.toValue = NSNumber(value: Double.pi * 2)
+        rotation.duration = 1.0
+        rotation.isCumulative = true
+        rotation.repeatCount = Float.greatestFiniteMagnitude
+        rotation.timingFunction = CAMediaTimingFunction(name: .linear)
+
+        imageView.layer.add(rotation, forKey: "rotationAnimation")
+        rotationAnimation = rotation
+    }
+
+    private func stopLoadingAnimation() {
+        uploadButton.imageView?.layer.removeAnimation(forKey: "rotationAnimation")
+        rotationAnimation = nil
     }
 }
 

@@ -7,6 +7,7 @@
 
 import UIKit
 import SWKit
+import SWTheme
 
 class CancelAccountViewController: PersonalBaseViewController {
     
@@ -39,7 +40,7 @@ class CancelAccountViewController: PersonalBaseViewController {
         
         cancelButton.setTitle("取消", for: .normal)
         cancelButton.setTitleColor(.black, for: .normal)
-        cancelButton.backgroundColor = UIColor(str: "#F2F3F4")
+        cancelButton.backgroundColor = ThemeManager.current.mediumGrayBGColor
         cancelButton.layer.cornerRadius = 8
         cancelButton.titleLabel?.font = UIFont.systemFont(ofSize: 16, weight: .semibold)
         cancelButton.addTarget(self, action: #selector(backButtonTapped), for: .touchUpInside)
@@ -102,6 +103,7 @@ class CancelAccountViewController: PersonalBaseViewController {
                 } receiveValue: { [weak self] success in
                     if success {
                         self?.view.sw_showSuccessToast("注销账号成功")
+                        UserManager.shared.cleanUserInfo()
                         DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) {
                             SWRouter.handle(RouteTable.loginPageUrl)
                         }

@@ -8,6 +8,7 @@
 
 import UIKit
 import WebKit
+import SWKit
 
 public class WebViewController: LoginBaseViewController {
     
@@ -20,12 +21,21 @@ public class WebViewController: LoginBaseViewController {
     
     // MARK: - UI Components
     private lazy var webView: WKWebView = {
-        let webView = WKWebView()
+        let configuration = WKWebViewConfiguration()
+        
+        let webView = WKWebView(frame: .zero, configuration: configuration)
         webView.backgroundColor = .white
         webView.navigationDelegate = self
         webView.allowsBackForwardNavigationGestures = true
         return webView
     }()
+    
+    // MARK: - Basic Auth Credentials
+    private let predefinedCredentials: [String: (username: String, password: String)] = [
+        "192.168.0.1": ("admin", "admin"),
+        "192.168.0.8": ("admin", "admin")  // 添加这行
+    ]
+
     
     private lazy var activityIndicator: UIActivityIndicatorView = {
         let indicator: UIActivityIndicatorView
@@ -327,4 +337,113 @@ extension WebViewController: WKNavigationDelegate {
         
         decisionHandler(.allow)
     }
+    
+    // MARK: - HTTP Basic Auth 处理
+    public func webView(_ webView: WKWebView,
+                        didReceive challenge: URLAuthenticationChallenge,
+                        completionHandler: @escaping (URLSession.AuthChallengeDisposition, URLCredential?) -> Void) {
+        
+        print("🔐 WebView 认证挑战: \(challenge.protectionSpace.authenticationMethod)")
+        print("   主机: \(challenge.protectionSpace.host)")
+        
+        // 处理服务器信任证书验证 - 这是关键部分！
+        if challenge.protectionSpace.authenticationMethod == NSURLAuthenticationMethodServerTrust {
+            print("   🔐 服务器证书验证")
+            
+            // 检查是否是 192.168.0.8
+            if challenge.protectionSpace.host == "192.168.0.8" {
+                if let serverTrust = challenge.protectionSpace.serverTrust {
+                    let credential = URLCredential(trust: serverTrust)
+                    completionHandler(.useCredential, credential)
+                    print("   ✅ 接受自签名证书: 192.168.0.8")
+                    return
+                }
+            }
+            
+            // 也可以接受所有证书（仅用于测试）
+            // if let serverTrust = challenge.protectionSpace.serverTrust {
+            //     let credential = URLCredential(trust: serverTrust)
+            //     completionHandler(.useCredential, credential)
+            //     return
+            // }
+        }
+        // 处理 HTTP Basic Auth
+        if challenge.protectionSpace.authenticationMethod == NSURLAuthenticationMethodHTTPBasic {
+            print("   🔐 HTTP Basic Auth")
+            let host = challenge.protectionSpace.host
+            
+            // 检查是否有预定义的凭证
+            if let (username, password) = predefinedCredentials[host] {
+                let credential = URLCredential(user: username,
+                                               password: password,
+                                               persistence: .forSession)
+                print("   ✅ 使用预定义凭证: \(username)/***")
+                completionHandler(.useCredential, credential)
+                return
+            }
+            
+            // 显示登录弹窗
+            showBasicAuthAlert(for: host) { (username, password) in
+                if let username = username, let password = password {
+                    let credential = URLCredential(user: username,
+                                                   password: password,
+                                                   persistence: .forSession)
+                    completionHandler(.useCredential, credential)
+                } else {
+                    completionHandler(.cancelAuthenticationChallenge, nil)
+                }
+            }
+            return
+        }
+        
+        // 其他认证方式使用默认处理
+        completionHandler(.performDefaultHandling, nil)
+        
+    }
+    
+    // MARK: - 显示 Basic Auth 登录弹窗
+    private func showBasicAuthAlert(for host: String,
+                                    completion: @escaping (String?, String?) -> Void) {
+        
+        DispatchQueue.main.async {
+            let alert = UIAlertController(title: "登录",
+                                          message: "请输入 \(host) 的用户名和密码",
+                                          preferredStyle: .alert)
+            
+            // 用户名输入框
+            alert.addTextField { textField in
+                textField.placeholder = "用户名"
+                textField.autocapitalizationType = .none
+                textField.autocorrectionType = .no
+            }
+            
+            // 密码输入框
+            alert.addTextField { textField in
+                textField.placeholder = "密码"
+                textField.isSecureTextEntry = true
+            }
+            
+            // 登录按钮
+            alert.addAction(UIAlertAction(title: "登录", style: .default) { _ in
+                let username = alert.textFields?.first?.text?.trimmingCharacters(in: .whitespacesAndNewlines)
+                let password = alert.textFields?.last?.text
+                
+                if let username = username, !username.isEmpty,
+                   let password = password, !password.isEmpty {
+                    completion(username, password)
+                } else {
+                    completion(nil, nil)
+                }
+            })
+            
+            // 取消按钮
+            alert.addAction(UIAlertAction(title: "取消", style: .cancel) { _ in
+                completion(nil, nil)
+            })
+            
+            self.present(alert, animated: true)
+        }
+    }
 }
+
+

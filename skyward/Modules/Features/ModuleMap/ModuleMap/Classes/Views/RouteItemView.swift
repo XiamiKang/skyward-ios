@@ -50,15 +50,13 @@ class RouteItemView: UIView {
     private func setupConstraints() {
         titleLabel.snp.makeConstraints {
             $0.height.equalTo(swAdaptedValue(20))
-            $0.top.equalToSuperview()
-            $0.left.equalToSuperview().inset(Layout.hMargin)
+            $0.top.left.equalToSuperview()
         }
         
         valueLabel.snp.makeConstraints {
             $0.height.greaterThanOrEqualTo(swAdaptedValue(20))
-            $0.top.bottom.equalToSuperview()
+            $0.top.bottom.right.equalToSuperview()
             $0.left.equalTo(titleLabel.snp.right).offset(8)
-            $0.right.equalToSuperview().inset(Layout.hMargin)
         }
     }
 }

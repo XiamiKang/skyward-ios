@@ -30,6 +30,8 @@ public protocol ThemeType {
     var secondaryColor: UIColor { get }
     /// 禁用状态颜色
     var disabledColor: UIColor { get }
+    /// placeholder颜色
+    var placeholderColor: UIColor { get }
     
     // MARK: - 背景色
     /// 一级白色背景

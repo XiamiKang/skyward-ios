@@ -18,6 +18,8 @@ public enum SmsCodeType: String {
     case forgetPassword = "FORGET_PASSWORD"
     /// 绑定手机号
     case bindPhone = "BIND_PHONE"
+    /// 验证手机号
+    case verify = "VERIFY_PHONE"
 }
 
 public struct SmsCodeModel {

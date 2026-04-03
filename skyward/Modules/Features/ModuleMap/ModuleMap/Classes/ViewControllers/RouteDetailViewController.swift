@@ -11,6 +11,7 @@ import SnapKit
 import TangramMap
 import TXKit
 import SWKit
+import SWNetwork
 
 class RouteDetailViewController: BaseViewController {
     
@@ -20,13 +21,16 @@ class RouteDetailViewController: BaseViewController {
     
     var deleteSuccessHandler: (() -> Void)?
     var editSuccessHandler: ((Route) -> Void)?
-    var uploadSuccessHandler: (() -> Void)?
+    var uploadSuccessHandler: ((Route) -> Void)?
+    var visibleSuccessHandler: ((Route) -> Void)?
+    var coverSuccesHandler: (() -> Void)?
     
-    private var route: Route!
+    private var route: Route
+    private var showingPopupView: LookRoutePopupView?
     
     init(route: Route) {
-        super.init(nibName: nil, bundle: nil)
         self.route = route
+        super.init(nibName: nil, bundle: nil)
     }
     
     required init?(coder: NSCoder) {
@@ -39,13 +43,8 @@ class RouteDetailViewController: BaseViewController {
         
         registeMarkerLayers()
         
-        if dataManager.routeExsitInLocal(routeId: route.id) {
-            DispatchQueue.mp_asyncAfter(1) {
-                self.addRoutesMarkers()
-                self.presentRouteDetail(route: self.route)
-                self.cameraPositionMarkers()
-            }
-            
+        if let _ = dataManager.getLocalRoute(routeId: route.id) {
+            loadUI()
             return
         }
         view.sw_showLoading()
@@ -57,17 +56,15 @@ class RouteDetailViewController: BaseViewController {
                 } else {
                     if let route = self?.route {
                         self?.dataManager.saveServiceRouteToLocal(route)
-                        self?.addRoutesMarkers()
-                        self?.presentRouteDetail(route: route)
-                        self?.cameraPositionMarkers()
+                        self?.loadUI()
                     }
                 }
             }
         }
     }
     
-    override func viewDidDisappear(_ animated: Bool) {
-        super.viewDidDisappear(animated)
+    override func viewWillDisappear(_ animated: Bool) {
+        super.viewWillDisappear(animated)
 
         if isMovingFromParent {
             MapConfig.shared.defaultZoom = 16
@@ -129,6 +126,7 @@ class RouteDetailViewController: BaseViewController {
     
     private func setupMap() {
         MapConfig.shared.defaultZoom = 18
+        MapConfig.shared.showUserLocation = false
         MapConfig.shared.saveConfig()
         
         let mapView = mapManager.createMapView(in: self.view, frame: CGRectMake(0, 0, ScreenUtil.screenWidth, ScreenUtil.screenHeight))
@@ -136,8 +134,49 @@ class RouteDetailViewController: BaseViewController {
         
         // 设置回调
         mapManager.onMarkerSelected = { [weak self] _, _, _ in
-            if let route = self?.route {
-                self?.presentRouteDetail(route: route)
+            self?.presentRouteDetail()
+        }
+    }
+    // MARK: - Load
+    
+    private func loadUI() {
+        addRoutesMarkers()
+        cameraPositionMarkers()
+        presentRouteDetail()
+        slientCompleteRouteToServerIfNeeded()
+    }
+    
+    private func slientCompleteRouteToServerIfNeeded() {
+        guard NetworkMonitor.shared.isConnected else {
+            return
+        }
+        
+        let route = self.route
+        
+        assembleRoute { [weak self] screenshot in
+            let needCompleteAddr = (route.startName == nil && self?.route.startName?.isEmpty == false) || (route.endName == nil && self?.route.endName?.isEmpty == false)
+            let needCompleteCover = (route.coverImageUrl == nil || route.coverImageUrl?.isEmpty == true) && screenshot != nil
+
+            if needCompleteCover {
+                // 更新本地数据
+                if route.uploaded == true {
+                    self?.dataManager.uploadRouteCoverToServer(screenshot!) { [weak self] fileUrl in
+                        if var route = self?.route {
+                            route.coverImageUrl = fileUrl
+                            self?.dataManager.updateRouteToServer(route)
+                            //TODO: 封面同步列表
+                        }
+                    }
+                } else {
+                    RouteDataManager.saveRouteCoverToLocal(screenshot, routeId: route.id)
+                    self?.coverSuccesHandler?()
+                }
+            } else {
+                if needCompleteAddr {
+                    if let route = self?.route {
+                        self?.dataManager.updateRouteToServer(route)
+                    }
+                }
             }
         }
     }
@@ -148,8 +187,10 @@ class RouteDetailViewController: BaseViewController {
         guard let markerLayerManager = mapManager.markerLayerManager else {
             return
         }
-        _ = markerLayerManager.createLayer(id: "myRoutesLine", name: "我的路线", isVisible: true)
-        _ = markerLayerManager.createLayer(id: "myRoutesNode", name: "我的路线节点", isVisible: true)
+        _ = markerLayerManager.createLayer(id: "route_line", name: "我的路线", isVisible: true)
+        _ = markerLayerManager.createLayer(id: "route_node", name: "我的路线节点", isVisible: true)
+        _ = markerLayerManager.createLayer(id: "track_start", name: "轨迹起点", isVisible: true)
+        _ = markerLayerManager.createLayer(id: "track_end", name: "轨迹终点", isVisible: true)
     }
     
     func addRoutesMarkers() {
@@ -158,12 +199,16 @@ class RouteDetailViewController: BaseViewController {
         }
         
         let routeId = route.id
-        let points = dataManager.readCoordinatesFromGPXFile(from: routeId)
-        if points.count > 1 {
-            let coordinates = points.map { CLLocationCoordinate2D(latitude: $0.latitude, longitude: $0.longitude) }
-            markerLayerManager.addLineMarker(to: "myRoutesLine", id: String(routeId), coordinates: coordinates, title: route.routeName ?? "", subTitle: route.description ?? "")
-            coordinates.forEach { coordinate in
-                markerLayerManager.addPointMarker(to: "myRoutesNode", id: String(coordinate.longitude), coordinate: coordinate)
+        let coordinates = dataManager.readCoordinatesFromGPXFile(from: routeId)
+        if coordinates.count > 1 {
+            markerLayerManager.addLineMarker(to: "route_line", id: String(routeId), coordinates: coordinates, title: route.routeName ?? "", subTitle: route.description ?? "")
+            if route.type == RouteType.track.rawValue {
+                markerLayerManager.addPointMarker(to: "track_start", id: "1", coordinate: coordinates.first!)
+                markerLayerManager.addPointMarker(to: "track_end", id: "2", coordinate: coordinates.last!)
+            } else {
+                coordinates.forEach { coordinate in
+                    markerLayerManager.addPointMarker(to: "route_node", id: String(coordinate.longitude), coordinate: coordinate)
+                }
             }
         }
     }
@@ -175,122 +220,228 @@ class RouteDetailViewController: BaseViewController {
         
         let routeId = route.id
         //移除线
-        markerLayerManager.removeMarker("\(routeId)", from: "myRoutesLine")
+        markerLayerManager.removeMarker("\(routeId)", from: "route_line")
         let points = dataManager.readCoordinatesFromGPXFile(from: routeId)
         //移除点
         points.forEach { coordinate in
-            markerLayerManager.removeMarker(String(coordinate.longitude), from: "myRoutesNode")
+            markerLayerManager.removeMarker(String(coordinate.longitude), from: "route_node")
         }
     }
     
     func cameraPositionMarkers() {
-//        if let startLongitude = route.startLongitude, let startLatitude = route.startLatitude, let endLongitude = route.endLongitude, let endLatitude = route.endLatitude {
-//            let startCoordinate = CLLocationCoordinate2D(latitude: startLatitude, longitude: startLongitude)
-//            let endCoordinate = CLLocationCoordinate2D(latitude: endLatitude, longitude: endLongitude)
-//            let bounds = TGCoordinateBounds(sw: startCoordinate, ne: endCoordinate)
-//            let cameraPosition = mapManager.mapView?.cameraThatFitsBounds(bounds, withPadding: UIEdgeInsets(top: 50, left: 50, bottom: 50, right: 50))
-//            mapManager.mapView?.setCameraPosition(cameraPosition!, withDuration: 0.3, easeType: .linear)
-//        }
-        
-        let routeId = route.id
-        let coordinates = dataManager.readCoordinatesFromGPXFile(from: routeId)
-        if coordinates.count > 1 {
-            let bounds = TGCoordinateBounds(sw: coordinates.first!, ne: coordinates.last!)
-            let cameraPosition = mapManager.mapView?.cameraThatFitsBounds(bounds, withPadding: UIEdgeInsets(top: 180, left: 60, bottom: 264, right: 60))
-            mapManager.mapView?.setCameraPosition(cameraPosition!, withDuration: 0.3, easeType: .linear)
+        let coordinates = dataManager.readCoordinatesFromGPXFile(from: route.id)
+        guard let mapView = mapManager.mapView, let (sw, ne) = MapMarkerTool.getSWAndNE(coordinates) else {
+            return
         }
+        let bounds = TGCoordinateBounds(sw: sw, ne: ne)
+        let cameraPosition = mapView.cameraThatFitsBounds(bounds, withPadding: UIEdgeInsets(top: 180, left: 60, bottom: 280, right: 60))
+        mapView.cameraPosition = cameraPosition
     }
     
-    // MARK: - private
+    // MARK: - 弹窗
     
-    private func presentRouteDetail(route: Route) {
-        
-        let routeId = route.id
-        
-        var popupContainer: SWPopupView?
-        
+    private func presentRouteDetail() {
+        let route = self.route
+        // 防止重复弹出
+        guard showingPopupView == nil else { return }
+
         let customView = LookRoutePopupView(route: route)
-        customView.closeHandler = {
-            popupContainer?.dismiss()
+        showingPopupView = customView
+
+        // 使用约束布局，让高度根据子视图自适应
+        view.addSubview(customView)
+        customView.snp.makeConstraints { make in
+            make.left.right.equalToSuperview()
+            make.bottom.equalToSuperview()
         }
-        customView.deleteHandler = {
+
+        // 强制布局以获取实际高度
+        customView.layoutIfNeeded()
+
+        // 设置初始位置在屏幕底部之外
+        customView.transform = CGAffineTransform(translationX: 0, y: customView.bounds.height)
+
+        // 从底部弹出动画
+        UIView.animate(withDuration: 0.2, delay: 0, options: .curveEaseOut) {
+            customView.transform = .identity
+        }
+
+        customView.closeHandler = { [weak self] in
+            self?.dismissRouteDetail(customView)
+        }
+
+        customView.deleteHandler = { [weak self] in
             let name = route.type == RouteType.track.rawValue ? RouteType.track.name() : RouteType.route.name()
             SWAlertView.showAlert(title: nil, message: "确定删除该\(name)吗？") {
-                self.deleteRoute(routeId: routeId) {
-                    popupContainer?.dismiss()
-                    self.deleteSuccessHandler?()
+                self?.deleteRoute { [weak self] success in
+                    if success {
+                        self?.removeRoutesMarkers()
+                        self?.dismissRouteDetail(customView)
+                        self?.deleteSuccessHandler?()
+                        self?.navigationController?.popViewController(animated: true)
+                    }
                 }
             }
         }
-        customView.editHandler = {
-            self.editRoute(route: route) { editedRoute in
-                customView.configure(route: editedRoute)
-                self.editSuccessHandler?(editedRoute)
-            }
-        }
-        
-        customView.uploadHandler = {
-            self.dataManager.saveRouteToService(route) { [weak self] success in
-                if success {
-                    self?.uploadSuccessHandler?()
+
+        customView.editHandler = { [weak self] in
+            self?.presentEditRoute(route: route) { [weak self] in
+                self?.editRoute { [weak self] success in
+                    if success, let newRoute = self?.route {
+                        customView.configure(route: newRoute)
+                        self?.editSuccessHandler?(newRoute)
+                    }
                 }
             }
         }
-        
-        customView.showHandler = { show in
-            self.visibleRoute(route: route, show: show)
-        }
-        
-        popupContainer = SWPopupView.showFromBottom(contentView: customView)
-    }
-    
-    private func deleteRoute(routeId: String, completion: @escaping () -> Void) {
-        self.view.sw_showLoading()
-        self.dataManager.deleteRouteFromService(routeId: routeId) { [weak self] success, errorMsg in
-            completion()
-            self?.view.sw_hideLoading()
-            if success {
-                self?.removeRoutesMarkers()
-                self?.navigationController?.popViewController(animated: true)
-            } else {
-                if let errorMsg = errorMsg, !errorMsg.isEmpty {
-                    self?.view.sw_showWarningToast(errorMsg)
+
+        customView.uploadHandler = { [weak self] in
+            self?.saveRoute { [weak self] success in
+                if success, let newRoute = self?.route {
+                    self?.dismissRouteDetail(customView)
+                    self?.uploadSuccessHandler?(newRoute)
                 }
             }
+        }
+
+        customView.showHandler = { [weak self] show in
+            self?.visibleRoute(show: show)
         }
     }
+
+    private func dismissRouteDetail(_ detailView: LookRoutePopupView) {
+        UIView.animate(withDuration: 0.25, delay: 0, options: .curveEaseIn) {
+            detailView.transform = CGAffineTransform(translationX: 0, y: detailView.bounds.height)
+        } completion: { _ in
+            detailView.removeFromSuperview()
+            self.showingPopupView = nil
+        }
+    }
     
-    private func editRoute(route: Route, completion: @escaping (Route) -> Void) {
+    private func presentEditRoute(route: Route, completion: @escaping () -> Void) {
         var popupContainer: SWPopupView?
         let customView = AddRoutePopupView(route: route)
         customView.closeHandler = {
             popupContainer?.dismiss()
         }
-        customView.confirmHandler = { [weak self] name, desc in
-            var newRoute = route
-            newRoute.routeName = name
-            newRoute.description = desc
-            self?.view.sw_showLoading()
-            self?.dataManager.updateRouteToService(newRoute) { success, errorMsg in
-                self?.view.sw_hideLoading()
-                completion(newRoute)
-                popupContainer?.dismiss()
-            }
+        customView.confirmHandler = { name, desc in
+            self.route.routeName = name
+            self.route.description = desc
+            popupContainer?.dismiss()
+            completion()
         }
         popupContainer = SWPopupView.showFromBottom(contentView: customView)
     }
     
-    private func visibleRoute(route: Route, show: Bool) {
-        var newRoute = route
-        newRoute.isVisible = show
-        self.dataManager.updateLocalRoute(route: newRoute)
-
-        let name = route.type == RouteType.track.rawValue ? RouteType.track.name() : RouteType.route.name()
-        
-        if show {
-            view.sw_showSuccessToast("\(name)已在地图上显示，返回地图页即可查看")
+    // MARK: - 增删改查
+    
+    private func deleteRoute(completion: @escaping (Bool) -> Void) {
+        let routeId = route.id
+        if route.uploaded == true {
+            view.sw_showLoading()
+            dataManager.deleteRouteFromServer(routeId: routeId) { [weak self] success in
+                self?.view.sw_hideLoading()
+                completion(success)
+            }
         } else {
-            view.sw_showSuccessToast("\(name)已在地图上隐藏")
+            completion(dataManager.deleteRouteFromLocal(routeId))
+        }
+    }
+    
+    private func editRoute(completion: @escaping (Bool) -> Void) {
+        if route.uploaded == true {
+            view.sw_showLoading()
+            dataManager.updateRouteToServer(route) { [weak self] success in
+                self?.view.sw_hideLoading()
+                completion(success)
+            }
+        } else {
+            completion(dataManager.updateLocalRoute(route: route))
+        }
+    }
+    
+    private func saveRoute(completion: @escaping (Bool) -> Void) {
+        view.sw_showLoading()
+        assembleRoute { [weak self] image in
+            guard let route = self?.route else {
+                return
+            }
+            self?.dataManager.saveRouteToServer(route, coverImage: image) { success in
+                self?.view.sw_hideLoading()
+                self?.route.uploaded = true
+                completion(success)
+            }
+        }
+    }
+    
+    private func visibleRoute(show: Bool) {
+        route.isVisible = show
+        if dataManager.updateLocalRoute(route: route) {
+            visibleSuccessHandler?(route)
+            let name = route.type == RouteType.track.rawValue ? RouteType.track.name() : RouteType.route.name()
+            
+            if show {
+                view.sw_showSuccessToast("\(name)已在地图上显示，返回地图页即可查看")
+            } else {
+                view.sw_showSuccessToast("\(name)已在地图上隐藏")
+            }
+        } else {
+            route.isVisible = !show
+        }
+    }
+    
+    // MARK: - 保存上传
+    
+    private func assembleRoute(completion: @escaping (UIImage?) -> Void) {
+        let route = self.route
+        let group = DispatchGroup()
+ 
+        group.enter()
+        RouteDataManager.assembleRoute(route) { [weak self] updatedRoute in
+            self?.route = updatedRoute
+            // 更新到数据库
+            self?.dataManager.updateLocalRoute(route: updatedRoute)
+            // 更新弹窗UI
+            self?.showingPopupView?.configure(route: updatedRoute)
+            group.leave()
+        }
+        
+        var screenshot: UIImage?
+        
+        if (route.coverImageUrl == nil || route.coverImageUrl?.isEmpty == true), RouteDataManager.getRouteCoverFromLocal(routeId: route.id) == nil {
+            group.enter()
+            getScreenShot { image in
+                screenshot = image
+                group.leave()
+            }
+        }
+        
+        group.notify(queue: .main) {
+            completion(screenshot)
+        }
+    }
+    
+    private func getScreenShot(completion: @escaping (UIImage?) -> Void) {
+        let coordinates = dataManager.readCoordinatesFromGPXFile(from: route.id)
+        guard let mapView = mapManager.mapView, let bounds = MapMarkerTool.getSWAndNE(coordinates) else {
+            completion(nil)
+            return
+        }
+        // 设置截图回调
+        mapManager.onScreenshotCaptured = { screenshot in
+            // 裁剪出路线区域的正方形截图
+            let cropBounds = MapMarkerTool.getCropRouteBoundsRect(mapView: mapView, bounds: bounds)
+            let croppedImage = screenshot.cropImage(to: cropBounds)
+            completion(croppedImage)
+        }
+
+        // 调整相机位置以显示所有规划的路线点
+        let bounds2 = TGCoordinateBounds(sw: bounds.0, ne: bounds.1)
+        let cameraPosition = mapView.cameraThatFitsBounds(bounds2, withPadding: UIEdgeInsets(top: 180, left: 60, bottom: 280, right: 60))
+        mapView.cameraPosition = cameraPosition
+
+        DispatchQueue.mp_asyncAfter(0.5) {
+            mapView.captureScreenshot(false)
         }
     }
 }
