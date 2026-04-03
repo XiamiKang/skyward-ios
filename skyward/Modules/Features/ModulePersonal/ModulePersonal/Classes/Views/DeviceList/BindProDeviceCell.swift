@@ -55,6 +55,7 @@ class BindProDeviceCell: UITableViewCell {
     
     // MARK: - UI Setup
     private func setupUI() {
+        
         contentView.addSubview(nameLabel)
         contentView.addSubview(contentLabel)
         contentView.addSubview(avatarImageView)

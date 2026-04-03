@@ -8,7 +8,7 @@
 import Foundation
 
 // 组包管理器
-class PacketAssembler {
+public class PacketAssembler {
     private var currentPacketId: UInt32 = 0
     private var receivedPackets: [UInt32: Data] = [:]
     private var totalPackets: Int = 0

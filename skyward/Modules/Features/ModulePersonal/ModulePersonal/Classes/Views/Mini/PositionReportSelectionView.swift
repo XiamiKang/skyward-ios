@@ -225,7 +225,7 @@ class PositionReportSelectionView: UIView {
             let interval: UInt32 = 7200 // 默认2小时
             positionData.append(interval.bigEndianData)
         }
-        BluetoothManager.shared.sendCommand(.setPositionReport, messageContent: positionData)
+        BluetoothManager.shared.setPositionReportInterval(positionData)
         
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) { [weak self] in
             guard let self = self else { return }

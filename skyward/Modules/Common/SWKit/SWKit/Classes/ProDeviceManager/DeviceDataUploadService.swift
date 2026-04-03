@@ -14,7 +14,7 @@ class DeviceDataUploadService {
     static let shared = DeviceDataUploadService()
     
     // MQTT主题前缀
-    private let mqttTopicPrefix = "txts/device/devicetoserver/broad/log/local/"
+    private let mqttTopicPrefix = "txts/device/devicetoserver/broad/log/"
     
     // 上传队列（串行队列，确保顺序上传）
     private let uploadQueue = DispatchQueue(label: "com.device.upload.mqtt", qos: .utility)
@@ -147,7 +147,7 @@ class DeviceDataUploadService {
                 "modernSn": record.acuData.catSN
             ],
             "satelliteData": [
-                "FRData": [
+                "RFData": [
                     "rcst_current_status": record.satelliteData.rcstCurrentStatus,
                     "rf_rx_snr": record.satelliteData.rfRxSnr,
                     "rf_tx_snr": record.satelliteData.rfTxSnr,

@@ -20,7 +20,7 @@ public class PersonalViewModel: ObservableObject {
     // MARK: - 输出属性（使用 @Published 直接定义）
     @Published public var deviceListData: [MiniDeviceData]?
     @Published public var deviceFirmwareData: FirmwareData?
-    @Published public var emergencyInfoData: EmergencyInfoData?
+    @Published public var emergencyInfoData: [EmergencyInfoData]?
     @Published public var userInfoData: UserInfoData?
     @Published public var error: PersonalError?
     @Published public var isLoading = false
@@ -83,11 +83,11 @@ public class PersonalViewModel: ObservableObject {
         
         // 绑定获取紧急联系人
         input.emergencyRequest
-            .flatMap { [weak self] model -> AnyPublisher<EmergencyInfoData, PersonalError> in
+            .flatMap { [weak self] model -> AnyPublisher<[EmergencyInfoData], PersonalError> in
                 guard let self = self else {
                     return Fail(error: .networkError("ViewModel 已释放")).eraseToAnyPublisher()
                 }
-                return self.checkEmergency()
+                return self.checkEmergencyList()
             }
             .receive(on: DispatchQueue.main)
             .sink { [weak self] completion in
@@ -279,21 +279,21 @@ extension PersonalViewModel {
         .eraseToAnyPublisher()
     }
     
-    // MARK: - 获取紧急联系人
-    public func checkEmergency() -> AnyPublisher<EmergencyInfoData, PersonalError> {
+    // MARK: - 获取紧急联系人列表
+    public func checkEmergencyList() -> AnyPublisher<[EmergencyInfoData], PersonalError> {
         isLoading = true
         
-        return Future<EmergencyInfoData, PersonalError> { [weak self] promise in
+        return Future<[EmergencyInfoData], PersonalError> { [weak self] promise in
             guard let self = self else { return }
             
-            self.personalService.getEmergencyContact { result in
+            self.personalService.getEmergencyContactList { result in
                 DispatchQueue.main.async {
                     self.isLoading = false
                     
                     switch result {
                     case .success(let response):
                         do {
-                            let baseResponse = try JSONDecoder().decode(BaseResponse<EmergencyInfoData>.self, from: response.data)
+                            let baseResponse = try JSONDecoder().decode(BaseResponse<[EmergencyInfoData]>.self, from: response.data)
                             
                             if baseResponse.success, let data = baseResponse.data {
                                 promise(.success(data))
@@ -779,4 +779,41 @@ extension PersonalViewModel {
         .eraseToAnyPublisher()
     }
     
+    
+    // MARK: - 获取App更新版本
+    public func checkAppVersion(versionStr: String) -> AnyPublisher<AppVersionData, PersonalError> {
+        isLoading = true
+        
+        return Future<AppVersionData, PersonalError> { [weak self] promise in
+            guard let self = self else { return }
+            
+            self.personalService.checkAppVersion(versionStr) { result in
+                DispatchQueue.main.async {
+                    self.isLoading = false
+                    
+                    switch result {
+                    case .success(let response):
+                        do {
+                            let baseResponse = try JSONDecoder().decode(BaseResponse<AppVersionData>.self, from: response.data)
+                            
+                            if baseResponse.success, let data = baseResponse.data {
+                                promise(.success(data))
+                            } else {
+                                promise(.failure(.businessError(
+                                    message: baseResponse.msg,
+                                    code: baseResponse.code
+                                )))
+                            }
+                        } catch {
+                            promise(.failure(.parseError("数据解析失败")))
+                        }
+                        
+                    case .failure(let error):
+                        promise(.failure(.networkError(error.localizedDescription)))
+                    }
+                }
+            }
+        }
+        .eraseToAnyPublisher()
+    }
 }

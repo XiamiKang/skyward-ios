@@ -139,16 +139,6 @@ public class PersonalServer {
         provider.request(.getDeviceFirmware(model), completion: completion)
     }
     
-    // MARK: - 获取紧急联系人
-    @available(iOS 13.0, *)
-    public func getEmergencyContact() async throws -> Response {
-        return try await provider.request(.getEmergencyContact)
-    }
-    
-    public func getEmergencyContact(_ completion: @escaping (Result<Response, MoyaError>) -> Void) {
-        provider.request(.getEmergencyContact, completion: completion)
-    }
-    
     // MARK: - 获取用户信息
     @available(iOS 13.0, *)
     public func getUserInfo() async throws -> Response {
@@ -177,5 +167,15 @@ public class PersonalServer {
     
     public func deleteEmergencyContact(_ id: String, completion: @escaping (Result<Response, MoyaError>) -> Void) {
         provider.request(.deleteEmergencyContact(id: id), completion: completion)
+    }
+    
+    // MARK: - 获取APP更新版本
+    @available(iOS 13.0, *)
+    public func checkAppVersion(versionStr: String) async throws -> Response {
+        return try await provider.request(.checkAppVersion(versionStr: versionStr))
+    }
+    
+    public func checkAppVersion(_ versionStr: String, completion: @escaping (Result<Response, MoyaError>) -> Void) {
+        provider.request(.checkAppVersion(versionStr: versionStr), completion: completion)
     }
 }

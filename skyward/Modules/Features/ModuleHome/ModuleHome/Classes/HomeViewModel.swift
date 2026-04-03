@@ -176,6 +176,8 @@ public class HomeViewModel: ObservableObject {
                 } else {
                     mutableItem.count = 1
                 }
+            case .disarmSOS:
+                mutableItem.count = 0
             }
             return mutableItem
         }
@@ -211,6 +213,8 @@ public class HomeViewModel: ObservableObject {
             filteredNotices = noticeReponse.weatherList
         case .service:
             filteredNotices = latestNotice != nil ? [latestNotice!] : []
+        case .disarmSOS:
+            filteredNotices = []
         }
         
         // 按noticeTime降序排序
@@ -238,16 +242,36 @@ public class HomeViewModel: ObservableObject {
             guard let location = location else {
                 return
             }
+            
+            var districtName = ""
+            var weatherInfo: WeatherInfo?
+            
+            let group = DispatchGroup()
+            group.enter()
+            LocationManager.reverseGeocode(location: location) { placemark in
+                if let district = placemark?.subLocality {
+                    districtName = district
+                }
+                group.leave()
+            }
+            
+            group.enter()
             NetworkProvider<HomeAPI>().request(.weatherInfo(longitude: location.coordinate.longitude, latitude: location.coordinate.latitude)) { result in
+                group.leave()
                 if case .success(let rsp) = result {
                     do {
                         let networkResponse = try rsp.map(NetworkResponse<WeatherInfo>.self)
-                        if let weatherInfo = networkResponse.data {
-                            self?.weatherInfo = weatherInfo
-                        }
+                        weatherInfo = networkResponse.data
                     } catch {
                         
                     }
+                }
+            }
+            
+            group.notify(queue: .main) {
+                weatherInfo?.district = districtName
+                if weatherInfo != nil {
+                    self?.weatherInfo = weatherInfo
                 }
             }
         }

@@ -32,6 +32,7 @@ public struct RouteMsgModel {
 }
 
 public struct UserPOIModel {
+    public let poiId: String
     public let name: String
     public let description: String
     public let lon: Double
@@ -40,6 +41,22 @@ public struct UserPOIModel {
     public let imgUrlList: [String]?
     public let state: Int  // 状态(0-正常 1-删除)
     public let userId: Int
+    public let address: String?
+    public let altitude: String?
+    
+    public init(poiId: String, name: String, description: String, lon: Double, lat: Double, category: Int, imgUrlList: [String]?, state: Int, userId: Int, address: String?, altitude: String?) {
+        self.poiId = poiId
+        self.name = name
+        self.description = description
+        self.lon = lon
+        self.lat = lat
+        self.category = category
+        self.imgUrlList = imgUrlList
+        self.state = state
+        self.userId = userId
+        self.address = address
+        self.altitude = altitude
+    }
     
     public func toDictionary() -> [String: Any] {
         var dictionary: [String: Any] = [
@@ -52,6 +69,8 @@ public struct UserPOIModel {
             "userId": userId
         ]
         dictionary.addIfPresent(imgUrlList, forKey: "imgUrlList")
+        dictionary.addIfPresent(address, forKey: "address")
+        dictionary.addIfPresent(altitude, forKey: "altitude")
         return dictionary
     }
 }

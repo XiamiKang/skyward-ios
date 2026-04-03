@@ -229,7 +229,7 @@ public class ForgotPasswordViewController: LoginBaseViewController {
             passwordTipLabel.textColor = UIColor.init(hex: "#84888C")
         } else {
             passwordTipLabel.text = isValid ? "密码格式正确" : "需包含英文大小写和数字，长度6~20位"
-            passwordTipLabel.textColor = isValid ? UIColor.systemGreen : UIColor.orange
+            passwordTipLabel.textColor = isValid ? UIColor.green : UIColor.orange
         }
     }
     
@@ -240,7 +240,7 @@ public class ForgotPasswordViewController: LoginBaseViewController {
             confirmPasswordTipLabel.textColor = UIColor.init(hex: "#84888C")
         } else {
             confirmPasswordTipLabel.text = isValid ? "密码一致" : "两次输入的密码不一致"
-            confirmPasswordTipLabel.textColor = isValid ? UIColor.systemGreen : UIColor.orange
+            confirmPasswordTipLabel.textColor = isValid ? UIColor.green : UIColor.orange
         }
     }
     

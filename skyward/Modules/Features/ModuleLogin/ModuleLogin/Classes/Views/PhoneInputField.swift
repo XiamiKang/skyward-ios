@@ -12,7 +12,7 @@ class PhoneInputField: BaseInputField {
     
     // MARK: - UI Components
     private let verifyCodeButton: UIButton = {
-        let button = UIButton(type: .system)
+        let button = UIButton(type: .custom)
         button.setTitle("获取验证码", for: .normal)
         button.setTitleColor(UIColor.init(hex: "#C4C7CA"), for: .normal)
         button.titleLabel?.font = .systemFont(ofSize: 14, weight: .medium)

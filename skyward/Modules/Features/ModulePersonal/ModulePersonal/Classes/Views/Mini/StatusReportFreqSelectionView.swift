@@ -237,7 +237,7 @@ class StatusReportFreqSelectionView: UIView {
         default:
             reportData.append(240)  // 默认4分钟
         }
-        BluetoothManager.shared.sendCommand(.setStatusReportTime, messageContent: reportData)
+        BluetoothManager.shared.setStatusReportFrequency(reportData)
         
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) { [weak self] in
             guard let self = self else { return }

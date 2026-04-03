@@ -8,6 +8,7 @@
 
 import UIKit
 import WebKit
+import SWKit
 
 public class WebViewController: LoginBaseViewController {
     
@@ -21,6 +22,7 @@ public class WebViewController: LoginBaseViewController {
     // MARK: - UI Components
     private lazy var webView: WKWebView = {
         let configuration = WKWebViewConfiguration()
+        
         let webView = WKWebView(frame: .zero, configuration: configuration)
         webView.backgroundColor = .white
         webView.navigationDelegate = self
@@ -30,8 +32,8 @@ public class WebViewController: LoginBaseViewController {
     
     // MARK: - Basic Auth Credentials
     private let predefinedCredentials: [String: (username: String, password: String)] = [
-        "192.168.0.1": ("admin", "admin")
-        // 添加更多预定义认证地址
+        "192.168.0.1": ("admin", "admin"),
+        "192.168.0.8": ("admin", "admin")  // 添加这行
     ]
 
     
@@ -341,25 +343,46 @@ extension WebViewController: WKNavigationDelegate {
                         didReceive challenge: URLAuthenticationChallenge,
                         completionHandler: @escaping (URLSession.AuthChallengeDisposition, URLCredential?) -> Void) {
         
-        guard challenge.protectionSpace.authenticationMethod == NSURLAuthenticationMethodHTTPBasic else {
-            // 如果不是 Basic Auth，使用默认处理
-            completionHandler(.performDefaultHandling, nil)
-            return
+        print("🔐 WebView 认证挑战: \(challenge.protectionSpace.authenticationMethod)")
+        print("   主机: \(challenge.protectionSpace.host)")
+        
+        // 处理服务器信任证书验证 - 这是关键部分！
+        if challenge.protectionSpace.authenticationMethod == NSURLAuthenticationMethodServerTrust {
+            print("   🔐 服务器证书验证")
+            
+            // 检查是否是 192.168.0.8
+            if challenge.protectionSpace.host == "192.168.0.8" {
+                if let serverTrust = challenge.protectionSpace.serverTrust {
+                    let credential = URLCredential(trust: serverTrust)
+                    completionHandler(.useCredential, credential)
+                    print("   ✅ 接受自签名证书: 192.168.0.8")
+                    return
+                }
+            }
+            
+            // 也可以接受所有证书（仅用于测试）
+            // if let serverTrust = challenge.protectionSpace.serverTrust {
+            //     let credential = URLCredential(trust: serverTrust)
+            //     completionHandler(.useCredential, credential)
+            //     return
+            // }
         }
-        
-        let host = challenge.protectionSpace.host
-        print("检测到 HTTP Basic Auth 认证请求，主机: \(host)")
-        
-        // 检查是否有预定义的凭证
-        if let (username, password) = predefinedCredentials[host] {
-            // 使用预定义凭证
-            let credential = URLCredential(user: username,
-                                           password: password,
-                                           persistence: .forSession)
-            print("使用预定义凭证: \(username)/***")
-            completionHandler(.useCredential, credential)
-        } else {
-            // 显示登录弹窗让用户输入
+        // 处理 HTTP Basic Auth
+        if challenge.protectionSpace.authenticationMethod == NSURLAuthenticationMethodHTTPBasic {
+            print("   🔐 HTTP Basic Auth")
+            let host = challenge.protectionSpace.host
+            
+            // 检查是否有预定义的凭证
+            if let (username, password) = predefinedCredentials[host] {
+                let credential = URLCredential(user: username,
+                                               password: password,
+                                               persistence: .forSession)
+                print("   ✅ 使用预定义凭证: \(username)/***")
+                completionHandler(.useCredential, credential)
+                return
+            }
+            
+            // 显示登录弹窗
             showBasicAuthAlert(for: host) { (username, password) in
                 if let username = username, let password = password {
                     let credential = URLCredential(user: username,
@@ -367,11 +390,15 @@ extension WebViewController: WKNavigationDelegate {
                                                    persistence: .forSession)
                     completionHandler(.useCredential, credential)
                 } else {
-                    // 用户取消或输入为空
                     completionHandler(.cancelAuthenticationChallenge, nil)
                 }
             }
+            return
         }
+        
+        // 其他认证方式使用默认处理
+        completionHandler(.performDefaultHandling, nil)
+        
     }
     
     // MARK: - 显示 Basic Auth 登录弹窗
@@ -418,7 +445,5 @@ extension WebViewController: WKNavigationDelegate {
         }
     }
 }
-
-
 
 

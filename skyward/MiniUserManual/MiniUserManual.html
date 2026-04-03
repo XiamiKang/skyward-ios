@@ -1,0 +1,630 @@
+
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <title>行者mini终端说明书</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            -webkit-tap-highlight-color: transparent;
+            font-family: "PingFang SC", "Microsoft YaHei", sans-serif;
+        }
+        body {
+            background-color: #f8f8f8;
+            color: #333;
+            line-height: 1.7;
+            padding: 10px;
+            font-size: 15px;
+        }
+        .container {
+            background: #fff;
+            border-radius: 8px;
+            padding: 15px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        }
+        .title {
+            text-align: center;
+            padding-bottom: 15px;
+            margin-bottom: 20px;
+            border-bottom: 1px solid #eee;
+        }
+        .title h1 {
+            font-size: 18px;
+            font-weight: 600;
+            margin-bottom: 8px;
+        }
+        h2 {
+            font-size: 16px;
+            font-weight: 600;
+            margin: 20px 0 12px;
+            color: #007aff;
+            padding-left: 8px;
+            border-left: 3px solid #007aff;
+        }
+        h3 {
+            font-size: 15px;
+            font-weight: 600;
+            margin: 18px 0 10px;
+            color: #007aff;
+        }
+        p, li {
+            margin: 8px 0;
+            font-size: 15px;
+        }
+        ul {
+            margin-left: 20px;
+            margin-bottom: 10px;
+        }
+        ul li {
+            list-style: disc;
+        }
+        .img-box {
+            text-align: center;
+            margin: 15px 0;
+        }
+        .img-box img {
+            max-width: 100%;
+            height: auto;
+            border-radius: 4px;
+            border: 1px solid #eee;
+            padding: 5px;
+        }
+        .img-box p {
+            font-size: 12px;
+            color: #666;
+            margin-top: 6px;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 15px 0;
+            font-size: 14px;
+        }
+        table, th, td {
+            border: 1px solid #ddd;
+        }
+        th, td {
+            padding: 8px;
+            text-align: center;
+        }
+        th {
+            background-color: #f5faff;
+            color: #007aff;
+            font-weight: 600;
+        }
+        .catalog {
+            margin: 20px 0;
+            padding: 10px;
+            background-color: #f5faff;
+            border-radius: 6px;
+        }
+        .catalog a {
+            color: #007aff;
+            text-decoration: none;
+            line-height: 1.8;
+        }
+        .catalog a:hover {
+            text-decoration: underline;
+        }
+        .note {
+            color: #ff3b30;
+            font-weight: 500;
+            margin: 10px 0;
+            padding: 8px;
+            background: #fff5f5;
+            border-radius: 4px;
+            font-size: 14px;
+        }
+        mark {
+            background: #fff2cc;
+            padding: 2px 4px;
+            border-radius: 2px;
+            color: #d9831f;
+        }
+        a {
+            color: #007aff;
+            text-decoration: none;
+        }
+        a:hover {
+            text-decoration: underline;
+        }
+        .page-desc {
+            margin: 10px 0;
+            padding-left: 10px;
+            border-left: 2px solid #007aff;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="title">
+            <h1>行者mini终端说明书</h1>
+            <p>北京天行探索科技有限公司</p>
+        </div>
+        <!-- 目录 -->
+        <h2>目 录</h2>
+        <div class="catalog">
+            <a href="#p1">1.产品描述</a><br>
+            <a href="#p1-1">&nbsp;&nbsp;1.1 产品概述</a><br>
+            <a href="#p1-2">&nbsp;&nbsp;1.2 产品配置</a><br>
+            <a href="#p2">2.技术特点</a><br>
+            <a href="#p2-1">&nbsp;&nbsp;2.1 产品功能</a><br>
+            <a href="#p2-2">&nbsp;&nbsp;2.2 主要技术指标</a><br>
+            <a href="#p2-3">&nbsp;&nbsp;2.3 主要应用领域</a><br>
+            <a href="#p3">3.接口、按键及指示灯定义</a><br>
+            <a href="#p3-1">&nbsp;&nbsp;3.1 对外接口</a><br>
+            <a href="#p3-2">&nbsp;&nbsp;3.2 按键定义</a><br>
+            <a href="#p3-3">&nbsp;&nbsp;3.3 指示灯定义</a><br>
+            <a href="#p4">4.结构尺寸</a><br>
+            <a href="#p5">5.终端连接</a><br>
+            <a href="#p6">6.终端使用</a><br>
+            <a href="#p6-1">&nbsp;&nbsp;6.1使用步骤</a><br>
+            <a href="#p6-2">&nbsp;&nbsp;6.2注意事项</a><br>
+            <a href="#p7">7.固件升级</a><br>
+            <a href="#p8">8.标准配件</a><br>
+            <a href="#p9">9.APP操作指南</a><br>
+            <a href="#p9-1">&nbsp;&nbsp;9.1登录与注册</a><br>
+            <a href="#p9-2">&nbsp;&nbsp;9.2首页</a><br>
+            <a href="#p9-3">&nbsp;&nbsp;9.3功能</a><br>
+        </div>
+
+        <!-- 1.产品描述 -->
+        <h2 id="p1">1.产品描述</h2>
+        <h3 id="p1-1">1.1 产品概述</h3>
+        <div class="img-box">
+            <img src="img1_1.png" alt="行者mini终端">
+            <img src="img1_2.png" alt="行者mini终端">
+            <p>图 1 行者mini终端</p>
+        </div>
+        <p>行者mini终端（以下简称行者mini，型号TXTS-NB-01）是本公司推出的一款同时支持铱星SBD通信、GNSS多模定位、位置服务、蓝牙无线连接等功能的便携式终端设备。</p>
+        <p>行者mini与智能手机通过蓝牙连接，用户可以通过手机端app实现铱星SBD通信、GNSS多模定位、自动位置上报、姿态异常上报、一键报平安、一键SOS报警、遥感影像、气象水文、海图服务等功能。</p>
+
+        <h3 id="p1-2">1.2 产品配置</h3>
+        <p>表 1 终端配置列表</p>
+        <table>
+            <tr>
+                <th>型号</th>
+                <th>铱星SBD</th>
+                <th>GNSS</th>
+                <th>蓝牙</th>
+                <th>电池</th>
+            </tr>
+            <tr>
+                <td>TXTS-NB-01</td>
+                <td>●</td>
+                <td>●</td>
+                <td>●</td>
+                <td>●</td>
+            </tr>
+        </table>
+
+        <!-- 2.技术特点 -->
+        <h2 id="p2">2.技术特点</h2>
+        <h3 id="p2-1">2.1 产品功能</h3>
+        <ul>
+            <li>铱星SBD功能</li>
+            <li>全球卫星定位功能；</li>
+            <li>语音文字传输功能；</li>
+            <li>支持终端状态查询功能；</li>
+            <li>支持蓝牙5.0连接；</li>
+            <li>支持一键报平安功能；</li>
+            <li>支持一键SOS报警功能；</li>
+            <li>内置锂电池供电；</li>
+            <li>温湿度参数检测功能；</li>
+            <li>Type-C充电。</li>
+        </ul>
+
+        <h3 id="p2-2">2.2 主要技术指标</h3>
+        <p>表 2 主要技术指标</p>
+        <table>
+            <tr>
+                <th>性能指标</th>
+                <th>分类</th>
+                <th>详细参数</th>
+            </tr>
+            <tr>
+                <td>产品型号</td>
+                <td>产品型号</td>
+                <td>TXTS-NB-01</td>
+            </tr>
+            <tr>
+                <td rowspan="3">通信</td>
+                <td>通信方式</td>
+                <td>低轨卫星通信、蓝牙</td>
+            </tr>
+            <tr>
+                <td>工作频段</td>
+                <td>1.616-1.6265 GHz、2.402~2.480GHz</td>
+            </tr>
+            <tr>
+                <td>通信速率</td>
+                <td>2.4Kbps、1Mbps</td>
+            </tr>
+            <tr>
+                <td rowspan="3">定位</td>
+                <td>工作频点</td>
+                <td>GPS L1/ GLONASS L1/ Galileo E1/ BDS B1</td>
+            </tr>
+            <tr>
+                <td>定位精度</td>
+                <td>≤10m</td>
+            </tr>
+            <tr>
+                <td>定位上报频度</td>
+                <td>15分钟/30分钟/1小时 (可设)</td>
+            </tr>
+            <tr>
+                <td rowspan="2">气象水文</td>
+                <td>陆地（中国区域）</td>
+                <td>天气、风、气压等预报指标4次/天，优于10km；未来两小时降水、强对流天气分钟级</td>
+            </tr>
+            <tr>
+                <td>海洋（中国海域）</td>
+                <td>气象、海浪、潮汐等预报指标4次/天，优于10km</td>
+            </tr>
+            <tr>
+                <td>海图</td>
+                <td>更新率</td>
+                <td>1周</td>
+            </tr>
+            <tr>
+                <td rowspan="4">电源</td>
+                <td>持续工作</td>
+                <td>≥72h</td>
+            </tr>
+            <tr>
+                <td>待机</td>
+                <td>≥6天</td>
+            </tr>
+            <tr>
+                <td>电池</td>
+                <td>2500mAh</td>
+            </tr>
+            <tr>
+                <td>充电接口</td>
+                <td>Type-C</td>
+            </tr>
+            <tr>
+                <td rowspan="4">结构</td>
+                <td>重量</td>
+                <td>≤140g</td>
+            </tr>
+            <tr>
+                <td>尺寸</td>
+                <td>≤96mm*68mm*23mm</td>
+            </tr>
+            <tr>
+                <td>颜色</td>
+                <td>黑色/橙色</td>
+            </tr>
+            <tr>
+                <td>防护等级</td>
+                <td>IP67</td>
+            </tr>
+            <tr>
+                <td>环境特性</td>
+                <td>-</td>
+                <td>工作温度:-20~55℃<br/>充电温度0℃-45℃<br/>贮存温度:-20~60℃</td>
+            </tr>
+        </table>
+        <div class="note">
+            注：*1：工作温度：-20℃ ~ +55℃；可靠工作温度：-10℃~ +55℃（推荐）；-10℃至-20℃：电池放电能力降低，低电压下设备可能会自动关机。<br/>
+            *2: 存储温度：短期（1个月内）：-20℃~+60℃；中期（3个月内）：-20℃~+45℃；长期（1年以上）：-5℃~+30℃。
+        </div>
+
+        <h3 id="p2-3">2.3 主要应用领域</h3>
+        <ul>
+            <li>应急救援</li>
+            <li>越野</li>
+            <li>户外运动</li>
+            <li>位置服务</li>
+            <li>数据通信</li>
+        </ul>
+
+        <!-- 3.接口、按键及指示灯定义 -->
+        <h2 id="p3">3.接口、按键及指示灯定义</h2>
+        <h3 id="p3-1">3.1 对外接口</h3>
+        <p>接口型式：Type-C充电接口。</p>
+
+        <h3 id="p3-2">3.2 按键定义</h3>
+        <p>表 3 按键定义表</p>
+        <table>
+            <tr>
+                <th>名称</th>
+                <th>功能定义</th>
+                <th>备注</th>
+            </tr>
+            <tr>
+                <td rowspan="2">开关机键</td>
+                <td>关机状态下短按开机</td>
+                <td>充电时自动开机</td>
+            </tr>
+            <tr>
+                <td>开机状态下长按3秒关机</td>
+                <td>-</td>
+            </tr>
+            <tr>
+                <td>SOS键</td>
+                <td>长按3秒钟进入SOS功能</td>
+                <td>-</td>
+            </tr>
+            <tr>
+                <td>报平安键</td>
+                <td>长按3秒钟进入报平安功能</td>
+                <td>-</td>
+            </tr>
+        </table>
+
+        <h3 id="p3-3">3.3 指示灯定义</h3>
+        <p>表 4 指示灯定义表</p>
+        <table>
+            <tr>
+                <th>名称</th>
+                <th>功能定义</th>
+                <th>备注</th>
+            </tr>
+            <tr>
+                <td rowspan="3">铱星指示灯</td>
+                <td>绿色长亮代表已连接</td>
+                <td>-</td>
+            </tr>
+            <tr>
+                <td>绿色闪烁代表信息收发</td>
+                <td>-</td>
+            </tr>
+            <tr>
+                <td>绿色不亮代表未连接</td>
+                <td>-</td>
+            </tr>
+            <tr>
+                <td rowspan="2">GNSS指示灯</td>
+                <td>绿色长亮代表已定位</td>
+                <td>-</td>
+            </tr>
+            <tr>
+                <td>绿色闪烁代表未定位</td>
+                <td>-</td>
+            </tr>
+            <tr>
+                <td rowspan="2">蓝牙指示灯</td>
+                <td>绿色长亮代表蓝牙已连接</td>
+                <td>-</td>
+            </tr>
+            <tr>
+                <td>绿色闪烁代表蓝牙未连接</td>
+                <td>-</td>
+            </tr>
+            <tr>
+                <td rowspan="3">电源指示灯</td>
+                <td>绿色长亮代表电量充足</td>
+                <td>-</td>
+            </tr>
+            <tr>
+                <td>绿色快闪烁代表电量不足</td>
+                <td>-</td>
+            </tr>
+            <tr>
+                <td>绿色慢闪烁代表正在充电</td>
+                <td>-</td>
+            </tr>
+        </table>
+
+        <!-- 4.结构尺寸 -->
+        <h2 id="p4">4.结构尺寸</h2>
+        <div class="img-box">
+            <img src="img2.png" alt="行者mini结构尺寸图">
+            <p>图 2 行者mini结构尺寸图</p>
+        </div>
+
+        <!-- 5.终端连接 -->
+        <h2 id="p5">5.终端连接</h2>
+        <p>终端通过蓝牙连接手机APP。</p>
+
+        <!-- 6.终端使用 -->
+        <h2 id="p6">6.终端使用</h2>
+        <h3 id="p6-1">6.1使用步骤</h3>
+        <ul>
+            <li>短按开关机键，设备开机，电源指示灯亮；</li>
+            <li>将终端通过蓝牙与手机端APP连接，未连接时蓝牙指示灯闪烁，连接上后蓝牙指示灯会常亮，在APP上可读出终端的所有状态信息；</li>
+            <li>将终端天线正常对天，对方位不敏感，需在无遮挡区域使用，终端上卫星通信指示灯工作正常后，可实现卫星通信；</li>
+            <li>长按终端上SOS按键3s及以上， 一键SOS启动向后台实时上报，若当前信号不佳，待铱星信号下次接入时重传，重传次数10次；</li>
+            <li>长按终端上OK按键3s及以上， 一键报平安启动向后台实时上报，若当前信号不佳，待铱星信号下次接入时重传，重传次数10次；</li>
+            <li>可通过APP软件配置定时上报；</li>
+            <li>设备1分钟无操作，设备进入低功耗状态；</li>
+            <li>长按3s，设备关机。</li>
+        </ul>
+
+        <h3 id="p6-2">6.2注意事项</h3>
+        <ul>
+            <li>使用铱星通信、GNSS定位功能时，天线要保持朝上、无遮挡，建议在空旷的地方使用；</li>
+            <li>电源灯常亮，表示终端电量充足；电源指示灯开始闪烁，表示终端需充电，及时进行充电，充满即保持常亮；电源指示灯不亮时，可能终端电池电量耗尽，需充电，请连接充电器对其进行充电，此时电源闪烁，若连接充电器后，电源灯不亮即为硬件故障，需返修；</li>
+            <li>终端应在-20℃~+50℃温度下使用；</li>
+            <li>请在感觉舒适的温度下为设备充电，过热或过冷的环境都会加速电池损耗；</li>
+            <li>终端长期不使用，贮存时请保持终端电量在50%左右，环境温度在25℃；</li>
+            <li>工作模式下，无定时上报，工作时长为72小时；定时上报15分钟，工作时长为4小时；定时上报1小时，工作时长为24小时；</li>
+            <li>待机模式下，工作时长140小时。</li>
+        </ul>
+
+        <!-- 7.固件升级 -->
+        <h2 id="p7">7.固件升级</h2>
+        <p>通过蓝牙OTA更新固件。</p>
+
+        <!-- 8.标准配件 -->
+        <h2 id="p8">8.标准配件</h2>
+        <p>表 5 标准配件表</p>
+        <table>
+            <tr>
+                <th>序号</th>
+                <th>名称</th>
+                <th>数量</th>
+                <th>备注</th>
+            </tr>
+            <tr>
+                <td>1</td>
+                <td>行者mini终端</td>
+                <td>1</td>
+                <td>-</td>
+            </tr>
+            <tr>
+                <td>2</td>
+                <td>充电线</td>
+                <td>1</td>
+                <td>标配50cm</td>
+            </tr>
+        </table>
+
+        <!-- 9.APP操作指南 -->
+        <h2 id="p9">9.APP操作指南</h2>
+        <h3 id="p9-1">9.1登录与注册</h3>
+        <p>启动APP，进行APP登录。</p>
+        <table>
+            <tr>
+                <th>序号</th>
+                <th>页面</th>
+                <th>说明</th>
+            </tr>
+            <tr>
+                <td>1</td>
+                <td><div class="img-box"><img src="login1.png" alt="密码登录"></div></td>
+                <td>启动APP，即可进行登录，输入账号、密码，并勾选“同意用户协议、隐私政策”</td>
+            </tr>
+            <tr>
+                <td>2</td>
+                <td><div class="img-box"><img src="login2.png" alt="验证码登录"></div></td>
+                <td>切换至“免密登录”，即可通过手机号和短信验证码登录APP</td>
+            </tr>
+            <tr>
+                <td>3</td>
+                <td><div class="img-box"><img src="register.png" alt="注册页面"></div></td>
+                <td>点击“立即注册”，进行APP注册。</td>
+            </tr>
+            <tr>
+                <td>4</td>
+                <td><div class="img-box"><img src="forget-pwd.png" alt="忘记密码"></div></td>
+                <td>点击“忘记密码”按钮，可更新用户密码</td>
+            </tr>
+        </table>
+
+        <h3 id="p9-2">9.2首页</h3>
+        <table>
+            <tr>
+                <th>序号</th>
+                <th>页面</th>
+                <th>说明</th>
+            </tr>
+            <tr>
+                <td>1</td>
+                <td><div class="img-box"><img src="home1.png" alt="首页主界面"></div></td>
+                <td>在设备中心连接好设备后，会在顶部显示连接的【行者mini】设备，核心功能：<br/>1. 蓝牙信号强度展示；<br/>2. 铱星信号强度展示；<br/>3. 展开已绑定设备列表；<br/>4. 定位位置天气/温度；<br/>5. 一键定位当前位置；<br/>6. 查看完整地图；<br/>7. 展示报平安/SOS/天气预警消息；<br/>8. 进入服务中心与紧急联系人聊天；<br/>9. 一键报平安；<br/>10. 长按3秒SOS紧急报警（无网络也可使用）。</td>
+            </tr>
+            <tr>
+                <td>2</td>
+                <td><div class="img-box"><img src="home2.png" alt="设备列表"></div></td>
+                <td>展开已绑定配对的【行者mini】设备，核心功能：<br/>1. 收起设备列表；<br/>2. 显示历史绑定未连接设备；<br/>3. 点击连接身边已开机设备；<br/>4. 显示当前连接设备的名称、信号、电量；<br/>5. 断开当前设备连接。</td>
+            </tr>
+            <tr>
+                <td>3</td>
+                <td><div class="img-box"><img src="home3.png" alt="完整地图"></div></td>
+                <td>完整地图界面核心功能：<br/>1. 输入地名/经纬度搜索位置；<br/>2. 测距、测面积、图层切换、添加兴趣点；<br/>3. 一键定位当前位置；<br/>4. 地图指向正北；<br/>5. 记录/查看轨迹；<br/>6. 一键报平安；<br/>7. 长按3秒SOS紧急报警。</td>
+            </tr>
+            <tr>
+                <td>4</td>
+                <td><div class="img-box"><img src="home4.png" alt="服务中心"></div></td>
+                <td>服务中心界面核心功能：<br/>1. 查看SOS报警平台回执；<br/>2. 查看天气预警消息；<br/>3. 查看报平安平台回执；<br/>4. 与紧急联系人实时聊天。</td>
+            </tr>
+        </table>
+
+        <h3 id="p9-3">9.3功能</h3>
+        <p>登录 APP 后，在底部导航栏选择 “我的”，即可进入该功能模块。</p>
+        <table>
+            <tr>
+                <th>序号</th>
+                <th>页面</th>
+                <th>说明</th>
+            </tr>
+            <tr>
+                <td>1</td>
+                <td><div class="img-box"><img src="mine1.png" alt="我的主界面"></div></td>
+                <td>查看个人资料：进入“我的” 页面后，即可查看当前登陆用户的个人信息。</td>
+            </tr>
+            <tr>
+                <td>2</td>
+                <td><div class="img-box"><img src="mine2.png" alt="编辑资料"></div></td>
+                <td>编辑资料：点击“编辑资料”后，可编辑头像、昵称、所在城市、性别、个性签名。</td>
+            </tr>
+            <tr>
+                <td>3</td>
+                <td><div class="img-box"><img src="mine3.png" alt="紧急救援服务"></div></td>
+                <td>紧急救援服务：点击“紧急救援服务”，可查看当前APP用户绑定的紧急联系人。</td>
+            </tr>
+            <tr>
+                <td>4</td>
+                <td><div class="img-box"><img src="mine4.png" alt="修改紧急联系人"></div></td>
+                <td>直接替换昵称和电话，可修改当前登陆用户绑定的紧急联系人。</td>
+            </tr>
+            <tr>
+                <td>5</td>
+                <td><div class="img-box"><img src="mine5.png" alt="我的卫星装备"></div></td>
+                <td>我的卫星装备：点击进入设备列表界面，在顶部切换菜单，可分别查看行者Mini和行者Pro设备的列表。</td>
+            </tr>
+            <tr>
+                <td>6</td>
+                <td><div class="img-box"><img src="mine6.png" alt="扫描设备"></div></td>
+                <td>点击“绑定设备”，进行新设备的扫描与绑定。</td>
+            </tr>
+            <tr>
+                <td>7</td>
+                <td><div class="img-box"><img src="mine7.png" alt="连接设备"></div></td>
+                <td>点击“连接”，就会连接到该设备，按钮变成“已连接”，然后自动跳转到连接成功页面。</td>
+            </tr>
+            <tr>
+                <td>8</td>
+                <td><div class="img-box"><img src="mine8.png" alt="设备连接成功"></div></td>
+                <td>点击“查看设备详情”，直接跳转到设备详情页面。</td>
+            </tr>
+            <tr>
+                <td>9</td>
+                <td><div class="img-box"><img src="mine9.png" alt="设备详情"></div></td>
+                <td>设备详情：查看设备电量、连接状态；可点击“设备信息”查询设备参数、“设置”配置设备、“复位”重置配置、“固件升级”更新设备版本；连接失败可重启蓝牙/重新登录APP。</td>
+            </tr>
+            <tr>
+                <td>11</td>
+                <td><div class="img-box"><img src="mine11.png" alt="设备设置"></div></td>
+                <td>设备设置：配置设备名称、设备模式、参数更新频率、上报平台频率、定位存储间隔、低功耗唤醒时间；点击“解除绑定”，可解除设备与当前用户的绑定。</td>
+            </tr>
+            <tr>
+                <td>12</td>
+                <td><div class="img-box"><img src="mine12.png" alt="APP设置"></div></td>
+                <td>APP设置：进入后可检查版本更新、联系客服、查看隐私政策/用户协议、修改密码、注销账号、退出登录。</td>
+            </tr>
+            <tr>
+                <td>13</td>
+                <td><div class="img-box"><img src="mine13.png" alt="版本更新"></div></td>
+                <td>APP版本更新：检查当前APP是否需要更新，点击更新可下载安装新版本。</td>
+            </tr>
+            <tr>
+                <td>14</td>
+                <td><div class="img-box"><img src="mine14.png" alt="联系我们"></div></td>
+                <td>联系我们：弹出北京天行探索公司热线电话，可向客服拨打电话。</td>
+            </tr>
+            <tr>
+                <td>15</td>
+                <td><div class="img-box"><img src="mine15.png" alt="隐私政策"></div></td>
+                <td>隐私政策：点击可查看行者Adventure完整隐私政策协议文件。</td>
+            </tr>
+            <tr>
+                <td>16</td>
+                <td><div class="img-box"><img src="mine16.png" alt="用户协议"></div></td>
+                <td>用户协议：点击可查看行者Adventure完整用户服务协议文件。</td>
+            </tr>
+        </table>
+        
+        <p>如果您遇到任何疑难问题，可与我们的技术支持联系，我们将竭诚为您服务！</p>
+    </div>
+</body>
+</html>

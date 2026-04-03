@@ -5,11 +5,11 @@
 //  Created by TXTS on 2025/11/18.
 //
 
-
 import UIKit
 import CoreBluetooth
 import SWKit
 import Combine
+import SWTheme
 
 public class MiniDeviceDetailViewController: PersonalBaseViewController {
     
@@ -34,7 +34,7 @@ public class MiniDeviceDetailViewController: PersonalBaseViewController {
     
     private lazy var miniTableView: UITableView = {
         let tableView = UITableView(frame: .zero, style: .plain)
-        tableView.backgroundColor = UIColor(str: "#F2F3F4")
+        tableView.backgroundColor = ThemeManager.current.mediumGrayBGColor
         tableView.separatorStyle = .none
         tableView.delegate = self
         tableView.dataSource = self
@@ -58,7 +58,7 @@ public class MiniDeviceDetailViewController: PersonalBaseViewController {
     
     // MARK: - Setup
     private func setupUI() {
-        view.backgroundColor = UIColor(hex: "#F2F3F4")
+        view.backgroundColor = ThemeManager.current.mediumGrayBGColor
         customTitle.text = "详情"
         
         view.addSubview(miniTableView)
@@ -97,6 +97,10 @@ public class MiniDeviceDetailViewController: PersonalBaseViewController {
                                                selector: #selector(showSatelliteInfo(_:)),
                                                name: .didReceiveSatelliteInfo,
                                                object: nil)
+        NotificationCenter.default.addObserver(self,
+                                               selector: #selector(makeFirmwareDataNil),
+                                               name: .didFirmwareUpdateOver,
+                                               object: nil)
     }
     
     @objc private func showDeviceInfo(_ notification: Notification) {
@@ -108,6 +112,7 @@ public class MiniDeviceDetailViewController: PersonalBaseViewController {
             miniVersion = String(mcuSoftwareVersion.dropFirst())
             print("Mini设备固件版本信息---\(miniVersion)")
             let hardwareModel = formatHardware(deviceInfo.mcuHardwareVersion)
+            print("Mini设备-mcuHardware---\(hardwareModel)")
             let model = DeviceFirmwareModel(deviceType: 1, versionCode: miniVersion, hardwareModel: hardwareModel)
             self.checkNewVersion(model: model)
         }
@@ -141,6 +146,10 @@ public class MiniDeviceDetailViewController: PersonalBaseViewController {
         }
     }
     
+    @objc private func makeFirmwareDataNil() {
+        currentFirmwareData = nil
+    }
+    
     private func checkNewVersion(model: DeviceFirmwareModel) {
         viewModel.input.deviceFirmwareRequest.send(model)
         
@@ -150,14 +159,17 @@ public class MiniDeviceDetailViewController: PersonalBaseViewController {
             .sink { [weak self] firmwareData in
                 guard let self = self else { return }
                 print("固件信息-----\(firmwareData)")
-                if firmwareData.firmwareUrl != nil {
-                    self.newVersion = true
-                }else {
-                    self.newVersion = false
-                }
-                self.currentFirmwareData = firmwareData
-                DispatchQueue.main.async {
-                    self.miniTableView.reloadData()
+                print("\(miniVersion)")
+                if firmwareData.versionName != miniVersion {
+                    if firmwareData.firmwareUrl != nil {
+                        self.newVersion = true
+                    }else {
+                        self.newVersion = false
+                    }
+                    self.currentFirmwareData = firmwareData
+                    DispatchQueue.main.async {
+                        self.miniTableView.reloadData()
+                    }
                 }
             }
             .store(in: &cancellables)
@@ -218,8 +230,16 @@ public class MiniDeviceDetailViewController: PersonalBaseViewController {
             view.sw_showWarningToast("请先连接设备")
             return
         }
-        let vc = MiniDeviceMsgViewController()
-        vc.deviceInfo = self.miniDeviceInfo
+        guard let miniDeviceInfo = miniDeviceInfo else {
+            print("获取设备信息错误")
+            return
+        }
+        guard let deviceInfo = deviceInfo,
+              let imeiStr = deviceInfo.imeiNum else {
+            print("获取设备IMEI错误")
+            return
+        }
+        let vc = MiniDeviceMsgViewController(deviceInfo: miniDeviceInfo, imeiStr: imeiStr)
         self.navigationController?.pushViewController(vc, animated: true)
     }
     
@@ -232,9 +252,7 @@ public class MiniDeviceDetailViewController: PersonalBaseViewController {
             return
         }
         // 跳转到固件升级页面
-        let updateVC = MiniDeviceUpdateViewController()
-        updateVC.currentVersion = miniVersion
-        updateVC.currentFirmwareData = currentFirmwareData
+        let updateVC = MiniDeviceUpdateViewController(currentVersion: miniVersion, currentFirmwareData: currentFirmwareData)
         self.navigationController?.pushViewController(updateVC, animated: true)
     }
     
@@ -248,7 +266,7 @@ public class MiniDeviceDetailViewController: PersonalBaseViewController {
         }
         BluetoothManager.shared.getSatelliteRecords()
         
-        let msgVC = MiniDeviceNoSendMsgViewController()
+        let msgVC = MiniDeviceNoSendMsgViewController(imeiStr: deviceInfo?.imeiNum ?? "")
         self.navigationController?.pushViewController(msgVC, animated: true)
     }
     
@@ -269,7 +287,7 @@ public class MiniDeviceDetailViewController: PersonalBaseViewController {
     private func refreshMiniDeviceData() {
         BluetoothManager.shared.requestStatusInfo()
         BluetoothManager.shared.requestDeviceInfo()
-        BluetoothManager.shared.getSatelliteSignal()
+//        BluetoothManager.shared.getSatelliteSignal()
     }
 }
 
@@ -346,7 +364,7 @@ extension MiniDeviceDetailViewController: UITableViewDelegate, UITableViewDataSo
                 guard let self = self else {return}
                 switch index {
                 case 0:
-                    self.settingsButtonTapped()
+                    self.recordButtonTapped()
                     return
                 case 1:
                     self.reSetButtonTapped()
@@ -356,6 +374,9 @@ extension MiniDeviceDetailViewController: UITableViewDelegate, UITableViewDataSo
                     return
                 case 3:
                     self.firmwareButtonTapped()
+                    return
+                case 4:
+                    self.settingsButtonTapped()
                     return
                 default:
                     return
@@ -373,12 +394,13 @@ extension MiniDeviceDetailViewController: UITableViewDelegate, UITableViewDataSo
         case 0:
             return 180
         case 1:
-            return 180
+            return 120
         case 2:
-            return 130
+            return 200
         default:
             return 200
         }
     }
 }
+
 

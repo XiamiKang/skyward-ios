@@ -18,6 +18,6 @@ public class HomeModule: ModuleType {
     
     /// 当前模块的路由
     public var routeSettings: [any RoutableType.Type] {
-        return [HomeRouter.self]
+        return [HomeRouter.self, HomeWeatherInfoRouter.self]
     }
 }

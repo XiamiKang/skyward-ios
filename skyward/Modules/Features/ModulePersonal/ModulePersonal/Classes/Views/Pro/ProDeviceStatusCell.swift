@@ -7,6 +7,7 @@
 
 import UIKit
 import SWKit
+import SWTheme
 
 class ProDeviceStatusCell: UITableViewCell {
     
@@ -32,7 +33,7 @@ class ProDeviceStatusCell: UITableViewCell {
     private let altitudeLabel = UILabel()
     private let temLabel = UILabel()
     private let humLabel = UILabel()
-
+    
     
     var refreshAction: (() -> Void)?
     
@@ -47,7 +48,7 @@ class ProDeviceStatusCell: UITableViewCell {
     
     private func setupUI() {
         selectionStyle = .none
-        backgroundColor = UIColor(str: "#F2F3F4")
+        backgroundColor = ThemeManager.current.mediumGrayBGColor
         
         bgView.backgroundColor = .white
         bgView.layer.cornerRadius = 8
@@ -74,16 +75,15 @@ class ProDeviceStatusCell: UITableViewCell {
         bgView.addSubview(msgLockText)
         
         msgRunText.text = "--"
-               msgRunText.textColor = UIColor(str: "#070808")
-               msgRunText.font = UIFont.systemFont(ofSize: 14, weight: .medium)
-               msgRunText.textAlignment = .center
-               bgView.addSubview(msgRunText)
-
+        msgRunText.textColor = UIColor(str: "#070808")
+        msgRunText.font = UIFont.systemFont(ofSize: 14, weight: .medium)
+        msgRunText.textAlignment = .right
+        bgView.addSubview(msgRunText)
         
         msgCollectionText.text = "--"
         msgCollectionText.textColor = UIColor(str: "#070808")
         msgCollectionText.font = UIFont.systemFont(ofSize: 14, weight: .medium)
-        msgCollectionText.textAlignment = .right
+        msgCollectionText.textAlignment = .center
         bgView.addSubview(msgCollectionText)
         
         msgLongitudeText.text = "--"
@@ -105,17 +105,17 @@ class ProDeviceStatusCell: UITableViewCell {
         bgView.addSubview(msgAltitudeText)
         
         msgTemText.text = "--"
-               msgTemText.textColor = UIColor(str: "#070808")
-               msgTemText.font = UIFont.systemFont(ofSize: 14, weight: .medium)
-               msgTemText.textAlignment = .left
-               bgView.addSubview(msgTemText)
-               
-               msgHumText.text = "--"
-               msgHumText.textColor = UIColor(str: "#070808")
-               msgHumText.font = UIFont.systemFont(ofSize: 14, weight: .medium)
-               msgHumText.textAlignment = .center
-               bgView.addSubview(msgHumText)
-
+        msgTemText.textColor = UIColor(str: "#070808")
+        msgTemText.font = UIFont.systemFont(ofSize: 14, weight: .medium)
+        msgTemText.textAlignment = .left
+        bgView.addSubview(msgTemText)
+        
+        msgHumText.text = "--"
+        msgHumText.textColor = UIColor(str: "#070808")
+        msgHumText.font = UIFont.systemFont(ofSize: 14, weight: .medium)
+        msgHumText.textAlignment = .center
+        bgView.addSubview(msgHumText)
+        
         
         lockLabel.text = "锁定状态"
         lockLabel.textColor = UIColor(str: "#84888C")
@@ -124,15 +124,15 @@ class ProDeviceStatusCell: UITableViewCell {
         bgView.addSubview(lockLabel)
         
         runLabel.text = "运行状态"
-                runLabel.textColor = UIColor(str: "#84888C")
-                runLabel.font = UIFont.systemFont(ofSize: 12, weight: .regular)
-                runLabel.textAlignment = .center
-                bgView.addSubview(runLabel)
-
-        collectionLabel.text = "入网"
+        runLabel.textColor = UIColor(str: "#84888C")
+        runLabel.font = UIFont.systemFont(ofSize: 12, weight: .regular)
+        runLabel.textAlignment = .right
+        bgView.addSubview(runLabel)
+        
+        collectionLabel.text = "入网状态"
         collectionLabel.textColor = UIColor(str: "#84888C")
         collectionLabel.font = UIFont.systemFont(ofSize: 12, weight: .regular)
-        collectionLabel.textAlignment = .right
+        collectionLabel.textAlignment = .center
         bgView.addSubview(collectionLabel)
         
         
@@ -155,17 +155,17 @@ class ProDeviceStatusCell: UITableViewCell {
         bgView.addSubview(altitudeLabel)
         
         temLabel.text = "终端温度"
-                temLabel.textColor = UIColor(str: "#84888C")
-                temLabel.font = UIFont.systemFont(ofSize: 12, weight: .regular)
-                temLabel.textAlignment = .left
-                bgView.addSubview(temLabel)
-                
-                humLabel.text = "终端湿度"
-                humLabel.textColor = UIColor(str: "#84888C")
-                humLabel.font = UIFont.systemFont(ofSize: 12, weight: .regular)
-                humLabel.textAlignment = .center
-                bgView.addSubview(humLabel)
-
+        temLabel.textColor = UIColor(str: "#84888C")
+        temLabel.font = UIFont.systemFont(ofSize: 12, weight: .regular)
+        temLabel.textAlignment = .left
+        bgView.addSubview(temLabel)
+        
+        humLabel.text = "终端湿度"
+        humLabel.textColor = UIColor(str: "#84888C")
+        humLabel.font = UIFont.systemFont(ofSize: 12, weight: .regular)
+        humLabel.textAlignment = .center
+        bgView.addSubview(humLabel)
+        
         
         setConstraint()
     }
@@ -191,7 +191,7 @@ class ProDeviceStatusCell: UITableViewCell {
         altitudeLabel.translatesAutoresizingMaskIntoConstraints = false
         temLabel.translatesAutoresizingMaskIntoConstraints = false
         humLabel.translatesAutoresizingMaskIntoConstraints = false
-
+        
         NSLayoutConstraint.activate([
             
             bgView.topAnchor.constraint(equalTo: topAnchor),
@@ -214,20 +214,20 @@ class ProDeviceStatusCell: UITableViewCell {
             msgLockText.topAnchor.constraint(equalTo: lineStatusText.bottomAnchor, constant: 16),
             msgLockText.leadingAnchor.constraint(equalTo: bgView.leadingAnchor, constant: 16),
             
-            msgRunText.topAnchor.constraint(equalTo: lineStatusText.bottomAnchor, constant: 16),
-            msgRunText.centerXAnchor.constraint(equalTo: bgView.centerXAnchor),
-            
             msgCollectionText.topAnchor.constraint(equalTo: lineStatusText.bottomAnchor, constant: 16),
-            msgCollectionText.trailingAnchor.constraint(equalTo: bgView.trailingAnchor, constant: -16),
+            msgCollectionText.centerXAnchor.constraint(equalTo: bgView.centerXAnchor),
+            
+            msgRunText.topAnchor.constraint(equalTo: lineStatusText.bottomAnchor, constant: 16),
+            msgRunText.trailingAnchor.constraint(equalTo: bgView.trailingAnchor, constant: -16),
             
             lockLabel.topAnchor.constraint(equalTo: msgLockText.bottomAnchor, constant: 5),
             lockLabel.leadingAnchor.constraint(equalTo: bgView.leadingAnchor, constant: 16),
             
-            runLabel.topAnchor.constraint(equalTo: msgRunText.bottomAnchor, constant: 5),
-            runLabel.centerXAnchor.constraint(equalTo: bgView.centerXAnchor),
+            collectionLabel.topAnchor.constraint(equalTo: msgRunText.bottomAnchor, constant: 5),
+            collectionLabel.centerXAnchor.constraint(equalTo: bgView.centerXAnchor),
             
-            collectionLabel.topAnchor.constraint(equalTo: msgCollectionText.bottomAnchor, constant: 5),
-            collectionLabel.trailingAnchor.constraint(equalTo: bgView.trailingAnchor, constant: -16),
+            runLabel.topAnchor.constraint(equalTo: msgCollectionText.bottomAnchor, constant: 5),
+            runLabel.trailingAnchor.constraint(equalTo: bgView.trailingAnchor, constant: -16),
             
             //经纬，海拔
             msgLongitudeText.topAnchor.constraint(equalTo: lockLabel.bottomAnchor, constant: 16),
@@ -291,7 +291,7 @@ class ProDeviceStatusCell: UITableViewCell {
     func configRunStatus(with data: SatelliteLinkStatus) {
         msgRunText.text = data.description
     }
-
+    
     // 经纬度转换
     func convertToDMSTuple(_ coordinate: Double) -> (degrees: Int, minutes: Int, seconds: Int) {
         let absCoordinate = abs(coordinate)
@@ -302,7 +302,7 @@ class ProDeviceStatusCell: UITableViewCell {
         let seconds = Int(secondsDecimal)
         return (degrees, minutes, seconds)
     }
-
+    
     // 方法2：返回格式化字符串
     func convertToDMSString(_ coordinate: Double) -> String {
         let (degrees, minutes, seconds) = convertToDMSTuple(coordinate)

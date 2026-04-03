@@ -19,8 +19,19 @@ public class MessageModule: ModuleType {
     /// 当前模块的路由
     public var routeSettings: [any RoutableType.Type] {
         return [ConvPageRouter.self,
-                UrgentMessagePageRouter.self,
-                StartMonitorMessageRouter.self,
-                StopMonitorMessageRouter.self]
+                UrgentMessagePageRouter.self]
+    }
+    
+    public func moduleSetup() {
+        DBManager.shared.createTable(table: DBTableName.urgentMessage.rawValue, of: UrgentMessage.self)
+        MessageManager.shared.startMonitorMessage()
+    }
+    
+    public func loginSuccess() {
+        moduleSetup()
+    }
+    
+    public func logoutSuccess() {
+        MessageManager.shared.stopMonitorMessage()
     }
 }

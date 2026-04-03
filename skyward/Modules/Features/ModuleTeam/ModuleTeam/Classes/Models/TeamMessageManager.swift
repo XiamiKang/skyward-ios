@@ -109,11 +109,6 @@ class TeamMessageManager: MQTTManagerDelegate {
     static let shared = TeamMessageManager()
     
     func startMonitorNewMessage() {
-        
-        DBManager.shared.createTable(table: DBTableName.conversation.rawValue, of: Conversation.self)
-        DBManager.shared.createTable(table: DBTableName.message.rawValue, of: Message.self)
-        DBManager.shared.createTable(table: DBTableName.team.rawValue, of: Team.self)
-        
         MQTTManager.shared.addDelegate(self)
         MQTTManager.shared.subscribe(to: TeamAPI.receiveMessage_sub)
         

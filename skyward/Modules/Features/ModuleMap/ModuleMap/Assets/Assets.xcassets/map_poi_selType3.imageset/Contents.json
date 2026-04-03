@@ -1,17 +1,17 @@
 {
   "images" : [
     {
-      "filename" : "公共设施.png",
+      "filename" : "poi_oil.png",
       "idiom" : "universal",
       "scale" : "1x"
     },
     {
-      "filename" : "公共设施@2x.png",
+      "filename" : "poi_oil@2x.png",
       "idiom" : "universal",
       "scale" : "2x"
     },
     {
-      "filename" : "公共设施@3x.png",
+      "filename" : "poi_oil@3x.png",
       "idiom" : "universal",
       "scale" : "3x"
     }

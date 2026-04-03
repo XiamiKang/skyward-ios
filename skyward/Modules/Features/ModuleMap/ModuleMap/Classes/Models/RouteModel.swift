@@ -13,6 +13,29 @@ import TXKit
 public enum RouteType: Int {
     case route
     case track
+
+    func name() -> String {
+        switch self {
+        case .route:
+            return "路线"
+        case .track:
+            return "轨迹"
+        }
+    }
+}
+
+public enum PublicPOIChooseType: Int {
+    case checkout
+    case collect
+
+    func name() -> String {
+        switch self {
+        case .checkout:
+            return "打卡"
+        case .collect:
+            return "收藏"
+        }
+    }
 }
 
 // 路线/轨迹记录
@@ -26,11 +49,20 @@ struct Route: TableCodable {
     var endLongitude: Double?
     var endLatitude: Double?
     var distance: Double?
-    var travelTime: Int32?
-    var altitude: Double?
+    var travelTime: Int?
+    var maxAltitude: Double?
     var description: String?
     var fileUrl: String?
+    var coverImageUrl: String?
     var type: Int?
+    var createTime: String?
+    
+    // 非服务端字段
+    var uploaded: Bool?
+    var isVisible: Bool?
+    // 非表字段
+    var selected: Bool? = false
+    var uploading: Bool? = false
     
     enum CodingKeys: String, CodingTableKey {
         typealias Root = Route
@@ -45,13 +77,20 @@ struct Route: TableCodable {
         case endLatitude
         case distance
         case travelTime
-        case altitude
+        case maxAltitude
         case description
         case fileUrl
+        case coverImageUrl
         case type
+        case createTime
+        
+        case uploaded
+        case isVisible
         
         static let objectRelationalMapping = TableBinding(CodingKeys.self) {
             BindColumnConstraint(id, isPrimary: true)
+            BindColumnConstraint(uploaded, defaultTo: false)
+            BindColumnConstraint(isVisible, defaultTo: false)
         }
     }
     
@@ -65,7 +104,7 @@ struct Route: TableCodable {
         
         let startLonDesc = startLongitude.convertToDMSString(isLongitude: true)
         let startLatDesc = startLatitude.convertToDMSString(isLongitude: false)
-        let coordinateDesc = startLonDesc + "," + startLatDesc
+        let coordinateDesc = startLonDesc + ", " + startLatDesc
         
         let range = NSRange(location: 0, length: startName.count)
         let attributedString = NSMutableAttributedString(string: startName + "\n" + coordinateDesc,

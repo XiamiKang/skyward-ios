@@ -10,10 +10,12 @@ import TXKit
 import SWKit
 import SWNetwork
 import ModuleLogin
+import SWTheme
 
 class SettingViewController: PersonalBaseViewController {
     
     private let viewModel = PersonalViewModel()
+    public var userInfo: UserInfoData?
     
     private lazy var tableView: UITableView = {
         let tableview = UITableView()
@@ -24,6 +26,7 @@ class SettingViewController: PersonalBaseViewController {
         tableview.dataSource = self
         tableview.rowHeight = 60
         tableview.register(BindProDeviceCell.self, forCellReuseIdentifier: "BindProDeviceCell")
+        tableview.register(DevieceSettingCell.self, forCellReuseIdentifier: "DevieceSettingCell")
         return tableview
     }()
     
@@ -60,7 +63,7 @@ class SettingViewController: PersonalBaseViewController {
 #if DEBUG
         let tap = UITapGestureRecognizer(target: self, action: #selector(goLogManager))
         tap.numberOfTapsRequired = 3
-        customNavView.addGestureRecognizer(tap)
+        view.addGestureRecognizer(tap)
 #endif
     }
     
@@ -84,7 +87,9 @@ class SettingViewController: PersonalBaseViewController {
     }
     
     private func loadWifiData() {
-        let titles = ["检查APP版本更新", "联系我们", "隐私政策", "用户协议", "修改密码", "注销账号"]
+        let titles = ["检查APP版本更新", "联系我们", "隐私政策", "用户协议", "手机号", "修改密码", "注销账号", "APP端SOS发送频率"]
+        let savedFrequency = SOSManager.shared.getSOSReportFrequency()
+        let frequencyString = SOSReportHelper.reportString(from: savedFrequency)
         dataSource = [
             [SettingData(
                 titleStr: titles[0],
@@ -109,7 +114,7 @@ class SettingViewController: PersonalBaseViewController {
             [
                 SettingData(
                     titleStr: titles[4],
-                    contentStr: "",
+                    contentStr: userInfo?.phone?.hidePhoneNumber() ?? "",
                     canChange: true
                 ),
                 SettingData(
@@ -117,6 +122,18 @@ class SettingViewController: PersonalBaseViewController {
                     contentStr: "",
                     canChange: true
                 ),
+                SettingData(
+                    titleStr: titles[6],
+                    contentStr: "",
+                    canChange: true
+                ),
+            ],
+            [
+                SettingData(
+                    titleStr: titles[7],
+                    contentStr: frequencyString,
+                    canChange: true
+                )
             ]
         ]
         
@@ -126,24 +143,43 @@ class SettingViewController: PersonalBaseViewController {
     @objc private func stateBindProClick() {
         SWAlertView.showAlert(title: "确认退出登录吗？", message: "", confirmTitle: "确定") { [weak self] in
             guard let self = self else { return }
+            UserManager.shared.logout()
             self.viewModel.logout()
                 .receive(on: DispatchQueue.main)
-                .sink { [weak self] completion in
-                    if case .failure(_) = completion {
-                        self?.view.sw_showWarningToast("退出登录失败")
-                    }
-                } receiveValue: { [weak self] success in
-                    if success {
-                        UIWindow.topWindow?.sw_showSuccessToast("退出登录成功")
-                        UserManager.shared.logout()
-                    } else {
-                        self?.view.sw_showWarningToast("退出登录失败")
-                    }
+                .sink { _ in
+                } receiveValue: { _ in
                 }
                 .store(in: &self.viewModel.cancellables)
         }
         
     }
+    
+    private func checkAppVersion() {
+        // 获取版本号并移除点号
+        guard let version = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String else {
+            view.sw_showWarningToast("无法获取应用版本号")
+            return
+        }
+        
+        let versionWithoutDots = version.replacingOccurrences(of: ".", with: "")
+        
+        viewModel.checkAppVersion(versionStr: versionWithoutDots)
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] completion in
+                switch completion {
+                case .finished:
+                    break
+                case .failure(_):
+                    // 错误处理
+                    self?.view.sw_showSuccessToast("当前已是最新版本")
+                }
+            } receiveValue: { [weak self] versionData in
+                // 处理版本数据
+                self?.handleVersionCheckResult(versionData, currentVersion: version)
+            }
+            .store(in: &viewModel.cancellables)
+    }
+    
     
     func contactUs() {
         SWAlertView.showAlert(title: "联系我们", message: "客服电话：028-86110100") {
@@ -168,6 +204,75 @@ class SettingViewController: PersonalBaseViewController {
         )
         self.navigationController?.pushViewController(webVC, animated: true)
     }
+    
+    private func handleVersionCheckResult(_ data: AppVersionData, currentVersion: String) {
+        // 获取服务器返回的版本名称
+        guard let latestVersion = data.versionName else {
+            view.sw_showWarningToast("版本信息获取失败")
+            return
+        }
+        
+        // 获取升级类型
+        guard let upgradeTypeInt = data.upgradeType else {
+            view.sw_showWarningToast("升级类型获取失败")
+            return
+        }
+        
+        // 0:无需升级 1:建议升级 2:强制升级
+        switch upgradeTypeInt {
+        case 0:
+            // 无需升级
+            view.sw_showSuccessToast("当前已是最新版本")
+            
+        case 1, 2:
+            // 需要升级（建议升级或强制升级）
+            // 显示更新弹窗
+            AppVersionUpdateView.showUpdateDialog(
+                in: self.view,
+                version: latestVersion,
+                upgradeType: upgradeTypeInt,
+                updateUrl: data.fileUrl,
+                cancelHandler: { [weak self] in
+                    print("用户取消了更新")
+                    // 可以在这里添加统计等逻辑
+                    
+                    // 如果是强制升级，用户点击取消时可能需要特殊处理
+                    if upgradeTypeInt == 2 {
+                        // 强制升级时，理论上不应该有取消按钮，但以防万一
+                        self?.handleForceUpdateCancel()
+                    }
+                },
+                updateHandler: {
+                    print("用户点击了更新")
+                    // 可以在这里添加统计等逻辑
+                    
+                }
+            )
+            
+        default:
+            view.sw_showWarningToast("未知的升级类型")
+        }
+    }
+
+    /// 处理强制升级时用户取消的情况
+    private func handleForceUpdateCancel() {
+        // 可以根据业务需求决定是否退出应用或禁用部分功能
+        #if DEBUG
+        print("强制升级被取消 - 调试模式下继续运行")
+        #else
+        // 生产环境下可以再次弹窗提示必须升级
+        SWAlertView.showAlert(
+            title: "提示",
+            message: "当前版本需要强制升级才能继续使用，请立即更新",
+            confirmTitle: "确定"
+        ) {
+            // 可以再次尝试打开App Store
+            if let appStoreURL = URL(string: "https://apps.apple.com/app/idYOUR_APP_ID") {
+                UIApplication.shared.open(appStoreURL)
+            }
+        }
+        #endif
+    }
 }
 
 extension SettingViewController: UITableViewDelegate, UITableViewDataSource {
@@ -181,6 +286,12 @@ extension SettingViewController: UITableViewDelegate, UITableViewDataSource {
     }
     
     func tableView(_ tableView: UITableView, cellForRowAt indexPath: IndexPath) -> UITableViewCell {
+        if indexPath.section == 2 {
+            let cell = tableView.dequeueReusableCell(withIdentifier: "DevieceSettingCell") as! DevieceSettingCell
+            let wifiData = dataSource[indexPath.section][indexPath.row]
+            cell.configure(with: wifiData)
+            return cell
+        }
         let cell = tableView.dequeueReusableCell(withIdentifier: "BindProDeviceCell") as! BindProDeviceCell
         let wifiData = dataSource[indexPath.section][indexPath.row]
         cell.configure(with: wifiData)
@@ -190,7 +301,7 @@ extension SettingViewController: UITableViewDelegate, UITableViewDataSource {
     func tableView(_ tableView: UITableView, didSelectRowAt indexPath: IndexPath) {
         if indexPath.section == 0 {
             if indexPath.row == 0 {
-                view.sw_showSuccessToast("当前已是最新版本")
+                checkAppVersion()
             }
             if indexPath.row == 1 {
                 contactUs()
@@ -203,21 +314,29 @@ extension SettingViewController: UITableViewDelegate, UITableViewDataSource {
             }
         }
         if indexPath.section == 1 {
-            if indexPath.row == 0 {
+            if indexPath.row == 1 {
                 let vc = ForgotPasswordViewController()
                 vc.isLoginVC = false
                 self.navigationController?.pushViewController(vc, animated: true)
             }
-            if indexPath.row == 1 {
+            if indexPath.row == 2 {
                 let vc = CancelAccountViewController()
                 self.navigationController?.pushViewController(vc, animated: true)
             }
+        }
+        if indexPath.section == 2 {
+            let reportView = SOSReportSelectionView() // 需要创建类似的视图
+            reportView.delegate = self
+            reportView.show(in: view, currentReport: SOSManager.shared.getSOSReportFrequency())
         }
     }
     
     func tableView(_ tableView: UITableView, viewForHeaderInSection section: Int) -> UIView? {
         let view = UIView()
         view.backgroundColor = .white
+        let label = UILabel(frame: CGRect(x: 16, y: 0, width: ScreenUtil.screenWidth-32, height: 1))
+        label.backgroundColor = ThemeManager.current.mediumGrayBGColor
+        view.addSubview(label)
         return view
     }
     
@@ -225,9 +344,28 @@ extension SettingViewController: UITableViewDelegate, UITableViewDataSource {
         if section == 1 {
             return 20
         }
+        if section == 2 {
+            return 10
+        }
         return 0
     }
     
     
 }
 
+extension SettingViewController: SOSReportSelectionViewDelegate {
+    func didSelectSOSReport(_ report: Int) {
+        // 保存上报频率
+        SOSManager.shared.setSOSReportFrequency(report)
+        
+        // 更新显示的文本
+        if dataSource.count > 2 && dataSource[2].count > 0 {
+            let frequencyString = SOSReportHelper.reportString(from: report)
+            dataSource[2][0].contentStr = frequencyString
+            
+            // 刷新对应的cell
+            let indexPath = IndexPath(row: 0, section: 2)
+            tableView.reloadRows(at: [indexPath], with: .none)
+        }
+    }
+}

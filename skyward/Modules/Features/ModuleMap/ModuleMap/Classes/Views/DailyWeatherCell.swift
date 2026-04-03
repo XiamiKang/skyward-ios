@@ -109,7 +109,7 @@ class DailyWeatherCell: UITableViewCell {
         guard let date = inputFormatter.date(from: dateString) else { return dateString }
         
         let outputFormatter = DateFormatter()
-        outputFormatter.locale = Locale(identifier: "zh_CN") // 设置为中文环境
+        outputFormatter.locale = Locale.current
         outputFormatter.dateFormat = "M月d日"
         
         return outputFormatter.string(from: date)
@@ -134,7 +134,7 @@ class DailyWeatherCell: UITableViewCell {
         }
         
         // 获取周几（中文）
-        formatter.locale = Locale(identifier: "zh_CN")
+        formatter.locale = Locale.current
         formatter.dateFormat = "E"  // E 格式会返回"周日"、"周一"等
         
         return formatter.string(from: targetDate)

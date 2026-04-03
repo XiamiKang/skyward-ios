@@ -13,17 +13,18 @@ import CoreLocation
 import SWKit
 
 public enum MapAPI {
-    case getRouteList(_ model: RouteListModel)                            // 获取用户路线列表
+    case getRouteList(_ model: RouteListReq)                              // 获取用户路线列表
     case getRouteMsg(_ model: RouteMsgModel)                              // 获取路线详情
+    case saveUserRoute(params: [String : Any])                            // 保存路线
     case deleteRoute(_ routeId: String)                                   // 删除路线
-    case getWeatherMap                                                    // 获取天气地图
+    case deleteRoutes(_ routeIds: [String])                               // 删除路线
+    case updateRoute(params: [String : Any])                              // 更改路线
     case searchMapMsgWithAddressName(_ address: String)                   // 搜索--通过地名
     case searchMapMsgWithLocation(_ location: String)                     // 搜索--通过经纬度
     case getPointWeatherData(_ location: CLLocationCoordinate2D)          // 获取点击位置的天气信息
     case saveUserPOI(_ model: UserPOIModel)                               // 保存兴趣点
-    case saveUserRoute(params: [String : Any])                            // 保存路线
-    case saveUserTrack(name: String, fileUrl: String)                     // 保存轨迹
     case getWeatherWarningMsg(_ location: CLLocationCoordinate2D)         // 获取天气预警信息
+    case getWeatherInfo(_ location: CLLocationCoordinate2D)               // 获取天气信息
     case getEveryHoursWeatherMsg(_ location: CLLocationCoordinate2D)      // 获取每小时天气信息
     case getEveryHoursPrecipMsg(_ location: CLLocationCoordinate2D)       // 获取每小时降水量
     case getEveryDayWeatherMsg(_ location: CLLocationCoordinate2D)        // 获取每日天气预报
@@ -35,6 +36,7 @@ public enum MapAPI {
     case checkInPublicPOI(_ poiId: String)                                // 公共兴趣点打卡
     case cancelCollectPublicPOI(_ poiId: String)                          // 公共兴趣点取消收藏
     case cancelCheckInPublicPOI(_ poiId: String)                          // 公共兴趣点取消打卡
+    case getCityWeatherList                                               // 获取城市天气列表
 }
 
 extension MapAPI: NetworkAPI {
@@ -42,13 +44,17 @@ extension MapAPI: NetworkAPI {
     public var path: String {
         switch self {
         case .getRouteList:
-            return "/txts-user-center-app/api/v1/user-route/list"
+            return "/txts-user-center-app/api/v1/user-route/page/list"
         case .getRouteMsg:
             return "/txts-user-center-app/api/v1/user-route/info"
+        case .saveUserRoute:
+            return "/txts-user-center-app/api/v1/user-route/save"
         case .deleteRoute:
             return "/txts-user-center-app/api/v1/user-route"
-        case .getWeatherMap:
-            return "/txts-data-app/api/v1/data/map/decision"
+        case .deleteRoutes:
+            return "/txts-user-center-app/api/v1/user-route/batchDelete"
+        case .updateRoute:
+            return "/txts-user-center-app/api/v1/user-route/update"
         case .searchMapMsgWithAddressName:
             return "/txts-data-app/api/v1/data/map/parse/address"
         case .searchMapMsgWithLocation:
@@ -57,8 +63,8 @@ extension MapAPI: NetworkAPI {
             return "/txts-data-app/api/v1/data/weather/current"
         case .saveUserPOI:
             return "/txts-user-center-app/api/v1/user-point-position/save"
-        case .saveUserRoute, .saveUserTrack:
-            return "/txts-user-center-app/api/v1/user-route/save"
+        case .getWeatherInfo:
+            return "/txts-data-app/api/v1/data/weather/current"
         case .getWeatherWarningMsg:
             return "/txts-data-app/api/v1/data/weather/warning"
         case .getEveryHoursWeatherMsg:
@@ -83,28 +89,32 @@ extension MapAPI: NetworkAPI {
             return "/txts-user-center-app/api/v1/user-favorites/cancel/\(poiId)/0"
         case .cancelCheckInPublicPOI(let poiId):
             return "/txts-user-center-app/api/v1/point-check/cancel/check/\(poiId)"
+        case .getCityWeatherList:
+            return "/txts-data-app/api/v1/data/map/city/temperatureList"
         }
     }
     
     public var method: Moya.Method {
         switch self {
         case    .getRouteList,
-                .getWeatherMap,
                 .searchMapMsgWithLocation,
                 .searchMapMsgWithAddressName,
                 .getPointWeatherData,
+                .getWeatherInfo,
                 .getWeatherWarningMsg,
                 .getEveryHoursWeatherMsg,
                 .getEveryHoursPrecipMsg,
                 .getEveryDayWeatherMsg,
                 .getUserPOIData,
                 .checkSensitiveWords,
-                .checkInPublicPOI:
+                .checkInPublicPOI,
+                .getCityWeatherList:
             return .get
         case .getRouteMsg,
              .saveUserPOI,
              .saveUserRoute,
-             .saveUserTrack,
+             .deleteRoutes,
+             .updateRoute,
              .getUserPOIList,
              .collectPublicPOI:
             return .post
@@ -133,8 +143,6 @@ extension MapAPI: NetworkAPI {
                 parameters: ["routeId": routeId],
                 encoding: URLEncoding.default
             )
-        case .getWeatherMap:
-            return .requestPlain
         case .searchMapMsgWithAddressName(let address):
             return .requestParameters(
                 parameters: ["address": address],
@@ -156,19 +164,19 @@ extension MapAPI: NetworkAPI {
                 parameters: model.toDictionary(),
                 encoding: JSONEncoding.default
             )
-        case .saveUserRoute(let params):
+        case .saveUserRoute(let params), .updateRoute(params: let params):
             return .requestParameters(
                 parameters: params,
                 encoding: JSONEncoding.default
             )
-        case .saveUserTrack(let name, let fileUrl):
-            return .requestParameters(
-                parameters: ["routeName": name,
-                             "fileUrl": fileUrl,
-                             "type": 1],
-                encoding: JSONEncoding.default
-            )
-        case .getWeatherWarningMsg(let location):
+        case .deleteRoutes(let routeIds):
+            // 后端只需要 [ids] 数组，不需要 key:"routeIds"
+            // 直接发送 JSON 数组: ["id1", "id2", ...]
+            if let data = try? JSONEncoder().encode(routeIds) {
+                return .requestData(data)
+            }
+            return .requestPlain
+        case .getWeatherInfo(let location), .getWeatherWarningMsg(let location):
             return .requestParameters(
                 parameters: ["longitude": "\(location.longitude)",
                              "latitude": "\(location.latitude)"],
@@ -215,13 +223,15 @@ extension MapAPI: NetworkAPI {
                 parameters: ["content": content],
                 encoding: URLEncoding.default
             )
-        case .collectPublicPOI(let poiId):
+        case .collectPublicPOI( _):
             return .requestPlain
-        case .checkInPublicPOI(let poiId):
+        case .checkInPublicPOI( _):
             return .requestPlain
-        case .cancelCollectPublicPOI(let poiId):
+        case .cancelCollectPublicPOI( _):
             return .requestPlain
-        case .cancelCheckInPublicPOI(let poiId):
+        case .cancelCheckInPublicPOI( _):
+            return .requestPlain
+        case .getCityWeatherList:
             return .requestPlain
         }
     }

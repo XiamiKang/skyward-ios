@@ -86,14 +86,14 @@ class ProfileMyDataView: UIView {
         collectionView.reloadData()
     }
     
-    func updateData(with trajectoryNum: Int = 0, POINum: Int = 0, routeNum: Int = 0, checkoutNum: Int = 0, collectNum: Int = 0, offlineNum: Int = 0) {
+    func updateData(with trajectoryNum: Int?, POINum: Int?, routeNum: Int?, checkoutNum: Int?, collectNum: Int?, offlineNum: Int?) {
         dataSource = [
-            ProfileMyDataItem(imageName: "profile_cell_trajectory", itemName: "历史轨迹(\(trajectoryNum)"),
-            ProfileMyDataItem(imageName: "profile_cell_POI", itemName: "兴趣点(\(POINum))"),
-            ProfileMyDataItem(imageName: "profile_cell_route", itemName: "绘制路线(\(routeNum))"),
-            ProfileMyDataItem(imageName: "profile_cell_checkout", itemName: "打卡(\(checkoutNum))"),
-            ProfileMyDataItem(imageName: "profile_cell_collect", itemName: "收藏(\(collectNum))"),
-            ProfileMyDataItem(imageName: "profile_cell_offline", itemName: "离线缓存(\(offlineNum))"),
+            ProfileMyDataItem(imageName: "profile_cell_trajectory", itemName: "历史轨迹(\(trajectoryNum ?? 0))"),
+            ProfileMyDataItem(imageName: "profile_cell_POI", itemName: "兴趣点(\(POINum ?? 0))"),
+            ProfileMyDataItem(imageName: "profile_cell_route", itemName: "绘制路线(\(routeNum ?? 0))"),
+            ProfileMyDataItem(imageName: "profile_cell_checkout", itemName: "打卡(\(checkoutNum ?? 0))"),
+            ProfileMyDataItem(imageName: "profile_cell_collect", itemName: "收藏(\(collectNum ?? 0))"),
+            ProfileMyDataItem(imageName: "profile_cell_offline", itemName: "离线缓存(\(offlineNum ?? 0))"),
         ]
         collectionView.reloadData()
     }

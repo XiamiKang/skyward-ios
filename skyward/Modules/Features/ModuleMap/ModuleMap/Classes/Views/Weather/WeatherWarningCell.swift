@@ -23,6 +23,7 @@ class WeatherWarningCell: UITableViewCell {
     }
     
     private func setupUI() {
+        backgroundColor = .white
         selectionStyle = .none
         
         title.text = "灾害预警"
@@ -111,15 +112,15 @@ class WarningView: UIView {
         layer.cornerRadius = 8
         
         warningIcon.image = UIImage(systemName: "exclamationmark.triangle.fill")
-        warningIcon.tintColor = .systemOrange
+        warningIcon.tintColor = .orange
         addSubview(warningIcon)
         
         warningTitleLabel.font = .systemFont(ofSize: 16, weight: .medium)
-        warningTitleLabel.textColor = .systemOrange
+        warningTitleLabel.textColor = .orange
         addSubview(warningTitleLabel)
         
         warningDateLabel.font = .systemFont(ofSize: 12)
-        warningDateLabel.textColor = .systemGray
+        warningDateLabel.textColor = UIColor(str: "#84888C")
         addSubview(warningDateLabel)
         
         warningContentLabel.font = .systemFont(ofSize: 14)
@@ -128,7 +129,7 @@ class WarningView: UIView {
         addSubview(warningContentLabel)
         
         warningDescLabel.font = .systemFont(ofSize: 12)
-        warningDescLabel.textColor = .systemGray
+        warningDescLabel.textColor = UIColor(str: "#84888C")
         warningDescLabel.numberOfLines = 0
         addSubview(warningDescLabel)
         

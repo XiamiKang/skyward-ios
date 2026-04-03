@@ -35,11 +35,18 @@ public class SOSButton: UIButton {
     // 进度条动画相关属性
     private var progressTimer: Timer?
     private var currentProgress: CGFloat = 0
-    private let maxDuration: TimeInterval = 2.0
+    private let maxDuration: TimeInterval = 3.0  // 改为3秒，与ArcProgressView一致
     private let animationInterval: TimeInterval = 0.01
     
     // 是否完成长按
     private var isLongPressCompleted = false
+    
+    // 保持原有命名
+    public var startLongPanAction: ((Bool) -> Void)?
+    // 新增进度同步回调
+    public var progressUpdateHandler: ((CGFloat) -> Void)?
+    // 新增长按取消回调
+    public var longPressCancelHandler: (() -> Void)?
     
     // 初始化方法
     override init(frame: CGRect) {
@@ -57,8 +64,9 @@ public class SOSButton: UIButton {
     // 设置UI
     private func setupUI() {
         // 设置按钮基本属性
-        setTitle("长按SOS报警", for: .normal)
-        titleLabel?.font = UIFont.pingFangFontMedium(ofSize: 16)
+        let isInSOS = SOSManager.shared.checkUserSOSState()
+        setTitle(isInSOS ? "长按关闭SOS报警" : "长按开启SOS报警", for: .normal)
+        titleLabel?.font = UIFont.systemFont(ofSize: 16, weight: .semibold)
         backgroundColor = ThemeManager.current.errorColor
         setTitleColor(.white, for: .normal)
         layer.cornerRadius = 8
@@ -86,8 +94,12 @@ public class SOSButton: UIButton {
         switch gesture.state {
         case .began:
             startProgressAnimation()
+            let isInSOS = SOSManager.shared.checkUserSOSState()
+            startLongPanAction?(isInSOS)
         case .ended, .cancelled, .failed:
             resetProgress()
+            // 通知外部长按取消，隐藏圆弧进度视图
+            longPressCancelHandler?()
         default:
             break
         }
@@ -123,7 +135,7 @@ public class SOSButton: UIButton {
             completeLongPress()
         }
         
-        // 更新进度条宽度
+        // 更新内部进度条宽度
         progressView.constraints.forEach { constraint in
             if constraint.firstAttribute == .width {
                 constraint.isActive = false
@@ -134,16 +146,22 @@ public class SOSButton: UIButton {
             progressView.widthAnchor.constraint(equalToConstant: newWidth)
         ])
         
-        // 动画更新
+        // 动画更新内部进度条
         UIView.animate(withDuration: animationInterval) {
             self.layoutIfNeeded()
         }
+        
+        // 通知外部进度更新（用于ArcProgressView）
+        progressUpdateHandler?(currentProgress)
     }
     
     // 完成长按
     private func completeLongPress() {
         isLongPressCompleted = true
         progressTimer?.invalidate()
+        
+        // 确保最终进度为1.0
+        progressUpdateHandler?(1.0)
         
         // 通知代理
         delegate?.sosButtonDidCompleteLongPress(self)
@@ -153,7 +171,7 @@ public class SOSButton: UIButton {
     private func resetProgress() {
         progressTimer?.invalidate()
         
-        // 动画隐藏进度条
+        // 重置内部进度条
         progressView.constraints.forEach { constraint in
             if constraint.firstAttribute == .width {
                 constraint.isActive = false
@@ -165,6 +183,11 @@ public class SOSButton: UIButton {
         
         UIView.animate(withDuration: 0.3) {
             self.layoutIfNeeded()
+        }
+        
+        // 只有在未完成长按的情况下才重置进度
+        if !isLongPressCompleted {
+            progressUpdateHandler?(0)
         }
     }
     

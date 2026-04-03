@@ -14,6 +14,7 @@ enum NoticeType: Int, Codable {
     case safety = 2      // 报平安
     case weather = 3     // 天气通知
     case service = 4     // 紧急联系人
+    case disarmSOS = 5   // 解除SOS
     
     var title: String {
         switch self {
@@ -26,20 +27,24 @@ enum NoticeType: Int, Codable {
         case .weather:
             return "天气预警"
         case .service:
-            return "紧急联系人"
+            return "紧急联系人消息"
+        case .disarmSOS:
+            return "解除SOS"
         }
     }
     
     var icon: String? {
         switch self {
         case .sos:
-            return "chat_sos_icon"
+            return "chat_sos_new_icon"
         case .safety:
-            return "chat_safety_icon"
+            return "chat_safety_new_icon"
         case .weather:
-            return "chat_weather_icon"
+            return "chat_weather_new_icon"
         case .service:
-            return "chat_service_icon"
+            return "chat_service_new_icon"
+        case .disarmSOS:
+            return "chat_disarmSos_new_icon"
         default:
             return ""
         }
@@ -60,14 +65,14 @@ struct HomeNoticeItem: Codable {
     public let noticeType: NoticeType
     public let noticeContent: String?
     public let reportId: String?
-    public let noticeTime: Int64?
+    public let noticeTime: TimeInterval?
     
     public init(
         noticeId: String?,
         noticeType: NoticeType,
         noticeContent: String?,
         reportId: String?,
-        noticeTime: Int64?
+        noticeTime: TimeInterval?
     ) {
         self.noticeId = noticeId
         self.noticeType = noticeType

@@ -29,3 +29,22 @@ class HomeRouter: RoutableActionType {
         return ["\(RouteTable.minePageUrl)[^\\s]*"]
     }
 }
+
+/// 首页天气信息路由 - 从 HomeViewController 获取天气信息
+class HomeWeatherInfoRouter: RoutableActionType {
+
+    static func handle(_ url: any URLConvertible, _ callback: ((Any?) -> Void)?) -> Bool {
+        // 查找 HomeViewController
+        if let homeVC = UIWindow.findViewController(ofType: HomeViewController.self),
+           let weatherInfo = homeVC.viewModel.weatherInfo {
+            callback?(weatherInfo)
+            return true
+        }
+        callback?(nil)
+        return false
+    }
+
+    static var patterns: [String] {
+        return ["\(RouteTable.homeWeatherInfoUrl)[^\\s]*"]
+    }
+}

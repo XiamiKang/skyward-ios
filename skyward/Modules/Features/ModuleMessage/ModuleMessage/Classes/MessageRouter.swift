@@ -37,27 +37,3 @@ class UrgentMessagePageRouter: RoutableActionType {
         return ["\(RouteTable.urgentMessagePageUrl)[^\\s]*"]
     }
 }
-
-class StartMonitorMessageRouter: RoutableActionType {
-    
-    static func handle(_ url: any URLConvertible, _ callback: ((Any?) -> Void)?) -> Bool {
-        MessageManager.shared.startMonitorMessage()
-        return true
-    }
-    
-    static var patterns: [String] {
-        return ["\(RouteTable.startMonitorMessage)[^\\s]*"]
-    }
-}
-
-class StopMonitorMessageRouter: RoutableActionType {
-    
-    static func handle(_ url: any URLConvertible, _ callback: ((Any?) -> Void)?) -> Bool {
-        MessageManager.shared.stopMonitorMessage()
-        return true
-    }
-    
-    static var patterns: [String] {
-        return ["\(RouteTable.stopMonitorMessage)[^\\s]*"]
-    }
-}

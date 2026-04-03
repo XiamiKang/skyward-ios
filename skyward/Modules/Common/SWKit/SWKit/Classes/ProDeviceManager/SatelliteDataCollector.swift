@@ -29,26 +29,31 @@ struct RcstTypeResponse: Codable {
 }
 
 // MARK: - 卫星接口响应模型
-struct HomeStatusResponse: Codable {
-    let num_string: String?
-    let rcst_current_status: Int?
-    let rf_rx_is_locked: Int?
-    let rf_rx_snr: Int?
-    let rf_tx_snr: Int?
-    let x509_auth_status: Int?
-    let zd_version: Int?
+public struct HomeStatusResponse: Codable {
+    public let num_string: String?
+    public let rcst_current_status: Int?
+    public let rf_rx_is_locked: Int?
+    public let rf_rx_snr: Int?
+    public let rf_tx_snr: Int?
+    public let x509_auth_status: Int?
+    public let zd_version: Int?
+    
+    // 计算属性：获取卫星链路状态
+    public var satelliteLinkStatus: SatelliteLinkStatus {
+        return SatelliteLinkStatus(rawValue: rcst_current_status ?? -1) ?? .STATUS_OFF
+    }
 }
 
-struct SysTrafficResponse: Codable {
-    let code: String
-    let sysTraffic: String
+public struct SysTrafficResponse: Codable {
+    public let code: String
+    public let sysTraffic: String
     
-    var receiveBandwidth: Double {
+    public var receiveBandwidth: Double {
         let values = sysTraffic.split(separator: " ").compactMap { Double($0) }
         return values.count >= 3 ? values[2] : 0
     }
     
-    var transmitBandwidth: Double {
+    public var transmitBandwidth: Double {
         let values = sysTraffic.split(separator: " ").compactMap { Double($0) }
         return values.count >= 4 ? values[3] : 0
     }
@@ -188,17 +193,20 @@ struct VsatStatusResponse: Codable {
 }
 
 // MARK: - 卫星数据采集器
-class SatelliteDataCollector {
+public class SatelliteDataCollector {
     
-    static let shared = SatelliteDataCollector()
-    private let baseURL = "http://192.168.0.8"
+    public static let shared = SatelliteDataCollector()
+    private let baseURL = "https://192.168.0.8"
     private let session: URLSession
     
     private init() {
         let configuration = URLSessionConfiguration.default
         configuration.timeoutIntervalForRequest = 10
         configuration.timeoutIntervalForResource = 10
-        self.session = URLSession(configuration: configuration)
+//        self.session = URLSession(configuration: configuration)
+        
+        self.session = URLSession(configuration: configuration, delegate: InsecureCertificateDelegate(), delegateQueue: nil)
+        print("📡 SatelliteDataCollector 初始化完成")
     }
     
     // 采集所有卫星数据
@@ -372,7 +380,7 @@ class SatelliteDataCollector {
     // MARK: - 🔧 新增：等待波束状态直到成功或超时
     private func waitForBeamStatus(timeout: TimeInterval, completion: @escaping (Result<Void, Error>) -> Void) {
         let startTime = Date()
-        let maxRetries = Int(timeout / 1.0) // 每秒检查一次
+        _ = Int(timeout / 1.0) // 每秒检查一次
         var currentRetry = 0
         
         func checkStatus() {
@@ -420,11 +428,11 @@ class SatelliteDataCollector {
     }
     
     // MARK: - 私有请求方法
-    private func getHomestatus(completion: @escaping (Result<HomeStatusResponse, Error>) -> Void) {
+    public func getHomestatus(completion: @escaping (Result<HomeStatusResponse, Error>) -> Void) {
         request("/action/homestatus", completion: completion)
     }
     
-    private func getSysTraffic(completion: @escaping (Result<SysTrafficResponse, Error>) -> Void) {
+    public func getSysTraffic(completion: @escaping (Result<SysTrafficResponse, Error>) -> Void) {
         request("/action/sysTrafficGet", completion: completion)
     }
     
@@ -511,3 +519,29 @@ class SatelliteDataCollector {
         task.resume()
     }
 }
+
+public class InsecureCertificateDelegate: NSObject, URLSessionDelegate {
+    public func urlSession(_ session: URLSession,
+                    didReceive challenge: URLAuthenticationChallenge,
+                    completionHandler: @escaping (URLSession.AuthChallengeDisposition, URLCredential?) -> Void) {
+        
+        print("🔐 处理证书验证请求: \(challenge.protectionSpace.host)")
+        
+        // 只对192.168.0.8的证书验证做特殊处理
+        if challenge.protectionSpace.host == "192.168.0.8" {
+            if challenge.protectionSpace.authenticationMethod == NSURLAuthenticationMethodServerTrust {
+                if let serverTrust = challenge.protectionSpace.serverTrust {
+                    // 接受该服务器的所有证书
+                    let credential = URLCredential(trust: serverTrust)
+                    completionHandler(.useCredential, credential)
+                    print("✅ 接受自签名证书: 192.168.0.8")
+                    return
+                }
+            }
+        }
+        
+        // 其他请求使用默认处理
+        completionHandler(.performDefaultHandling, nil)
+    }
+}
+

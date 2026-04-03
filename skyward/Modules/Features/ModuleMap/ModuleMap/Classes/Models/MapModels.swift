@@ -41,7 +41,9 @@ public struct POICoordinate {
     public let longitude: Double
     
     public var displayString: String {
-        return String(format: "纬度: %.6f  经度: %.6f", latitude, longitude)
+        let longitudeStr = String(format: "%.6f", latitude)
+        let latitudeStr = String(format: "%.6f", longitude)
+        return "经纬度：\(longitudeStr)°E, \(latitudeStr)°N"
     }
 }
 

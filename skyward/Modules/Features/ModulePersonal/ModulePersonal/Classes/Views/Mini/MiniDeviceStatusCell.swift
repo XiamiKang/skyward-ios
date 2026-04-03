@@ -8,6 +8,7 @@
 
 import UIKit
 import SWKit
+import SWTheme
 
 class MiniDeviceStatusCell: UITableViewCell {
     
@@ -41,7 +42,7 @@ class MiniDeviceStatusCell: UITableViewCell {
     
     private func setupUI() {
         selectionStyle = .none
-        backgroundColor = UIColor(str: "#F2F3F4")
+        backgroundColor = ThemeManager.current.mediumGrayBGColor
         
         bgView.backgroundColor = .white
         bgView.layer.cornerRadius = 8
@@ -74,23 +75,23 @@ class MiniDeviceStatusCell: UITableViewCell {
         msgAltitudeText.textAlignment = .right
         bgView.addSubview(msgAltitudeText)
         
-        msgTemperatureText.text = "--"
-        msgTemperatureText.textColor = UIColor(str: "#070808")
-        msgTemperatureText.font = UIFont.systemFont(ofSize: 14, weight: .medium)
-        msgTemperatureText.textAlignment = .left
-        bgView.addSubview(msgTemperatureText)
-        
-        msgHumidityText.text = "--"
-        msgHumidityText.textColor = UIColor(str: "#070808")
-        msgHumidityText.font = UIFont.systemFont(ofSize: 14, weight: .medium)
-        msgHumidityText.textAlignment = .center
-        bgView.addSubview(msgHumidityText)
-        
-        msgMotionText.text = "--"
-        msgMotionText.textColor = UIColor(str: "#070808")
-        msgMotionText.font = UIFont.systemFont(ofSize: 14, weight: .medium)
-        msgMotionText.textAlignment = .right
-        bgView.addSubview(msgMotionText)
+//        msgTemperatureText.text = "--"
+//        msgTemperatureText.textColor = UIColor(str: "#070808")
+//        msgTemperatureText.font = UIFont.systemFont(ofSize: 14, weight: .medium)
+//        msgTemperatureText.textAlignment = .left
+//        bgView.addSubview(msgTemperatureText)
+//        
+//        msgHumidityText.text = "--"
+//        msgHumidityText.textColor = UIColor(str: "#070808")
+//        msgHumidityText.font = UIFont.systemFont(ofSize: 14, weight: .medium)
+//        msgHumidityText.textAlignment = .center
+//        bgView.addSubview(msgHumidityText)
+//        
+//        msgMotionText.text = "--"
+//        msgMotionText.textColor = UIColor(str: "#070808")
+//        msgMotionText.font = UIFont.systemFont(ofSize: 14, weight: .medium)
+//        msgMotionText.textAlignment = .right
+//        bgView.addSubview(msgMotionText)
         
         longitudeLabel.text = "经度"
         longitudeLabel.textColor = UIColor(str: "#84888C")
@@ -110,23 +111,23 @@ class MiniDeviceStatusCell: UITableViewCell {
         altitudeLabel.textAlignment = .right
         bgView.addSubview(altitudeLabel)
         
-        temperatureLabel.text = "温度（℃）"
-        temperatureLabel.textColor = UIColor(str: "#84888C")
-        temperatureLabel.font = UIFont.systemFont(ofSize: 12, weight: .regular)
-        temperatureLabel.textAlignment = .left
-        bgView.addSubview(temperatureLabel)
-        
-        humidityLabel.text = "湿度（%RH）"
-        humidityLabel.textColor = UIColor(str: "#84888C")
-        humidityLabel.font = UIFont.systemFont(ofSize: 12, weight: .regular)
-        humidityLabel.textAlignment = .center
-        bgView.addSubview(humidityLabel)
-        
-        motionLabel.text = "运动状态"
-        motionLabel.textColor = UIColor(str: "#84888C")
-        motionLabel.font = UIFont.systemFont(ofSize: 12, weight: .regular)
-        motionLabel.textAlignment = .right
-        bgView.addSubview(motionLabel)
+//        temperatureLabel.text = "温度（℃）"
+//        temperatureLabel.textColor = UIColor(str: "#84888C")
+//        temperatureLabel.font = UIFont.systemFont(ofSize: 12, weight: .regular)
+//        temperatureLabel.textAlignment = .left
+//        bgView.addSubview(temperatureLabel)
+//        
+//        humidityLabel.text = "湿度（%RH）"
+//        humidityLabel.textColor = UIColor(str: "#84888C")
+//        humidityLabel.font = UIFont.systemFont(ofSize: 12, weight: .regular)
+//        humidityLabel.textAlignment = .center
+//        bgView.addSubview(humidityLabel)
+//        
+//        motionLabel.text = "运动状态"
+//        motionLabel.textColor = UIColor(str: "#84888C")
+//        motionLabel.font = UIFont.systemFont(ofSize: 12, weight: .regular)
+//        motionLabel.textAlignment = .right
+//        bgView.addSubview(motionLabel)
         
         setConstraint()
     }
@@ -138,15 +139,15 @@ class MiniDeviceStatusCell: UITableViewCell {
         msgLongitudeText.translatesAutoresizingMaskIntoConstraints = false
         msgLatitudeText.translatesAutoresizingMaskIntoConstraints = false
         msgAltitudeText.translatesAutoresizingMaskIntoConstraints = false
-        msgTemperatureText.translatesAutoresizingMaskIntoConstraints = false
-        msgHumidityText.translatesAutoresizingMaskIntoConstraints = false
-        msgMotionText.translatesAutoresizingMaskIntoConstraints = false
+//        msgTemperatureText.translatesAutoresizingMaskIntoConstraints = false
+//        msgHumidityText.translatesAutoresizingMaskIntoConstraints = false
+//        msgMotionText.translatesAutoresizingMaskIntoConstraints = false
         longitudeLabel.translatesAutoresizingMaskIntoConstraints = false
         latitudeLabel.translatesAutoresizingMaskIntoConstraints = false
         altitudeLabel.translatesAutoresizingMaskIntoConstraints = false
-        temperatureLabel.translatesAutoresizingMaskIntoConstraints = false
-        humidityLabel.translatesAutoresizingMaskIntoConstraints = false
-        motionLabel.translatesAutoresizingMaskIntoConstraints = false
+//        temperatureLabel.translatesAutoresizingMaskIntoConstraints = false
+//        humidityLabel.translatesAutoresizingMaskIntoConstraints = false
+//        motionLabel.translatesAutoresizingMaskIntoConstraints = false
         
         NSLayoutConstraint.activate([
             
@@ -181,23 +182,23 @@ class MiniDeviceStatusCell: UITableViewCell {
             altitudeLabel.topAnchor.constraint(equalTo: msgAltitudeText.bottomAnchor, constant: 5),
             altitudeLabel.trailingAnchor.constraint(equalTo: bgView.trailingAnchor, constant: -16),
             
-            msgTemperatureText.topAnchor.constraint(equalTo: longitudeLabel.bottomAnchor, constant: 12),
-            msgTemperatureText.leadingAnchor.constraint(equalTo: bgView.leadingAnchor, constant: 16),
-            
-            msgHumidityText.topAnchor.constraint(equalTo: longitudeLabel.bottomAnchor, constant: 12),
-            msgHumidityText.centerXAnchor.constraint(equalTo: bgView.centerXAnchor),
-            
-            msgMotionText.topAnchor.constraint(equalTo: longitudeLabel.bottomAnchor, constant: 12),
-            msgMotionText.trailingAnchor.constraint(equalTo: bgView.trailingAnchor, constant: -16),
-            
-            temperatureLabel.topAnchor.constraint(equalTo: msgTemperatureText.bottomAnchor, constant: 5),
-            temperatureLabel.leadingAnchor.constraint(equalTo: bgView.leadingAnchor, constant: 16),
-            
-            humidityLabel.topAnchor.constraint(equalTo: msgHumidityText.bottomAnchor, constant: 5),
-            humidityLabel.centerXAnchor.constraint(equalTo: bgView.centerXAnchor),
-            
-            motionLabel.topAnchor.constraint(equalTo: msgMotionText.bottomAnchor, constant: 5),
-            motionLabel.trailingAnchor.constraint(equalTo: bgView.trailingAnchor, constant: -16),
+//            msgTemperatureText.topAnchor.constraint(equalTo: longitudeLabel.bottomAnchor, constant: 12),
+//            msgTemperatureText.leadingAnchor.constraint(equalTo: bgView.leadingAnchor, constant: 16),
+//            
+//            msgHumidityText.topAnchor.constraint(equalTo: longitudeLabel.bottomAnchor, constant: 12),
+//            msgHumidityText.centerXAnchor.constraint(equalTo: bgView.centerXAnchor),
+//            
+//            msgMotionText.topAnchor.constraint(equalTo: longitudeLabel.bottomAnchor, constant: 12),
+//            msgMotionText.trailingAnchor.constraint(equalTo: bgView.trailingAnchor, constant: -16),
+//            
+//            temperatureLabel.topAnchor.constraint(equalTo: msgTemperatureText.bottomAnchor, constant: 5),
+//            temperatureLabel.leadingAnchor.constraint(equalTo: bgView.leadingAnchor, constant: 16),
+//            
+//            humidityLabel.topAnchor.constraint(equalTo: msgHumidityText.bottomAnchor, constant: 5),
+//            humidityLabel.centerXAnchor.constraint(equalTo: bgView.centerXAnchor),
+//            
+//            motionLabel.topAnchor.constraint(equalTo: msgMotionText.bottomAnchor, constant: 5),
+//            motionLabel.trailingAnchor.constraint(equalTo: bgView.trailingAnchor, constant: -16),
             
         ])
     }

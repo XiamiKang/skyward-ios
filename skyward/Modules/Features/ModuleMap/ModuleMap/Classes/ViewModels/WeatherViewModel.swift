@@ -16,6 +16,7 @@ public class WeatherViewModel: ObservableObject {
     // MARK: - 依赖
     private let mapService = MapService()
     
+    @Published public var pointData: MapSearchPointMsgData?
     @Published public var pointWeatherData: WeatherData?
     @Published public var hoursWeatherData: [EveryHoursWeatherData]?
     @Published public var daysWeatherData: [EveryDayWeatherData]?
@@ -26,6 +27,7 @@ public class WeatherViewModel: ObservableObject {
     
     // MARK: - 输入
     public struct Input {
+        let pointDataRequest = PassthroughSubject<CLLocationCoordinate2D, Never>()
         let pointWeatherRequest = PassthroughSubject<CLLocationCoordinate2D, Never>()
         let hoursWeatherRequest = PassthroughSubject<CLLocationCoordinate2D, Never>()
         let daysWeatherRequest = PassthroughSubject<CLLocationCoordinate2D, Never>()
@@ -161,6 +163,29 @@ public class WeatherViewModel: ObservableObject {
                 }
             } receiveValue: { [weak self] data in
                 self?.hoursPrecipData = data
+            }
+            .store(in: &cancellables)
+        // 点位信息
+        input.pointDataRequest
+            .flatMap { [weak self] coordinate -> AnyPublisher<[MapSearchPointMsgData], MapError> in
+                guard let self = self else {
+                    return Fail(error: .networkError("ViewModel 已释放"))
+                        .eraseToAnyPublisher()
+                }
+                return self.mapPointData(coordinate)
+            }
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] completion in
+                print("📭 sink 接收到完成信号")
+                switch completion {
+                case .finished:
+                    print("✅ 请求成功完成")
+                case .failure(let error):
+                    print("❌ 请求失败: \(error)")
+                    self?.error = error
+                }
+            } receiveValue: { [weak self] data in
+                self?.pointData = data.first
             }
             .store(in: &cancellables)
     }
@@ -348,6 +373,43 @@ extension WeatherViewModel {
                     case .success(let response):
                         do {
                             let baseResponse = try JSONDecoder().decode(BaseResponse<[EveryDayWeatherData]>.self, from: response.data)
+                            
+                            if baseResponse.success, let data = baseResponse.data {
+                                promise(.success(data))
+                            } else {
+                                promise(.failure(.businessError(
+                                    message: baseResponse.msg,
+                                    code: baseResponse.code
+                                )))
+                            }
+                        } catch {
+                            promise(.failure(.parseError("数据解析失败")))
+                        }
+                        
+                    case .failure(let error):
+                        promise(.failure(.networkError(error.localizedDescription)))
+                    }
+                }
+            }
+        }
+        .eraseToAnyPublisher()
+    }
+    
+    // MARK: - 根据经纬度获取点位信息
+    public func mapPointData(_ location: CLLocationCoordinate2D) -> AnyPublisher<[MapSearchPointMsgData], MapError> {
+        isLoading = true
+        
+        return Future<[MapSearchPointMsgData], MapError> { [weak self] promise in
+            guard let self = self else { return }
+            let locationStr = "\(location.longitude),\(location.latitude)"
+            self.mapService.getPointData(locationStr) { result in
+                DispatchQueue.main.async {
+                    self.isLoading = false
+                    
+                    switch result {
+                    case .success(let response):
+                        do {
+                            let baseResponse = try JSONDecoder().decode(BaseResponse<[MapSearchPointMsgData]>.self, from: response.data)
                             
                             if baseResponse.success, let data = baseResponse.data {
                                 promise(.success(data))

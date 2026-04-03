@@ -48,6 +48,7 @@ public enum OTAUpgradeError: Error, LocalizedError {
     case endFailed
     case canceled
     case deviceDisconnected
+    case tooManyConsecutiveErrors
     
     public var errorDescription: String? {
         switch self {
@@ -73,6 +74,8 @@ public enum OTAUpgradeError: Error, LocalizedError {
             return "升级已取消"
         case .deviceDisconnected:
             return "设备已断开连接"
+        case .tooManyConsecutiveErrors:
+            return "连续错误太多"
         }
     }
 }
@@ -147,6 +150,8 @@ public class AdvancedFirmwareUpdateManager {
     
     private func performUpgrade(firmwarePath: String, completion: @escaping (Result<Bool, Error>) -> Void) {
         do {
+            // 停止采集数据
+            DeviceDataCollectionScheduler.shared.stopCollection()
             // 1. 准备固件数据
             addLog("准备固件数据...")
             let firmwareData = try Data(contentsOf: URL(fileURLWithPath: firmwarePath))
@@ -367,9 +372,41 @@ public class AdvancedFirmwareUpdateManager {
         
         let erasePacket = createErasePacket()
         try sendBinaryPacketWithRetry(packet: erasePacket, expectedResponse: "$ACK,ER")
-//        try sendBinaryPacketWithRetry(packet: erasePacket, expectedResponse: "")
         
         addLog("✅ Flash擦除成功")
+    }
+    
+    // 添加一个不带序号的重载方法
+    private func sendBinaryPacketWithRetry(packet: Data, expectedResponse: String) throws {
+        var lastError: Error?
+        
+        for retry in 0..<maxRetryCount {
+            guard isUpgrading else {
+                throw WiFiDeviceError.commandFailed("升级被取消")
+            }
+            
+            do {
+                let response = try self.sendBinaryPacketAndWait(packet)
+                
+                if response.contains(expectedResponse) {
+                    addLog("✅ 收到正确响应: \(response)")
+                    return
+                } else {
+                    addLog("⚠️ 响应不匹配: 期待 \(expectedResponse)，收到 \(response)")
+                    throw FirmwareUpdateError.invalidResponse
+                }
+                
+            } catch {
+                lastError = error
+                addLog("操作失败(尝试 \(retry + 1)/\(maxRetryCount)): \(error.localizedDescription)")
+                
+                if retry < maxRetryCount - 1 {
+                    Thread.sleep(forTimeInterval: 0.5)
+                }
+            }
+        }
+        
+        throw lastError ?? FirmwareUpdateError.timeout
     }
     
     public func sendFirmwareInfoCommand(firmwareInfo: FirmwareFileInfo, firmwareSize: Int) throws {
@@ -383,40 +420,80 @@ public class AdvancedFirmwareUpdateManager {
         addLog("✅ 固件信息发送成功")
     }
     
-    public func sendFirmwareData(firmwareData: Data) throws {
+    /// 发送固件数据（带断点续传支持）
+    public func sendFirmwareData(firmwareData: Data, startPacket: Int = 0) throws {
         currentPhase = "发送固件数据"
-        addLog("开始发送固件数据，共 \(firmwareData.count) 字节")
+        addLog("开始发送固件数据，从第 \(startPacket + 1) 包开始")
         
         let totalPackets = Int(ceil(Double(firmwareData.count) / Double(packetSize)))
         addLog("总共 \(totalPackets) 个数据包")
         
-        for packetIndex in 0..<totalPackets {
+        var consecutiveErrors = 0
+        let maxConsecutiveErrors = 5
+        var currentPacketIndex = startPacket
+        
+        while currentPacketIndex < totalPackets {
             guard isUpgrading else {
                 throw WiFiDeviceError.commandFailed("升级被取消")
             }
             
-            let startIndex = packetIndex * packetSize
-            let endIndex = min(startIndex + packetSize, firmwareData.count)
-            let packetData = firmwareData.subdata(in: startIndex..<endIndex)
-            let isLast = packetIndex == totalPackets - 1
+            let startIdx = currentPacketIndex * packetSize
+            let endIdx = min(startIdx + packetSize, firmwareData.count)
+            let packetData = firmwareData.subdata(in: startIdx..<endIdx)
+            let isLast = currentPacketIndex == totalPackets - 1
+            let currentSeq = currentPacketIndex + 1
             
             // 更新进度
-            let packetProgress = Double(packetIndex) / Double(totalPackets)
+            let packetProgress = Double(currentPacketIndex) / Double(totalPackets)
             progress = 0.4 + packetProgress * 0.5
-            onProgressUpdate?(progress, "发送数据包 \(packetIndex + 1)/\(totalPackets)")
+            onProgressUpdate?(progress, "发送数据包 \(currentPacketIndex + 1)/\(totalPackets)")
             
-            addLog("发送第 \(packetIndex + 1)/\(totalPackets) 包，长度: \(packetData.count) 字节")
+            addLog("发送第 \(currentPacketIndex + 1)/\(totalPackets) 包，长度: \(packetData.count) 字节")
             
-            let dataPacket = createDataPacket(sequence: UInt16(packetIndex), 
-                                            packetData: packetData, 
+            let dataPacket = createDataPacket(sequence: UInt16(currentPacketIndex),
+                                            packetData: packetData,
                                             isLast: isLast)
             
-            let expectedResponse = "$ACK,DS,\(packetIndex + 1)"
-            try sendBinaryPacketWithRetry(packet: dataPacket, expectedResponse: expectedResponse)
+            let expectedResponse = "$ACK,DS,\(currentSeq)"
             
-            // 小延迟，避免设备处理不过来
-            if !isLast {
-                Thread.sleep(forTimeInterval: 0.02)
+            do {
+                try sendBinaryPacketWithRetry(
+                    packet: dataPacket,
+                    expectedResponse: expectedResponse,
+                    packetIndex: currentPacketIndex
+                )
+                consecutiveErrors = 0
+                currentPacketIndex += 1
+                
+                // 动态调整延迟
+                let delay = currentPacketIndex < 100 ? 0.02 : 0.01
+                if !isLast {
+                    Thread.sleep(forTimeInterval: delay)
+                }
+                
+            } catch {
+                consecutiveErrors += 1
+                addLog("❌ 发送包 \(currentPacketIndex + 1) 失败: \(error.localizedDescription)")
+                
+                if consecutiveErrors >= maxConsecutiveErrors {
+                    addLog("❌ 连续错误次数过多，升级失败")
+                    throw OTAUpgradeError.tooManyConsecutiveErrors
+                }
+                
+                // 特殊处理：如果卡在214包附近
+                if currentPacketIndex >= 213 && currentPacketIndex <= 215 {
+                    addLog("⚠️ 检测到关键包区域(\(currentPacketIndex+1))，执行特殊恢复策略")
+                    // 清空接收缓冲区
+                    deviceManager?.receiveBuffer.removeAll()
+                    Thread.sleep(forTimeInterval: 1.0)
+                }
+                
+                addLog("⚠️ 尝试重新发送当前包 (尝试 \(consecutiveErrors)/\(maxConsecutiveErrors))")
+                Thread.sleep(forTimeInterval: 0.5)
+                
+                // 重置设备状态
+                resetOTAState()
+                Thread.sleep(forTimeInterval: 0.5)
             }
         }
         
@@ -452,21 +529,157 @@ public class AdvancedFirmwareUpdateManager {
         }
     }
 
-    private func sendBinaryPacketWithRetry(packet: Data, expectedResponse: String) throws {
-        let result = try sendWithRetry {
-            try self.sendBinaryPacketAndWait(packet)
+//    private func sendBinaryPacketWithRetry(packet: Data, expectedResponse: String) throws {
+//        let result = try sendWithRetry {
+//            try self.sendBinaryPacketAndWait(packet)
+//        }
+//        
+//        switch result {
+//        case .success(let response):
+//            if response.contains(expectedResponse) {
+//                return
+//            } else {
+//                throw FirmwareUpdateError.invalidResponse
+//            }
+//        case .failure(let error):
+//            throw error
+//        }
+//    }
+    
+    // 在 AdvancedFirmwareUpdateManager.swift 中添加这个方法
+    /// 重置OTA状态（当发现设备状态异常时调用）
+    func resetOTAState() {
+        addLog("🔄 重置OTA状态")
+        
+        // 清空接收缓冲区
+        deviceManager?.receiveBuffer.removeAll()
+        
+        // 清空待处理响应
+        deviceManager?.storageQueue.async(flags: .barrier) {
+            self.deviceManager?.pendingResponses.removeAll()
+            self.deviceManager?.responseSemaphores.removeAll()
         }
         
-        switch result {
-        case .success(let response):
-            if response.contains(expectedResponse) {
-                return
-            } else {
-                throw FirmwareUpdateError.invalidResponse
-            }
-        case .failure(let error):
-            throw error
+        // 发送一个空包清空设备缓冲区
+        if let connection = deviceManager?.connection {
+            let resetData = "\n".data(using: .ascii)!
+            connection.send(content: resetData, completion: .contentProcessed { error in
+                if let error = error {
+                    self.addLog("发送重置包失败: \(error)")
+                } else {
+                    self.addLog("重置包发送成功")
+                }
+            })
         }
+        
+        // 短暂延迟，让设备有时间处理
+        Thread.sleep(forTimeInterval: 0.2)
+        
+        addLog("✅ OTA状态已重置")
+    }
+    
+    private func sendBinaryPacketWithRetry(packet: Data, expectedResponse: String, packetIndex: Int) throws {
+        // 解析期望的序号
+        let expectedComponents = expectedResponse.components(separatedBy: ",")
+        guard expectedComponents.count >= 3,
+              let expectedSeq = Int(expectedComponents[2]) else {
+            throw FirmwareUpdateError.invalidResponse
+        }
+        
+        var lastError: Error?
+        var consecutiveOldAckCount = 0
+        let maxConsecutiveOldAck = 3
+        var lastReceivedSeq = -1
+        var duplicateCount = 0
+        
+        for retry in 0..<maxRetryCount {
+            guard isUpgrading else {
+                throw WiFiDeviceError.commandFailed("升级被取消")
+            }
+            
+            do {
+                let response = try self.sendBinaryPacketAndWait(packet)
+                
+                // 解析实际响应
+                if response.hasPrefix("$ACK,DS,") {
+                    let respComponents = response.components(separatedBy: ",")
+                    if respComponents.count >= 3,
+                       let respSeq = Int(respComponents[2]) {
+                        
+                        // 检测重复ACK
+                        if respSeq == lastReceivedSeq {
+                            duplicateCount += 1
+                            addLog("⚠️ 收到重复ACK: \(respSeq) (连续\(duplicateCount)次)")
+                            
+                            if duplicateCount >= 3 {
+                                addLog("⚠️ 连续收到重复ACK，重置接收缓冲区")
+                                // 重置设备接收缓冲区
+                                resetOTAState()
+                                duplicateCount = 0
+                                // 重发当前包
+                                continue
+                            }
+                        } else {
+                            duplicateCount = 0
+                            lastReceivedSeq = respSeq
+                        }
+                        
+                        if respSeq == expectedSeq {
+                            // 正确的序号，成功
+                            addLog("✅ 收到正确序号响应: \(response)")
+                            return
+                        } else if respSeq < expectedSeq {
+                            // 收到旧的ACK
+                            consecutiveOldAckCount += 1
+                            addLog("⚠️ 收到旧ACK: 期待\(expectedSeq)，收到\(respSeq) (连续\(consecutiveOldAckCount)次)")
+                            
+                            if consecutiveOldAckCount >= maxConsecutiveOldAck {
+                                // 连续多次收到旧ACK，可能是设备漏掉了当前包，需要重发
+                                addLog("⚠️ 连续多次收到旧ACK，主动重发当前包")
+                                consecutiveOldAckCount = 0
+                                // 延迟后重发
+                                Thread.sleep(forTimeInterval: 0.2)
+                                continue
+                            } else {
+                                // 继续等待，但不增加retry计数
+                                Thread.sleep(forTimeInterval: 0.1)
+                                continue
+                            }
+                        } else {
+                            // 收到未来的ACK
+                            addLog("⚠️ 收到超前ACK: 期待\(expectedSeq)，收到\(respSeq)")
+                            
+                            // 如果是超前太多，可能设备状态异常，重置
+                            if respSeq > expectedSeq + 5 {
+                                addLog("⚠️ 超前ACK过多，重置设备状态")
+                                resetOTAState()
+                                Thread.sleep(forTimeInterval: 0.5)
+                            }
+                            throw FirmwareUpdateError.invalidResponse
+                        }
+                    }
+                }
+                
+                // 其他响应处理
+                if response.contains(expectedResponse) {
+                    return
+                }
+                
+                throw FirmwareUpdateError.invalidResponse
+                
+            } catch {
+                lastError = error
+                consecutiveOldAckCount = 0
+                duplicateCount = 0
+                addLog("操作失败(尝试 \(retry + 1)/\(maxRetryCount)): \(error.localizedDescription)")
+                
+                if retry < maxRetryCount - 1 {
+                    Thread.sleep(forTimeInterval: 0.5)
+                }
+            }
+        }
+        
+        throw lastError ?? FirmwareUpdateError.timeout
     }
 
     private func sendWithRetry(operation: () throws -> String) throws -> Result<String, Error> {
@@ -527,9 +740,9 @@ public class AdvancedFirmwareUpdateManager {
     private func sendBinaryPacketAndWait(_ packet: Data) throws -> String {
         
         // 添加详细的调试信息
-        addLog("准备发送二进制包，长度: \(packet.count) 字节")
-        addLog("数据前32字节: \(packet.prefix(32).hexString)")
-        addLog("数据后32字节: \(packet.suffix(32).hexString)")
+//        addLog("准备发送二进制包，长度: \(packet.count) 字节")
+//        addLog("数据前32字节: \(packet.prefix(32).hexString)")
+//        addLog("数据后32字节: \(packet.suffix(32).hexString)")
            
         
         guard let deviceManager = deviceManager else {

@@ -138,43 +138,6 @@ extension LoginAPI: NetworkAPI {
         
         return headers
     }
-    
-    // 可选：为测试提供示例数据
-    public var sampleData: Data {
-        switch self {
-        case .sendSmsCode:
-            return """
-            {
-                "success": true,
-                "message": "验证码发送成功"
-            }
-            """.data(using: .utf8)!
-            
-        case .register:
-            return """
-            {
-                "success": true,
-                "data": {
-                    "userId": "123",
-                    "token": "jwt_token_here"
-                }
-            }
-            """.data(using: .utf8)!
-            
-        case .passwordLogin, .verificationCodeLogin:
-            return """
-            {
-                "access_token": "access_token_here",
-                "refresh_token": "refresh_token_here",
-                "token_type": "bearer",
-                "expires_in": 3600
-            }
-            """.data(using: .utf8)!
-            
-        default:
-            return "{\"success\": true}".data(using: .utf8)!
-        }
-    }
 }
 
 // MARK: - 登录服务

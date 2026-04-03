@@ -17,7 +17,7 @@ public struct ACUDeviceData: Codable {
     var longitude: Int = 0          // 经度 ×100000
     var latitude: Int = 0           // 纬度 ×100000
     var powerSavingMode: Int = 0    // 低功耗
-    var mode: Int = 0              // 当前模式
+    var mode: Int = 0               // 当前模式
     
     // REQENV 环境信息 (2个)
     var temperature: String = "0.00"     // 温度

@@ -8,6 +8,7 @@
 import UIKit
 import CoreBluetooth
 import SWKit
+import SWTheme
 
 // MARK: - 设备Cell
 class MiniDeviceCell: UICollectionViewCell {
@@ -15,7 +16,7 @@ class MiniDeviceCell: UICollectionViewCell {
     private let containerView: UIView = {
         let view = UIView()
         view.translatesAutoresizingMaskIntoConstraints = false
-        view.backgroundColor = UIColor(hex: "#F2F3F4")
+        view.backgroundColor = ThemeManager.current.mediumGrayBGColor
         view.layer.cornerRadius = 12
         return view
     }()

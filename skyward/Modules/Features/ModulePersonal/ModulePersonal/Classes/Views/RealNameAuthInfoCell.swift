@@ -6,6 +6,7 @@
 //
 
 import UIKit
+import SWKit
 
 class RealNameAuthInfoCell: UITableViewCell {
     
@@ -17,7 +18,7 @@ class RealNameAuthInfoCell: UITableViewCell {
         let label = UILabel()
         label.translatesAutoresizingMaskIntoConstraints = false
         label.font = .systemFont(ofSize: 14)
-        label.textColor = .systemGray
+        label.textColor = UIColor(str: "#A0A3A7")
         return label
     }()
     

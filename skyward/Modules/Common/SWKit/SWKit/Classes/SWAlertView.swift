@@ -36,7 +36,7 @@ public struct SWAlertConfiguration {
     var cornerRadius: CGFloat = CornerRadius.medium.rawValue
     var titleFont: UIFont = .pingFangFontBold(ofSize: 16)
     var titleColor: UIColor = ThemeManager.current.titleColor
-    var messageFont: UIFont = .pingFangFontRegular(ofSize: 14)
+    var messageFont: UIFont = .pingFangFontMedium(ofSize: 14)
     var messageColor: UIColor = ThemeManager.current.secondaryColor
     var buttonHeight: CGFloat = swAdaptedValue(40)
     var buttonSpacing: CGFloat = 12

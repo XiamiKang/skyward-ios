@@ -1,17 +1,17 @@
 {
   "images" : [
     {
-      "filename" : "24＊24-Social.png",
+      "filename" : "Tabbar_home_Select.png",
       "idiom" : "universal",
       "scale" : "1x"
     },
     {
-      "filename" : "24＊24-Social@2x.png",
+      "filename" : "Tabbar_home_Select@2x.png",
       "idiom" : "universal",
       "scale" : "2x"
     },
     {
-      "filename" : "24＊24-Social@3x.png",
+      "filename" : "Tabbar_home_Select@3x.png",
       "idiom" : "universal",
       "scale" : "3x"
     }

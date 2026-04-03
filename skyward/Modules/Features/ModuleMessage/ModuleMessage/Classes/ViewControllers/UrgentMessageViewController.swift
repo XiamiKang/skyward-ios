@@ -17,14 +17,26 @@ class UrgentMessageViewController: BaseViewController {
     private let tableView = UITableView()
     private let inputContainerView = UIView()
     private let messageTextView = UITextView()
+    private let templateButton = UIButton()
     private let sendButton = UIButton()
-    
-    
+    private let placeHolderLabel = UILabel()
+
     // 用于保存inputBottomView的底部约束，以便动态调整
     private var inputBottomConstraint: Constraint?
-    
+    // 保存messageTextView的高度约束，以便动态调整
+    private var textViewHeightConstraint: Constraint?
+    // 保存templateView的顶部约束，以便动态调整
+    private var templateViewHeightConstraint: Constraint?
+
     // 保存原始的底部内边距
     private let originalBottomInset = ScreenUtil.safeAreaBottom
+
+    // TextView 高度限制
+    private let minTextViewHeight: CGFloat = swAdaptedValue(16)
+    private let maxTextViewHeight: CGFloat = swAdaptedValue(100)
+
+    // templateView 是否显示
+    private var isTemplateViewVisible = false
 
     private lazy var navigationBar: SWNavigationBar = {
         let bar = SWNavigationBar()
@@ -37,6 +49,18 @@ class UrgentMessageViewController: BaseViewController {
         return bar
     }()
     
+    private lazy var templateView: TemplateView = {
+        let templates = ["我在XX，目前被困，需要食物、医疗等资源及救援",
+                         "我在XX，有XX人受伤。急需：医疗、水食、车辆",
+                         "我在XX，遭遇火灾/毒气/滑坡险情。急需：医疗、水食、车辆。"]
+        let templateView = TemplateView(templates: templates)
+        templateView.backgroundColor = ThemeManager.current.mediumGrayBGColor
+        templateView.onSelectedHandler = { [weak self] template in
+            self?.messageTextView.text = template
+            self?.textViewValueDidChanged()
+        }
+        return templateView
+    }()
     
     // MARK: - Life Cycle
     
@@ -64,6 +88,15 @@ class UrgentMessageViewController: BaseViewController {
             _Concurrency.Task {
                 await requestUrgentMessages()
             }
+        }
+    }
+    
+    override func viewWillAppear(_ animated: Bool) {
+        super.viewWillAppear(animated)
+        let rightImgIcon = BluetoothManager.shared.connectedPeripheral == nil ? "device_mini_unlink" : "device_mini_linked"
+        navigationBar.setRightButtons(images: [MessageModule.image(named: rightImgIcon)]) { [weak self] index in
+            self?.view.endEditing(true)
+            SWRouter.handle(RouteTable.bindDevicePageUrl, parameters:["selectedIndex" : "0"])
         }
     }
     
@@ -98,31 +131,44 @@ class UrgentMessageViewController: BaseViewController {
         tableView.keyboardDismissMode = .onDrag // 滑动隐藏键盘
         view.addSubview(tableView)
         
+        // 模板视图
+        view.addSubview(templateView)
+        
         // 设置输入容器
+        inputContainerView.backgroundColor = ThemeManager.current.mediumGrayBGColor
+        inputContainerView.cornerRadius = CornerRadius.medium.rawValue
         view.addSubview(inputContainerView)
         
         // 设置输入框
-        messageTextView.font = .pingFangFontRegular(ofSize: 14)
-        messageTextView.backgroundColor = ThemeManager.current.mediumGrayBGColor
-        messageTextView.layer.cornerRadius = CornerRadius.medium.rawValue
-        messageTextView.textContainerInset = UIEdgeInsets(top: 14, left: 16, bottom: 14, right: 16)
-        messageTextView.isScrollEnabled = true
-        messageTextView.keyboardDismissMode = .onDrag
-        messageTextView.delegate = self
         messageTextView.textColor = ThemeManager.current.titleColor
+        messageTextView.font = .pingFangFontRegular(ofSize: 14)
+        messageTextView.backgroundColor = .clear
+        messageTextView.contentInset = .zero
+        messageTextView.textContainerInset = .zero
+        messageTextView.textContainer.lineFragmentPadding = 0
+        messageTextView.delegate = self
         messageTextView.tintColor = ThemeManager.current.mainColor
         inputContainerView.addSubview(messageTextView)
         
+        // 模版
+        templateButton.setImage(MessageModule.image(named: "message_template_icon"), for: .normal)
+        templateButton.addTarget(self, action: #selector(templateButtonTapped), for: .touchUpInside)
+        inputContainerView.addSubview(templateButton)
+        
         // 设置发送按钮
         sendButton.cornerRadius = CornerRadius.medium.rawValue
-        sendButton.isEnabled = false
         sendButton.backgroundColor = ThemeManager.current.mainColor
         sendButton.setTitle("发送", for: .normal)
         sendButton.setTitleColor(.white, for: .normal)
-        sendButton.titleLabel?.font = UIFont.pingFangFontBold(ofSize: 14)
+        sendButton.titleLabel?.font = UIFont.pingFangFontMedium(ofSize: 14)
         sendButton.addTarget(self, action: #selector(sendButtonTapped), for: .touchUpInside)
         inputContainerView.addSubview(sendButton)
         
+        //占位符
+        placeHolderLabel.font = .pingFangFontRegular(ofSize: 14)
+        placeHolderLabel.text = "请选择模版/输入"
+        placeHolderLabel.textColor = UIColor(str: "#A0A3A7")
+        inputContainerView.addSubview(placeHolderLabel)
     }
     
     override func setupConstraints() {
@@ -138,40 +184,96 @@ class UrgentMessageViewController: BaseViewController {
             make.bottom.equalTo(inputContainerView.snp.top)
         }
         
+        templateView.snp.makeConstraints { make in
+            make.bottom.leading.trailing.equalToSuperview()
+            templateViewHeightConstraint = make.height.equalTo(0).constraint
+        }
+        
         inputContainerView.snp.makeConstraints { make in
             make.leading.trailing.equalToSuperview().inset(16)
-            make.height.equalTo(swAdaptedValue(64))
             // 使用变量保存底部约束，以便后续调整
             inputBottomConstraint = make.bottom.equalToSuperview().inset(originalBottomInset).constraint
         }
         
+        let contentSize = messageTextView.sizeThatFits(CGSize(width: messageTextView.frame.width, height: CGFloat.greatestFiniteMagnitude))
+        let targetHeight = contentSize.height
         messageTextView.snp.makeConstraints { make in
-            make.top.bottom.equalToSuperview().inset(4)
-            make.leading.equalToSuperview().offset(8)
-            make.trailing.equalTo(sendButton.snp.leading).offset(-8)
+            textViewHeightConstraint = make.height.equalTo(targetHeight).constraint
+            make.top.bottom.equalToSuperview().inset(16)
+            make.leading.equalToSuperview().offset(12)
+            make.trailing.equalTo(templateButton.snp.leading).offset(-3)
+        }
+        
+        templateButton.snp.makeConstraints { make in
+            make.size.equalTo(CGSize(width: swAdaptedValue(30), height: swAdaptedValue(30)))
+            make.centerY.equalToSuperview()
+            make.trailing.equalTo(sendButton.snp.leading).offset(-11)
         }
         
         sendButton.snp.makeConstraints { make in
-            make.top.bottom.equalToSuperview().inset(6)
+            make.size.equalTo(CGSize(width: swAdaptedValue(52), height: swAdaptedValue(32)))
+            make.centerY.equalToSuperview()
             make.trailing.equalToSuperview().offset(-8)
-            make.width.equalTo(60)
+        }
+        
+        placeHolderLabel.snp.makeConstraints { make in
+            make.left.centerY.equalTo(messageTextView)
         }
     }
     
     // MARK: - Actions
+
+    @objc private func templateButtonTapped() {
+        if isTemplateViewVisible {
+            hideTemplateView()
+        } else {
+            // 如果键盘弹起，先收起键盘
+            if messageTextView.isFirstResponder {
+                messageTextView.resignFirstResponder()
+                DispatchQueue.mp_asyncAfter(0.2) {
+                    self.showTemplateView()
+                }
+            } else {
+                showTemplateView()
+            }
+        }
+    }
+
+    /// 显示 templateView
+    private func showTemplateView() {
+        guard !isTemplateViewVisible else { return }
+        isTemplateViewVisible = true
+
+        // 更新约束，显示 templateView
+        templateViewHeightConstraint?.update(offset: swAdaptedValue(160) + originalBottomInset)
+        inputBottomConstraint?.update(inset: swAdaptedValue(160) + originalBottomInset + 8)
+
+        UIView.animate(withDuration: 0.3) {
+            self.view.layoutIfNeeded()
+        }
+    }
+
+    /// 隐藏 templateView
+    private func hideTemplateView() {
+        guard isTemplateViewVisible else { return }
+        isTemplateViewVisible = false
+
+        // 更新约束，隐藏 templateView
+        templateViewHeightConstraint?.update(offset: 0)
+        inputBottomConstraint?.update(inset: originalBottomInset)
+
+        UIView.animate(withDuration: 0.3) {
+            self.view.layoutIfNeeded()
+        }
+    }
     
     @objc private func sendButtonTapped() {
         let content = messageTextView.text.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !content.isEmpty else { return }
-        
         guard content.count <= 70 else {
             view.sw_showWarningToast("消息长度不能超过70个字符")
             return
         }
-
-        // 清空输入框
-        messageTextView.text = ""
-        
         sendMessage(content)
     }
     
@@ -190,6 +292,8 @@ class UrgentMessageViewController: BaseViewController {
                                     receiveUserBaseInfoVO: nil)
         
         if NetworkMonitor.shared.isConnected {
+            messageTextView.text = nil
+            textViewValueDidChanged()
             sendMessage(msg: msg) { success in
                 self.addMessageToTable(message)
             }
@@ -202,6 +306,8 @@ class UrgentMessageViewController: BaseViewController {
                 }
                 view.endEditing(true)
                 SWAlertView.showAlert(title: nil, message: "当前无网络连接，通过Mini设备发消息？") {
+                    self.messageTextView.text = nil
+                    self.textViewValueDidChanged()
                     BluetoothManager.shared.sendAppCustomData(msgData)
                     self.addMessageToTable(message)
                 }
@@ -288,23 +394,34 @@ extension UrgentMessageViewController: UITableViewDelegate, UITableViewDataSourc
 
 extension UrgentMessageViewController: UITextViewDelegate {
     
-    func textViewDidBeginEditing(_ textView: UITextView) {
-        if textView.text == "请输入消息..." {
-            textView.text = ""
-            textView.textColor = .black
-        }
-    }
-    
-    func textViewDidEndEditing(_ textView: UITextView) {
-        if textView.text.isEmpty {
-            textView.text = "请输入消息..."
-            textView.textColor = UIColor.placeholderText
-        }
-    }
-    
     func textViewDidChange(_ textView: UITextView) {
-        let hasContent = !(textView.text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
-        sendButton.isEnabled = hasContent
+        textViewValueDidChanged()
+    }
+    
+    private func textViewValueDidChanged() {
+        placeHolderLabel.isHidden = !messageTextView.text.isEmpty
+        adjustTextViewHeight()
+    }
+
+    /// 调整 TextView 高度
+    private func adjustTextViewHeight() {
+        // 计算内容高度
+        let contentSize = messageTextView.sizeThatFits(CGSize(width: messageTextView.frame.width, height: CGFloat.greatestFiniteMagnitude))
+        let targetHeight = contentSize.height
+
+        // 限制在最小和最大高度之间
+        let newHeight = max(minTextViewHeight, min(maxTextViewHeight, targetHeight))
+
+        // 更新高度约束
+        textViewHeightConstraint?.update(offset: newHeight)
+
+        // 平滑动画更新布局
+        UIView.animate(withDuration: 0.2) {
+            self.view.layoutIfNeeded()
+        }
+
+        // 更新 TextView 的滚动能力
+        messageTextView.isScrollEnabled = newHeight >= maxTextViewHeight
     }
     
     func textView(_ textView: UITextView, shouldChangeTextIn range: NSRange, replacementText text: String) -> Bool {
@@ -372,12 +489,17 @@ extension UrgentMessageViewController: UIGestureRecognizerDelegate {
               let curve = notification.userInfo?[UIResponder.keyboardAnimationCurveUserInfoKey] as? UInt else {
             return
         }
-        
+
+        // 如果 templateView 显示中，先隐藏
+        if isTemplateViewVisible {
+            hideTemplateView()
+        }
+
         // 计算键盘高度
         let keyboardHeight = keyboardFrame.height
         
         // 调整inputBottomView的底部约束
-        inputBottomConstraint?.update(inset: keyboardHeight)
+        inputBottomConstraint?.update(inset: keyboardHeight + 8)
         
         // 使用与键盘相同的动画参数更新约束
         UIView.animate(withDuration: duration, delay: 0, options: UIView.AnimationOptions(rawValue: curve)) {
@@ -411,12 +533,13 @@ extension UrgentMessageViewController: UIGestureRecognizerDelegate {
     }
     
     @objc private func dismissKeyboard() {
-        // 收起键盘
+        // 收起键盘并隐藏 templateView
         view.endEditing(true)
+        hideTemplateView()
     }
-    
+
     func gestureRecognizer(_ gestureRecognizer: UIGestureRecognizer, shouldReceive touch: UITouch) -> Bool {
-        // 如果点击的是按钮或其他需要交互的控件，不触发收起键盘的手势
-        return !(touch.view is UIButton || touch.view is UIScrollView)
+        // 如果点击的是按钮、ScrollView 或 templateView，不触发收起键盘的手势
+        return !(touch.view is UIButton || touch.view is UIScrollView || touch.view?.isDescendant(of: templateView) == true)
     }
 }

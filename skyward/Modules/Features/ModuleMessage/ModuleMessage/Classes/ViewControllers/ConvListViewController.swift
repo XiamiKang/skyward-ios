@@ -97,7 +97,7 @@ class ConvListViewController: BaseViewController, UITableViewDataSource, UITable
         searchField.delegate = self
         
         sosTopCardView.onActionCallback = {
-            ReportManager.report(.sos)
+            ReportManager.report(.openSOS)
         }
         
         safetyTopCardView.onActionCallback = {

@@ -8,6 +8,7 @@
 import UIKit
 import SWKit
 import ModuleLogin
+import SWTheme
 
 class ProDeviceDetailViewController: PersonalBaseViewController {
     
@@ -28,10 +29,20 @@ class ProDeviceDetailViewController: PersonalBaseViewController {
     private var connect = false
     private var collectingSuccess = false
     
+    // 添加信号预警视图
+    private lazy var weakSignalAlertView: WeakSignalAlertView = {
+        let alertView = WeakSignalAlertView()
+        alertView.isHidden = true
+        alertView.onClose = { [weak self] in
+            self?.hideWeakSignalAlert()
+        }
+        alertView.translatesAutoresizingMaskIntoConstraints = false
+        return alertView
+    }()
     
     private lazy var proTableView: UITableView = {
         let tableView = UITableView(frame: .zero, style: .plain)
-        tableView.backgroundColor = UIColor(str: "#F2F3F4")
+        tableView.backgroundColor = ThemeManager.current.mediumGrayBGColor
         tableView.separatorStyle = .none
         tableView.delegate = self
         tableView.dataSource = self
@@ -45,6 +56,9 @@ class ProDeviceDetailViewController: PersonalBaseViewController {
     }()
     
     private let baseControlView = ProDeviceBaseControlView()
+    // 添加高度约束的引用
+    private var weakSignalAlertViewHeightConstraint: NSLayoutConstraint?
+    
     
     // MARK: - Lifecycle
     override func viewDidLoad() {
@@ -52,6 +66,7 @@ class ProDeviceDetailViewController: PersonalBaseViewController {
         
         setupUI()
         setupWiFiDeviceManager()
+        setupNotifications()
     }
     
     override func viewWillAppear(_ animated: Bool) {
@@ -64,6 +79,10 @@ class ProDeviceDetailViewController: PersonalBaseViewController {
         stopStatusUpdates()
     }
     
+    deinit {
+        NotificationCenter.default.removeObserver(self)
+    }
+    
     override func backButtonTapped() {
         if let vc = self.navigationController?.viewControllers.first(where: { $0 is DeviceListViewController }) {
             self.navigationController?.popToViewController(vc, animated: true)
@@ -74,9 +93,10 @@ class ProDeviceDetailViewController: PersonalBaseViewController {
     
     // MARK: - Setup
     private func setupUI() {
-        view.backgroundColor = UIColor(hex: "#F2F3F4")
+        view.backgroundColor = ThemeManager.current.mediumGrayBGColor
         customTitle.text = "详情"
         
+        view.addSubview(weakSignalAlertView)
         view.addSubview(proTableView)
         baseControlView.translatesAutoresizingMaskIntoConstraints = false
         baseControlView.collectionAction = { [weak self] in
@@ -90,9 +110,16 @@ class ProDeviceDetailViewController: PersonalBaseViewController {
         }
         view.addSubview(baseControlView)
         
+        // 保存高度约束
+        weakSignalAlertViewHeightConstraint = weakSignalAlertView.heightAnchor.constraint(equalToConstant: 0)
+        weakSignalAlertViewHeightConstraint?.isActive = true
+        
         NSLayoutConstraint.activate([
+            weakSignalAlertView.topAnchor.constraint(equalTo: customNavView.bottomAnchor),
+            weakSignalAlertView.leadingAnchor.constraint(equalTo: view.leadingAnchor),
+            weakSignalAlertView.trailingAnchor.constraint(equalTo: view.trailingAnchor),
             
-            proTableView.topAnchor.constraint(equalTo: customNavView.bottomAnchor),
+            proTableView.topAnchor.constraint(equalTo: weakSignalAlertView.bottomAnchor),
             proTableView.leadingAnchor.constraint(equalTo: view.leadingAnchor),
             proTableView.trailingAnchor.constraint(equalTo: view.trailingAnchor),
             proTableView.bottomAnchor.constraint(equalTo: baseControlView.topAnchor),
@@ -134,6 +161,79 @@ class ProDeviceDetailViewController: PersonalBaseViewController {
         }
     }
     
+    private func setupNotifications() {
+        // 监听危险区域通知 - 用于显示信号预警
+        NotificationCenter.default.addObserver(
+            self,
+            selector: #selector(handleDangerAlert(_:)),
+            name: .dangerZoneAlert,
+            object: nil
+        )
+        
+        NotificationCenter.default.addObserver(
+            self,
+            selector: #selector(handleWarningAlert(_:)),
+            name: .dangerZoneWarning,
+            object: nil
+        )
+        
+        NotificationCenter.default.addObserver(
+            self,
+            selector: #selector(hideWeakSignalAlert),
+            name: .dangerZoneSafe,
+            object: nil
+        )
+    }
+
+    // MARK: - 信号预警处理
+    @objc private func handleDangerAlert(_ notification: Notification) {
+        guard let _ = notification.userInfo else { return }
+        
+        DispatchQueue.main.async { [weak self] in
+            guard let self = self else { return }
+            
+            // 设置信号预警视图为danger状态
+            self.weakSignalAlertView.state = .danger
+            self.weakSignalAlertView.message = "信号告警：已进入卫星信号弱区域"
+            
+            // 显示预警视图
+            self.showWeakSignalAlert()
+        }
+    }
+
+    @objc private func handleWarningAlert(_ notification: Notification) {
+        guard let userInfo = notification.userInfo else { return }
+        
+        DispatchQueue.main.async { [weak self] in
+            guard let self = self else { return }
+            
+            // 从通知中提取信息
+            let direction = userInfo["direction"] as? String ?? "未知"
+            let distance = userInfo["distance"] as? Double ?? 0
+            
+            // 格式化距离
+            let distanceStr = self.formatDistance(distance)
+            
+            // 设置信号预警视图为warn状态
+            self.weakSignalAlertView.state = .warn
+            self.weakSignalAlertView.message = "信号预警：\(direction)方向\(distanceStr)后进入卫星信号弱区域"
+            
+            // 显示预警视图
+            self.showWeakSignalAlert()
+        }
+    }
+    
+    // 格式化距离显示
+    private func formatDistance(_ distance: Double) -> String {
+        if distance < 1 {
+            return String(format: "%.0f米", distance * 1000)
+        } else if distance < 10 {
+            return String(format: "%.1f公里", distance)
+        } else {
+            return String(format: "%.0f公里", distance)
+        }
+    }
+    
     // MARK: - 状态更新
     private func startStatusUpdates() {
         // 如果已经连接，开始定时更新状态
@@ -165,7 +265,7 @@ class ProDeviceDetailViewController: PersonalBaseViewController {
             case .success(let status):
                 DispatchQueue.main.async {
                     self?.deviceStatus = status
-                    self?.proTableView.reloadRows(at: [IndexPath(row: 1, section: 0)], with: .none)
+                    self?.proTableView.reloadData()
                     if status.antennaStatus == .stableTracking {
                         self?.getProDeviceMsg()
                     }
@@ -191,70 +291,29 @@ class ProDeviceDetailViewController: PersonalBaseViewController {
     }
     
     private func updateProNetworkStatus() {
-        guard let url = URL(string: "http://192.168.0.8/action/homestatus") else {
-            print("无效的URL")
-            return
-        }
-        
-        let task = URLSession.shared.dataTask(with: url) { data, response, error in
-            if let error = error {
-                print("请求错误: \(error)")
-                return
-            }
-            
-            guard let httpResponse = response as? HTTPURLResponse,
-                  (200...299).contains(httpResponse.statusCode) else {
-                print("服务器返回错误")
-                return
-            }
-            
-            if let data = data {
-                do {
-                    let homeStatus = try JSONDecoder().decode(HomeStatusData.self, from: data)
-                    DispatchQueue.main.async {
-                        self.satelliteLinkStatus = homeStatus.satelliteLinkStatus
-                        self.rxSnr = homeStatus.rf_rx_snr
-                        self.txSnr = homeStatus.rf_tx_snr
-                        self.proTableView.reloadRows(at: [IndexPath(row: 1, section: 0)], with: .none)
-                    }
-                } catch {
-                    print("JSON解析错误: \(error)")
+        SatelliteDataCollector.shared.getHomestatus { result in
+            switch result {
+            case .success(let data):
+                print("kuangdai")
+                DispatchQueue.main.async {
+                    self.satelliteLinkStatus = data.satelliteLinkStatus
+                    self.rxSnr = data.rf_rx_snr
+                    self.txSnr = data.rf_tx_snr
+                    self.proTableView.reloadData()
                 }
+            case .failure:
+                print("homestatus请求错误")
             }
         }
-        
-        task.resume()
     }
     
     private func updateProNetworkSpeed() {
-        guard let url = URL(string: "http://192.168.0.8/action/sysTrafficGet") else {
-            print("无效的URL")
-            return
-        }
-        
-        let task = URLSession.shared.dataTask(with: url) { data, response, error in
-            if let error = error {
-                print("请求错误: \(error)")
-                return
-            }
-            
-            guard let httpResponse = response as? HTTPURLResponse,
-                  (200...299).contains(httpResponse.statusCode) else {
-                print("服务器返回错误")
-                return
-            }
-            
-            if let data = data {
-                do {
-                    let response = try JSONDecoder().decode(SysTrafficResponse.self, from: data)
-                    // 检查返回码
-                    guard response.code == "0" else {
-                        print("返回的数据不可以使用")
-                        return
-                    }
-                    print("解析成功:")
-                    let receiveFormatted = FormattedBandwidth.format(bytes: response.receiveBandwidth).displayString
-                    let transmitFormatted = FormattedBandwidth.format(bytes: response.transmitBandwidth).displayString
+        SatelliteDataCollector.shared.getSysTraffic { result in
+            switch result {
+            case .success(let data):
+                DispatchQueue.main.async {
+                    let receiveFormatted = FormattedBandwidth.format(bytes: data.receiveBandwidth).displayString
+                    let transmitFormatted = FormattedBandwidth.format(bytes: data.transmitBandwidth).displayString
                     print("receiveFormatted: \(receiveFormatted)")
                     print("transmitFormatted: \(transmitFormatted)")
                     DispatchQueue.main.async {
@@ -262,13 +321,11 @@ class ProDeviceDetailViewController: PersonalBaseViewController {
                         self.downText = transmitFormatted
                         self.proTableView.reloadRows(at: [IndexPath(row: 0, section: 0)], with: .none)
                     }
-                } catch {
-                    print("JSON解析错误: \(error)")
                 }
+            case .failure:
+                print("homestatus请求错误")
             }
         }
-        
-        task.resume()
     }
     
     
@@ -319,6 +376,7 @@ class ProDeviceDetailViewController: PersonalBaseViewController {
                 case .success(let success):
                     let message = success ? "一键收藏成功" : "一键收藏失败"
                     self?.view.sw_showSuccessToast(message)
+                    self?.baseControlView.stopCollecting(with: success)
                 case .failure(let error):
                     self?.view.sw_showWarningToast("收藏失败: \(error.localizedDescription)")
                 }
@@ -369,9 +427,10 @@ class ProDeviceDetailViewController: PersonalBaseViewController {
         wifiDeviceManager.halfSatellite(longitude: longitude, latitude: latitude, altitude: location.altitude, mode: mode) { [weak self] result in
             guard let self = self else { return }
             DispatchQueue.main.async {
+                self.view.sw_showSuccessToast("对星已启动")
+                self.baseControlView.stopLiningStar(with: true)
                 switch result {
                 case .success(let alignmentResult):
-                    self.view.sw_showSuccessToast("自动对星成功")
                     // 更新状态显示
                     self.deviceStatus = ProDeviceStatus(
                         lockStatus: alignmentResult.lockStatus,
@@ -387,7 +446,8 @@ class ProDeviceDetailViewController: PersonalBaseViewController {
                     )
                     self.proTableView.reloadRows(at: [IndexPath(row: 1, section: 0)], with: .none)
                 case .failure(let error):
-                    self.view.sw_showWarningToast("对星失败: \(error.localizedDescription)")
+                    print("\(error.localizedDescription)")
+//                    self.view.sw_showWarningToast("对星失败: \(error.localizedDescription)")
                 }
             }
         }
@@ -425,9 +485,7 @@ class ProDeviceDetailViewController: PersonalBaseViewController {
                     DispatchQueue.main.async {
                         self?.isHaveGetDeviceMsg = true
                         // 保存设备信息到后台
-                        UserManager.shared.bindDevice(serialNum: deviceInfo.deviceSN, macAddress: deviceInfo.catMAC) { result in
-                            
-                        }
+                        UserManager.shared.bindDevice(serialNum: deviceInfo.deviceSN, macAddress: deviceInfo.catMAC)
                     }
                 case .failure(let error):
                     print("设备信息失败: \(error)")
@@ -437,6 +495,33 @@ class ProDeviceDetailViewController: PersonalBaseViewController {
                 }
             }
         }
+    }
+    
+    
+    // MARK: - 信号预警显示/隐藏控制
+    private func showWeakSignalAlert() {
+        guard weakSignalAlertViewHeightConstraint?.constant != 40 else { return }
+        
+        weakSignalAlertView.isHidden = false
+        weakSignalAlertViewHeightConstraint?.constant = 40
+        animateLayoutChange()
+    }
+    
+    @objc private func hideWeakSignalAlert() {
+        guard weakSignalAlertViewHeightConstraint?.constant != 0 else { return }
+        
+        weakSignalAlertViewHeightConstraint?.constant = 0
+        animateLayoutChange()
+        weakSignalAlertView.isHidden = true
+    }
+    
+    private func animateLayoutChange() {
+        UIView.animate(withDuration: 0.25,
+                       delay: 0,
+                       options: [.curveEaseInOut, .beginFromCurrentState],
+                       animations: {
+            self.view.layoutIfNeeded()
+        }, completion: nil)
     }
     
 }
@@ -451,6 +536,9 @@ extension ProDeviceDetailViewController: UITableViewDelegate, UITableViewDataSou
         case 0:
             let cell = tableView.dequeueReusableCell(withIdentifier: "ProDeviceBaseMsgCell") as! ProDeviceBaseMsgCell
             cell.changeStatus(isConnect: connect)
+            if let deviceStatus = deviceStatus {
+                cell.updateModeChooseAndCollecitonUI(with: deviceStatus)
+            }
             cell.quintupleTapAction = { [weak self] in
                 guard let self = self else {return}
                 self.pushToDebugVC()
@@ -499,7 +587,7 @@ extension ProDeviceDetailViewController: UITableViewDelegate, UITableViewDataSou
                     self.pushToWebVC(with: "http://192.168.0.1", title: "路由器设置")
                     return
                 case 5:
-                    self.pushToWebVC(with: "http://192.168.0.8", title: "卫星参数")
+                    self.pushToWebVC(with: "https://192.168.0.8", title: "卫星参数")
                     return
                 default:
                     return
@@ -544,7 +632,7 @@ extension ProDeviceDetailViewController {
             print("用户点击了确定")
             self.wifiDeviceManager.reset { [weak self] result in
                 switch result {
-                case .success(let status):
+                case .success(_):
                     DispatchQueue.main.async {
                         self?.view.sw_showSuccessToast("重启成功")
                     }
@@ -564,7 +652,9 @@ extension ProDeviceDetailViewController {
     }
     
     private func pushToUpdateVC() {
-        let vc = ProDeviceUpdateViewController()
+        statusUpdateTimer?.invalidate()
+        statusUpdateTimer = nil
+        let vc = ProDeviceUpdateViewController(type: wifiDeviceManager.type)
         self.navigationController?.pushViewController(vc, animated: true)
     }
     
@@ -579,3 +669,4 @@ extension ProDeviceDetailViewController {
         self.navigationController?.pushViewController(vc, animated: true)
     }
 }
+

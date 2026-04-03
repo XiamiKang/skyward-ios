@@ -10,7 +10,7 @@ import SWKit
 import SDWebImage
 
 // MARK: - 个人资料头部视图
-class ProfileHeaderView: UITableViewHeaderFooterView {
+class ProfileMessageCell: UITableViewCell {
     
     static let identifier = "ProfileHeaderView"
     
@@ -23,8 +23,6 @@ class ProfileHeaderView: UITableViewHeaderFooterView {
         imageView.contentMode = .scaleAspectFill
         imageView.clipsToBounds = true
         imageView.layer.cornerRadius = 30
-        imageView.backgroundColor = .systemGray5
-        imageView.tintColor = .systemGray
         imageView.image = PersonalModule.image(named: "my_avatar")
         return imageView
     }()
@@ -51,13 +49,12 @@ class ProfileHeaderView: UITableViewHeaderFooterView {
         let button = UIButton(type: .custom)
         button.translatesAutoresizingMaskIntoConstraints = false
         button.setImage(PersonalModule.image(named: "profile_edit"), for: .normal)
-        
         return button
     }()
     
     // MARK: - 初始化
-    override init(reuseIdentifier: String?) {
-        super.init(reuseIdentifier: reuseIdentifier)
+    override init(style: UITableViewCell.CellStyle, reuseIdentifier: String?) {
+        super.init(style: style, reuseIdentifier: reuseIdentifier)
         setupUI()
     }
     
@@ -67,7 +64,8 @@ class ProfileHeaderView: UITableViewHeaderFooterView {
     
     // MARK: - UI设置
     private func setupUI() {
-        contentView.backgroundColor = .clear
+        backgroundColor = .clear
+        selectionStyle = .none
         
         contentView.addSubview(avatarImageView)
         contentView.addSubview(nameLabel)
@@ -76,8 +74,8 @@ class ProfileHeaderView: UITableViewHeaderFooterView {
         
         // 头像的约束
         NSLayoutConstraint.activate([
-            avatarImageView.bottomAnchor.constraint(equalTo: contentView.bottomAnchor, constant: -20),
-            avatarImageView.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 12),
+            avatarImageView.bottomAnchor.constraint(equalTo: contentView.bottomAnchor, constant: -16),
+            avatarImageView.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 16),
             avatarImageView.widthAnchor.constraint(equalToConstant: 60),
             avatarImageView.heightAnchor.constraint(equalToConstant: 60),
         ])
@@ -98,7 +96,7 @@ class ProfileHeaderView: UITableViewHeaderFooterView {
         // 编辑资料按钮的约束
         NSLayoutConstraint.activate([
             editButton.centerYAnchor.constraint(equalTo: avatarImageView.centerYAnchor),
-            editButton.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -20),
+            editButton.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -10),
             editButton.widthAnchor.constraint(equalToConstant: 40),
             editButton.heightAnchor.constraint(equalToConstant: 40)
         ])

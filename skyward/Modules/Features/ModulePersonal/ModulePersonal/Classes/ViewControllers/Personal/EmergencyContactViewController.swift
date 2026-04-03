@@ -14,8 +14,8 @@ class EmergencyContactViewController: PersonalBaseViewController {
     
     private let viewModel = PersonalViewModel()
     
+    var isHideDelete: Bool = false
     var emergencyData: EmergencyInfoData?
-    var isShowDeleteButton: Bool = true
     
     private lazy var deleteButton: UIButton = {
         let button = UIButton(type: .custom)
@@ -24,11 +24,7 @@ class EmergencyContactViewController: PersonalBaseViewController {
         button.setTitleColor(UIColor(hex: "#F7594B"), for: .normal)
         button.titleLabel?.font = .systemFont(ofSize: 14, weight: .medium)
         button.addTarget(self, action: #selector(deleteEmergencyClick), for: .touchUpInside)
-        if let emergencyData = emergencyData {
-            button.isHidden = !isShowDeleteButton
-        }else {
-            button.isHidden = true
-        }
+        button.isHidden = isHideDelete
         return button
     }()
     
@@ -239,7 +235,7 @@ class EmergencyContactViewController: PersonalBaseViewController {
     }
     
     @objc private func deleteEmergencyClick() {
-        SWAlertView.showAlert(title: "确认删除", message: "删除后遇到紧急情况时平台将无法主动通知紧急联系人", confirmTitle: "确认删除") { [weak self] in
+        SWAlertView.showAlert(title: nil, message: "确认删除该紧急联系人吗？", confirmTitle: "确认删除") { [weak self] in
             guard let self = self else { return }
             if let emergencyData = emergencyData {
                 self.viewModel.deleteEmergencyContact(id: emergencyData.id ?? "")

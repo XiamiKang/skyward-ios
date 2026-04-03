@@ -7,6 +7,7 @@
 
 
 import UIKit
+import SWTheme
 
 // MARK: - 输入框协议
 protocol InputFieldDelegate: AnyObject {
@@ -42,7 +43,7 @@ class BaseInputField: UIView {
     // MARK: - UI Components
     let containerView: UIView = {
         let view = UIView()
-        view.backgroundColor = UIColor(hex: "#F2F3F4")
+        view.backgroundColor = ThemeManager.current.mediumGrayBGColor
         view.layer.cornerRadius = 8
         view.layer.borderWidth = 1
         view.layer.borderColor = UIColor.clear.cgColor

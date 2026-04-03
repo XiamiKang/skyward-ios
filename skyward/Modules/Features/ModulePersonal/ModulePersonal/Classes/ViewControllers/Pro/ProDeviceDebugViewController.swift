@@ -7,6 +7,7 @@
 
 import UIKit
 import SWKit
+import SWTheme
 
 class ProDeviceDebugViewController: PersonalBaseViewController {
     
@@ -63,7 +64,7 @@ class ProDeviceDebugViewController: PersonalBaseViewController {
     }
     
     private func setupUI() {
-        view.backgroundColor = UIColor(hex: "#F2F3F4")
+        view.backgroundColor = ThemeManager.current.mediumGrayBGColor
         customTitle.text = "调试模式"
         
         controlBGView.backgroundColor = .white

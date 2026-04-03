@@ -16,6 +16,16 @@ struct BufferMsgData {
 
 class MiniDeviceNoSendMsgViewController: PersonalBaseViewController {
     
+    init(imeiStr: String) {
+        self.imeiStr = imeiStr
+        super.init(nibName: nil, bundle: nil)
+    }
+    
+    @MainActor required init?(coder: NSCoder) {
+        fatalError("init(coder:) has not been implemented")
+    }
+    
+    let imeiStr: String
     let noMsgView = UIView()
     let noMsgImageView = UIImageView()
     let noMsgText = UILabel()
@@ -70,6 +80,16 @@ class MiniDeviceNoSendMsgViewController: PersonalBaseViewController {
         return tableView
     }()
     
+    private lazy var recordButton: UIButton = {
+        let button = UIButton()
+        button.translatesAutoresizingMaskIntoConstraints = false
+        button.setTitle("发送结果", for: .normal)
+        button.setTitleColor(.black, for: .normal)
+        button.titleLabel?.font = .systemFont(ofSize: 14, weight: .regular)
+        button.addTarget(self, action: #selector(recordClick), for: .touchUpInside)
+        return button
+    }()
+    
     override func viewDidLoad() {
         super.viewDidLoad()
         
@@ -77,6 +97,7 @@ class MiniDeviceNoSendMsgViewController: PersonalBaseViewController {
         setupConstraint()
         setupNotifications()
         initializeData()
+        refreshTableView()
     }
     
     private func initializeData() {
@@ -88,6 +109,7 @@ class MiniDeviceNoSendMsgViewController: PersonalBaseViewController {
         view.backgroundColor = .white
         customTitle.text = "待发送队列"
         
+        customNavView.addSubview(recordButton)
         self.view.addSubview(tableView)
         
         noMsgView.backgroundColor = .white
@@ -108,6 +130,12 @@ class MiniDeviceNoSendMsgViewController: PersonalBaseViewController {
         noMsgText.translatesAutoresizingMaskIntoConstraints = false
         
         NSLayoutConstraint.activate([
+            
+            recordButton.centerYAnchor.constraint(equalTo: customTitle.centerYAnchor),
+            recordButton.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -10),
+            recordButton.widthAnchor.constraint(equalToConstant: 80),
+            recordButton.heightAnchor.constraint(equalToConstant: 35),
+            
             tableView.topAnchor.constraint(equalTo: customNavView.bottomAnchor),
             tableView.leadingAnchor.constraint(equalTo: view.leadingAnchor),
             tableView.trailingAnchor.constraint(equalTo: view.trailingAnchor),
@@ -142,17 +170,16 @@ class MiniDeviceNoSendMsgViewController: PersonalBaseViewController {
     @objc private func showDeviceBufferInfo(_ notification: Notification) {
         guard let userInfo = notification.userInfo else { return }
         if let deviceBufferInfo = userInfo["deviceBufferInfo"] as? Data {
-//            print("Mini设备缓存区信息---\(deviceBufferInfo.hexString)")
-            noMsgView.isHidden = true
-            guard let communicationFrame = BluetoothManager.shared.parseCommunicationFrame(deviceBufferInfo) else { return }
+            guard let communicationFrame = BluetoothManager.shared.parseResponseFrame(deviceBufferInfo) else { return }
+            print("Mini设备缓存区信息---\(communicationFrame)")
             // 根据命令码更新对应类型的数量
             switch communicationFrame.commandCode {
-            case .alarmReport:
+            case Command.alarmReport.chengduCode:
                 // alarmReport交给showAlarmInfo处理
                 BluetoothManager.shared.handleAlarmReport(communicationFrame.messageContent)
-            case .positionReport:
+            case Command.positionReport.chengduCode:
                 updateMessageCount(for: .location, increment: 1)
-            case .appCustomData:
+            case Command.appCustomData.chengduCode:
                 updateMessageCount(for: .custom, increment: 1)
             default:
                 break
@@ -186,13 +213,22 @@ class MiniDeviceNoSendMsgViewController: PersonalBaseViewController {
     
     private func refreshTableView() {
         // 检查是否有数据
-        let hasData = bufferData.values.contains { $0 > 0 }
-        noMsgView.isHidden = hasData
-        tableView.isHidden = !hasData
+        print("缓冲区数量----\(bufferData)")
+        let hasData = bufferData.contains { $0.value > 0 }
+        
+        // hasData = true 表示有数据，应该显示tableView
+        // 所以：
+        noMsgView.isHidden = hasData      // 有数据时隐藏无消息视图
+        tableView.isHidden = !hasData     // 有数据时显示tableView
         
         if hasData {
             tableView.reloadData()
         }
+    }
+    
+    @objc private func recordClick() {
+        let vc = MiniDeviceSatelliteSendResultController(imeiStr: imeiStr)
+        navigationController?.pushViewController(vc, animated: true)
     }
 }
 
@@ -278,6 +314,7 @@ class DevieceBufferMsgCell: UITableViewCell {
             numLabel.widthAnchor.constraint(equalToConstant: 80),
             numLabel.heightAnchor.constraint(equalToConstant: 18),
         ])
+        
         
         // 设置单元格样式
         selectionStyle = .none

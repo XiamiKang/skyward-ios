@@ -11,12 +11,14 @@ public enum POIType: String, CaseIterable {
     case campsite = "露营地"
     case scenicSpot = "风景名胜"
     case gasStation = "加油站"
+    case medical = "医疗"
     
     public var iconName: String {
         switch self {
         case .campsite: return "map_poi_type1"
         case .scenicSpot: return "map_poi_type2"
         case .gasStation: return "map_poi_type3"
+        case .medical: return "map_poi_type4"
         }
     }
     
@@ -25,6 +27,7 @@ public enum POIType: String, CaseIterable {
         case .campsite: return "map_poi_selType1"
         case .scenicSpot: return "map_poi_selType2"
         case .gasStation: return "map_poi_selType3"
+        case .medical: return "map_poi_selType4"
         }
     }
     
@@ -33,6 +36,22 @@ public enum POIType: String, CaseIterable {
         case .campsite: return 1
         case .scenicSpot: return 2
         case .gasStation: return 3
+        case .medical: return 4
+        }
+    }
+    
+    public static func categoryConversionType(category: Int) -> POIType {
+        switch category {
+        case 1:
+                .campsite
+        case 2:
+                .scenicSpot
+        case 3:
+                .gasStation
+        case 4:
+                .medical
+        default:
+                .campsite
         }
     }
 }

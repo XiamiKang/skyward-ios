@@ -54,7 +54,7 @@ class ConvViewController: BaseViewController {
         view.addSubview(tableView)
         
         // 设置输入容器
-        inputContainerView.backgroundColor = UIColor.systemGray6
+        inputContainerView.backgroundColor = ThemeManager.current.mediumGrayBGColor
         inputContainerView.layer.cornerRadius = 16
         inputContainerView.clipsToBounds = true
         view.addSubview(inputContainerView)
@@ -73,7 +73,7 @@ class ConvViewController: BaseViewController {
         sendButton.setTitle("发送", for: .normal)
         sendButton.titleLabel?.font = UIFont.systemFont(ofSize: 16, weight: .medium)
         sendButton.setTitleColor(.white, for: .normal)
-        sendButton.backgroundColor = UIColor.systemBlue
+        sendButton.backgroundColor = UIColor.blue
         sendButton.layer.cornerRadius = 12
         sendButton.isEnabled = false // 初始禁用
         sendButton.addTarget(self, action: #selector(sendButtonTapped), for: .touchUpInside)
@@ -143,7 +143,7 @@ class ConvViewController: BaseViewController {
             messageInputTextView.text = ""
             messageInputTextView.textColor = UIColor.placeholderText
             sendButton.isEnabled = false
-            sendButton.backgroundColor = UIColor.systemBlue.withAlphaComponent(0.5)
+            sendButton.backgroundColor = UIColor.blue.withAlphaComponent(0.5)
         }
     
 }
@@ -179,7 +179,7 @@ extension ConvViewController: UITextViewDelegate {
     func textViewDidChange(_ textView: UITextView) {
         let hasContent = !(textView.text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
         sendButton.isEnabled = hasContent
-        sendButton.backgroundColor = hasContent ? UIColor.systemBlue : UIColor.systemBlue.withAlphaComponent(0.5)
+        sendButton.backgroundColor = hasContent ? UIColor.blue : UIColor.blue.withAlphaComponent(0.5)
         
         // 自动调整高度（可选，本例固定高度）
         // 如果需要动态高度，可监听 contentSize 并更新约束

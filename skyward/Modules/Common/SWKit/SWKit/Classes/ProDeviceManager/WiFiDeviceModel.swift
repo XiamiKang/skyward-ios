@@ -154,6 +154,14 @@ public struct ProDeviceInfo {
         self.catMAC = components[2]
         self.catSN = components[3]
     }
+    
+    public var firwareType: FirmwareType {
+        if deviceSN.contains("2501") {
+            return .prototype
+        } else {
+            return .base
+        }
+    }
 }
 
 // MARK: - 设备状态信息
@@ -356,4 +364,107 @@ public struct SatelliteAlignmentResult {
         self.longitude = longitude
         self.latitude = latitude
     }
+}
+
+// MARK: - 固件类型
+public enum FirmwareType: String {
+    case base = "base"           // 基础版
+    case prototype = "prototype"  // 样机版
+    
+    public var directoryName: String {
+        switch self {
+        case .base:
+            return "Base"
+        case .prototype:
+            return "Prototype"
+        }
+    }
+    
+    // 获取对应的UserDefaults键
+    public func getCurrentVersionKey() -> String {
+        switch self {
+        case .base:
+            return FirmwareConstants.currentVersionKey
+        case .prototype:
+            return FirmwareConstants.prototypeCurrentVersionKey
+        }
+    }
+    
+    public func getDownloadedInfoKey() -> String {
+        switch self {
+        case .base:
+            return FirmwareConstants.firmwareDownloadedKey
+        case .prototype:
+            return FirmwareConstants.prototypeFirmwareDownloadedKey
+        }
+    }
+    
+    public func getFilePathKey() -> String {
+        switch self {
+        case .base:
+            return FirmwareConstants.firmwareFilePathKey
+        case .prototype:
+            return FirmwareConstants.prototypeFirmwareFilePathKey
+        }
+    }
+    
+    public func getHardwareModelKey() -> String {
+        switch self {
+        case .base:
+            return FirmwareConstants.hardwareModelKey
+        case .prototype:
+            return FirmwareConstants.prototypeHardwareModelKey
+        }
+    }
+    
+    public func getDefaultVersion() -> String {
+        switch self {
+        case .base:
+            return FirmwareConstants.defaultVersion
+        case .prototype:
+            return FirmwareConstants.prototypeDefaultVersion
+        }
+    }
+    
+    public func getDefaultHardwareModel() -> String {
+        switch self {
+        case .base:
+            return FirmwareConstants.defaultHardwareModel
+        case .prototype:
+            return FirmwareConstants.prototypeDefaultHardwareModel
+        }
+    }
+    
+    // 设备类型（可以根据需要调整）
+    public var deviceType: Int {
+        switch self {
+        case .base:
+            return 2  // 基础版设备类型
+        case .prototype:
+            return 2  // 样机版设备类型
+        }
+    }
+}
+
+// MARK: - 常量定义
+public struct FirmwareConstants {
+    // 固定设备类型
+    static let fixedDeviceType = 2
+    
+    public static let firmwareDirectory = "Firmware"                     // 固件存储目录
+    
+    // UserDefaults Key（简化版，只有一个版本）
+    static let currentVersionKey = "firmware_current_version"     // 本地存储的版本号(基础版)
+    static let firmwareDownloadedKey = "firmware_downloaded_info" // 已下载固件信息(基础版)
+    static let firmwareFilePathKey = "firmware_file_path"         // 固件文件路径(基础版)
+    static let hardwareModelKey = "firmware_hardware_model"       // 硬件型号(基础版)
+    static let defaultVersion = "1.0.0.0"                         // 默认版本(基础版)
+    static let defaultHardwareModel = "TX035"                     // 默认硬件型号(基础版)
+    
+    static let prototypeCurrentVersionKey = "prototype_firmware_current_version"     // 本地存储的版本号(样机版)
+    static let prototypeFirmwareDownloadedKey = "prototype_firmware_downloaded_info" // 已下载固件信息(样机版)
+    static let prototypeFirmwareFilePathKey = "prototype_firmware_file_path"         // 固件文件路径(样机版)
+    static let prototypeHardwareModelKey = "prototype_firmware_hardware_model"       // 硬件型号(样机版)
+    static let prototypeDefaultVersion = "1.0.0.0"                                   // 默认版本(样机版)
+    static let prototypeDefaultHardwareModel = "TX035-prototype"                     // 默认硬件型号(样机版)
 }

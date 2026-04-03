@@ -101,6 +101,10 @@ public class LoginViewController: UIViewController {
         setUI()
         setupConstraints()
         configureLoginMethods()
+        
+        let tapGesture = UITapGestureRecognizer(target: self, action: #selector(dismissKeyboard))
+        tapGesture.cancelsTouchesInView = false
+        view.addGestureRecognizer(tapGesture)
     }
     
     public override func viewWillAppear(_ animated: Bool) {
@@ -188,6 +192,10 @@ public class LoginViewController: UIViewController {
         ])
         
         currentLoginView = passwordView
+    }
+    
+    @objc private func dismissKeyboard() {
+        view.endEditing(true)
     }
     
     @objc private func backPresonalView() {

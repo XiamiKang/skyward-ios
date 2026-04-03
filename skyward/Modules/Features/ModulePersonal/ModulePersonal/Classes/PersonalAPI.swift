@@ -23,10 +23,10 @@ public enum PersonalAPI {
     case cancellationUser                                          // 注销用户
     case addEmergencyContact(_ model: EmergencyContactModel)       // 新增紧急联系人（也是修改紧急联系人的接口，后台会自动覆盖）
     case getDeviceFirmware(_ model: DeviceFirmwareModel)           // 获取设备的固件信息
-    case getEmergencyContact                                       // 获取紧急联系人
     case getUserInfo                                               // 获取用户信息
     case getEmergencyContactList                                   // 获取紧急联系人列表
     case deleteEmergencyContact(id: String)                        // 删除紧急联系人
+    case checkAppVersion(versionStr: String)                       // 获取APP更新版本
 }
 
 // MARK: - TargetType 实现
@@ -58,14 +58,14 @@ extension PersonalAPI: NetworkAPI {
             return "/txts-user-center-app/api/v1/emergency-contact"
         case .getDeviceFirmware:
             return "/txts-system/api/v1/firmware-version/check/newVersion"
-        case .getEmergencyContact:
-            return "/txts-user-center-app/api/v1/emergency-contact/info"
         case .getUserInfo:
             return "/txts-user-center-app/api/v1/my-center/info"
         case .getEmergencyContactList:
             return "/txts-user-center-app/api/v1/emergency-contact/list"
         case .deleteEmergencyContact(let id):
             return "/txts-user-center-app/api/v1/emergency-contact/\(id)"
+        case .checkAppVersion(let versionStr):
+            return "/txts-system/api/v1/app-version/check/version/\(versionStr)"
         }
     }
     
@@ -74,9 +74,9 @@ extension PersonalAPI: NetworkAPI {
         case    .getDeviceList,
                 .userLogout,
                 .getDeviceFirmware,
-                .getEmergencyContact,
                 .getUserInfo,
-                .getEmergencyContactList:
+                .getEmergencyContactList,
+                .checkAppVersion:
             return .get
         case    .addEmergencyContact:
             return .post
@@ -136,9 +136,11 @@ extension PersonalAPI: NetworkAPI {
                 parameters: model.toDictionary(),
                 encoding: JSONEncoding.default
             )
-        case .userLogout:
-            return .requestPlain
-        case .cancellationUser:
+        case .userLogout,
+            .cancellationUser,
+            .getUserInfo,
+            .getEmergencyContactList,
+            .deleteEmergencyContact:
             return .requestPlain
         case .addEmergencyContact(let model):
             return .requestParameters(
@@ -150,14 +152,11 @@ extension PersonalAPI: NetworkAPI {
                 parameters: model.toDictionary(),
                 encoding: URLEncoding.default
             )
-        case .getEmergencyContact:
-            return .requestPlain
-        case .getUserInfo:
-            return .requestPlain
-        case .getEmergencyContactList:
-            return .requestPlain
-        case .deleteEmergencyContact:
-            return .requestPlain
+        case .checkAppVersion(let versionStr):
+            return .requestParameters(
+                parameters: ["platform":"ios"],
+                encoding: URLEncoding.default
+            )
         }
     }
     

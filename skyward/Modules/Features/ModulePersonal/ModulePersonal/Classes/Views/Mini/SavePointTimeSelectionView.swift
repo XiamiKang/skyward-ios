@@ -219,7 +219,7 @@ class SavePointTimeSelectionView: UIView {
             let interval: UInt32 = 900 // 默认15分钟
             positionData.append(interval.bigEndianData)
         }
-        BluetoothManager.shared.sendCommand(.setPositionStoreInterval, messageContent: positionData)
+        BluetoothManager.shared.setPositionStoreInterval(positionData)
         
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) { [weak self] in
             guard let self = self else { return }

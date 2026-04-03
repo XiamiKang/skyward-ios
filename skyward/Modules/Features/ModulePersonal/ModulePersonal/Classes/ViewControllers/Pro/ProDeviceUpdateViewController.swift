@@ -20,6 +20,7 @@ class ProDeviceUpdateViewController: PersonalBaseViewController {
     private var currentVersion: String = "1.0.0.0"
     private var currentFirmwareData: FirmwareData?
     private let firmwareManager = FirmwareManager.shared
+    var firwareType: FirmwareType = .base
     
     // UI
     private var firmwareImageView = UIImageView()
@@ -30,6 +31,15 @@ class ProDeviceUpdateViewController: PersonalBaseViewController {
     private let firmwareUpdateView = UIView()
     private var firmwareUpdateText = UILabel()
     private let firmwareUpdateActivityIndicator = UIActivityIndicatorView(style: .medium)
+    
+    init(type: FirmwareType) {
+        firwareType = type
+        super.init(nibName: nil, bundle: nil)
+    }
+    
+    @MainActor required init?(coder: NSCoder) {
+        fatalError("init(coder:) has not been implemented")
+    }
     
     override func viewDidLoad() {
         super.viewDidLoad()
@@ -152,12 +162,12 @@ class ProDeviceUpdateViewController: PersonalBaseViewController {
                 DispatchQueue.main.async {
                     self.firmwareVersionLabel.text = "当前版本：固件_\(self.currentVersion)"
                 }
-                let savedVersion = firmwareManager.getCurrentStoredVersion()
+                let savedVersion = firmwareManager.getCurrentStoredVersion(for: firwareType)
                 
                 switch currentVersion.compareVersion(savedVersion) {
                 case .orderedAscending:
                     print("\(currentVersion) < \(savedVersion)")
-                    if let firmwareData = firmwareManager.getDownloadedFirmware() {
+                    if let firmwareData = firmwareManager.getDownloadedFirmware(for: firwareType) {
                         updateUI(firmwareData: firmwareData)
                     }
                 case .orderedDescending:
@@ -179,6 +189,7 @@ class ProDeviceUpdateViewController: PersonalBaseViewController {
         DispatchQueue.main.async {
             let versionName = firmwareData.versionName
             self.firmwareVersionLabel.text = "发现新版本：固件_\(versionName)"
+            self.firmwareMessageLabel.text = "当前版本：固件_\(self.currentVersion)"
             self.firmwareWarnLabel.isHidden = false
             self.firmwareWarnImageView.isHidden = false
             self.firmwareUpdateView.isHidden = false
@@ -198,7 +209,7 @@ class ProDeviceUpdateViewController: PersonalBaseViewController {
     
     // MARK: - 下载相关方法
     private func installFirmware() {
-        guard let fileURL = firmwareManager.getDownloadedFirmwarePath() else {
+        guard let fileURL = firmwareManager.getDownloadedFirmwarePath(for: WiFiDeviceManager.shared.type) else {
             showErrorAlert(message: "没有找到固件文件")
             return
         }
@@ -244,7 +255,7 @@ class ProDeviceUpdateViewController: PersonalBaseViewController {
 extension ProDeviceUpdateViewController {
     
     private func startFirmwareUpgrade(fileURL: URL) {
-        guard WiFiDeviceManager.shared.isConnected == false else {
+        guard WiFiDeviceManager.shared.isConnected else {
             showErrorAlert(message: "设备未连接")
             return
         }

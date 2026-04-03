@@ -11,7 +11,14 @@ import TXKit
 import SWKit
 import SWTheme
 
-class LookRoutePopupView: UIView, SWPopupContentView {
+class LookRoutePopupView: UIView {
+    
+    // MARK: - Properties
+    var closeHandler: (() -> Void)?
+    var deleteHandler: (() -> Void)?
+    var editHandler: (() -> Void)?
+    var showHandler: ((Bool) -> Void)?
+    var uploadHandler: (() -> Void)?
     
     // MARK: - UI Components
     
@@ -21,6 +28,7 @@ class LookRoutePopupView: UIView, SWPopupContentView {
         label.font = .pingFangFontBold(ofSize: 18)
         label.textColor = ThemeManager.current.titleColor
         label.numberOfLines = 2
+        label.lineBreakMode = .byCharWrapping
         label.translatesAutoresizingMaskIntoConstraints = false
         return label
     }()
@@ -48,11 +56,11 @@ class LookRoutePopupView: UIView, SWPopupContentView {
     }()
     
     private let durationItemView: RouteItemView = {
-        return RouteItemView(title: "时长")
+        return RouteItemView(title: "时长", value: "--")
     }()
     
     private let altitudeItemView: RouteItemView = {
-        return RouteItemView(title: "最高海拔")
+        return RouteItemView(title: "最高海拔", value: "--")
     }()
     
     private let descLabel: UILabel = {
@@ -64,24 +72,42 @@ class LookRoutePopupView: UIView, SWPopupContentView {
         return label
     }()
     
-    private let bottomOperateView: LookRouteOperateView = {
+    private lazy var bottomOperateView: LookRouteOperateView = {
         let operateView = LookRouteOperateView()
-        
+        operateView.deleteHandler = {
+            self.deleteHandler?()
+        }
+        operateView.editHandler = {
+            self.editHandler?()
+        }
+        operateView.showHandler = { show in
+            self.showHandler?(show)
+        }
+        operateView.uploadHandler = {
+            self.uploadHandler?()
+        }
         return operateView
     }()
-    
-    
-    // MARK: - Properties
-    
-    var closeHandler: (() -> Void)?
-    var deleteHandler: (() -> Void)?
     
     // MARK: - Initialization
     init(route: Route) {
         super.init(frame: .zero)
+        cornerRadius = CornerRadius.medium.rawValue
+        layer.maskedCorners = [.layerMinXMinYCorner, .layerMaxXMinYCorner]
+        
         setupUI(route: route)
         setupConstraints(route: route)
+        bottomOperateView.showUploadButton(route.type == RouteType.track.rawValue && route.uploaded == false)
+        bottomOperateView.setVisible(route.isVisible == true)
         
+        configure(route: route)
+    }
+    
+    required init?(coder: NSCoder) {
+        fatalError("init(coder:) has not been implemented")
+    }
+    
+    func configure(route: Route) {
         // 设置路线名称
         if let routeName = route.routeName {
             titleLabel.text = routeName
@@ -104,24 +130,20 @@ class LookRoutePopupView: UIView, SWPopupContentView {
         
         // 设置时长信息
         if let duration = route.travelTime {
-            durationItemView.valueLabel.text = "\(duration)秒"
+            durationItemView.valueLabel.text = duration.formatHMSDuration()
         }
         
         // 设置海拔信息
-        if let altitude = route.altitude {
-            distanceItemView.valueLabel.text = "\(String(format: "%.2f", altitude))米"
+        if let altitude = route.maxAltitude {
+            altitudeItemView.valueLabel.text = "\(String(format: "%.2f", altitude))米"
         }
         
         // 设置描述信息
         if let desc = route.description {
             descLabel.text = desc
         }
-
-        debugPrint("startDesc: \(route.startDesc()?.string ?? "") endDesc: \(route.endDesc()?.string ?? "")")
-    }
-    
-    required init?(coder: NSCoder) {
-        fatalError("init(coder:) has not been implemented")
+        
+        Logger.debug("startDesc: \(route.startDesc()?.string ?? "") endDesc: \(route.endDesc()?.string ?? "")")
     }
     
     // MARK: - Setup
@@ -159,15 +181,17 @@ class LookRoutePopupView: UIView, SWPopupContentView {
         
         startItemView.snp.makeConstraints { make in
             make.top.equalTo(titleLabel.snp.bottom).offset(20)
+            make.left.equalToSuperview().inset(Layout.hMargin)
         }
         
         endItemView.snp.makeConstraints { make in
             make.top.equalTo(startItemView.snp.bottom).offset(12)
+            make.left.equalToSuperview().inset(Layout.hMargin)
         }
         
         distanceItemView.snp.makeConstraints { make in
             make.top.equalTo(endItemView.snp.bottom).offset(12)
-            make.left.equalToSuperview()
+            make.left.equalToSuperview().inset(Layout.hMargin)
         }
         
         if route.type == RouteType.track.rawValue {
@@ -179,13 +203,13 @@ class LookRoutePopupView: UIView, SWPopupContentView {
             altitudeItemView.snp.makeConstraints { make in
                 make.top.equalTo(distanceItemView.snp.bottom).offset(12)
                 make.bottom.equalTo(bottomOperateView.snp.top).offset(-16)
-                make.left.equalToSuperview()
+                make.left.equalToSuperview().inset(Layout.hMargin)
             }
         } else {
             if descLabel.superview == nil {
                 distanceItemView.snp.remakeConstraints { make in
                     make.top.equalTo(endItemView.snp.bottom).offset(12)
-                    make.left.equalToSuperview()
+                    make.left.equalToSuperview().inset(Layout.hMargin)
                     make.bottom.equalTo(bottomOperateView.snp.top).offset(-16)
                 }
             } else {
@@ -200,7 +224,7 @@ class LookRoutePopupView: UIView, SWPopupContentView {
         bottomOperateView.snp.makeConstraints { make in
             make.height.equalTo(swAdaptedValue(65))
             make.bottom.equalToSuperview().inset(ScreenUtil.safeAreaBottom)
-            make.left.right.equalToSuperview().inset(Layout.hMargin)
+            make.left.right.equalToSuperview()
         }
     }
     
@@ -208,16 +232,16 @@ class LookRoutePopupView: UIView, SWPopupContentView {
     @objc private func closeButtonTapped() {
         self.closeHandler?()
     }
-    
-    @objc private func confirmButtonTapped() {
-        SWAlertView.showAlert(title: nil, message: "确定删除该路线吗？") {
-            self.deleteHandler?()
-        }
-    }
 }
 
 
 class LookRouteOperateView: UIStackView {
+    
+    var closeHandler: (() -> Void)?
+    var deleteHandler: (() -> Void)?
+    var editHandler: (() -> Void)?
+    var showHandler: ((Bool) -> Void)?
+    var uploadHandler: (() -> Void)?
     
     // MARK: - UI Components
     
@@ -234,7 +258,10 @@ class LookRouteOperateView: UIStackView {
     }()
     
     private lazy var showButton: UIButton = {
-        let button = createOperateButton(imageName: "record_unlook_icon", title: "显示")
+        let button = createOperateButton(imageName: "record_look_icon", title: "显示")
+        button.setTitle("隐藏", for: .selected)
+        button.setTitleColor(ThemeManager.current.titleColor, for: .selected)
+        button.setImage(MapModule.image(named: "record_unlook_icon"), for: .selected)
         button.tag = 2
         return button
     }()
@@ -274,7 +301,15 @@ class LookRouteOperateView: UIStackView {
         alignment = .center
         distribution = .fill
         spacing = 16
-        
+
+        // 设置左右边距
+        isLayoutMarginsRelativeArrangement = true
+        layoutMargins = UIEdgeInsets(top: 0, left: 16, bottom: 0, right: 16)
+
+        let line = UIView(frame: CGRectMake(0, 0, ScreenUtil.screenWidth, 0.8))
+        line.backgroundColor = ThemeManager.current.mediumGrayBGColor
+        addSubview(line)
+
         addButtons()
     }
     
@@ -287,54 +322,39 @@ class LookRouteOperateView: UIStackView {
         editButton.setImage(MapModule.image(named: "record_look_icon"), for: .selected)
         
         // 添加按钮点击事件
-        deleteButton.addTarget(self, action: #selector(buttonTapped(_:)), for: .touchUpInside)
-        editButton.addTarget(self, action: #selector(buttonTapped(_:)), for: .touchUpInside)
-        showButton.addTarget(self, action: #selector(buttonTapped(_:)), for: .touchUpInside)
-        uploadButton.addTarget(self, action: #selector(buttonTapped(_:)), for: .touchUpInside)
+    
+        
+        deleteButton.addAction(UIAction { [weak self] _ in
+            self?.deleteHandler?()
+        }, for: .touchUpInside)
+        
+        editButton.addAction(UIAction { [weak self] _ in
+            self?.editHandler?()
+        }, for: .touchUpInside)
+        
+        showButton.addAction(UIAction { [weak self] _ in
+            if let selected = self?.showButton.isSelected {
+                self?.showButton.isSelected = !selected
+                self?.showHandler?(!selected)
+            }
+        }, for: .touchUpInside)
+        
+        uploadButton.addAction(UIAction { [weak self] _ in
+            self?.uploadHandler?()
+        }, for: .touchUpInside)
     }
     
     // MARK: - Helper
     private func createOperateButton(imageName: String, title: String) -> UIButton {
-        let button = UIButton()
+        let button = UIButton(frame: CGRectMake(0, 0, swAdaptedValue(40), swAdaptedValue(41)))
         button.backgroundColor = .clear
         button.setImage(MapModule.image(named: imageName), for: .normal)
         button.setTitle(title, for: .normal)
         button.setTitleColor(ThemeManager.current.titleColor, for: .normal)
+        button.setTitleColor(ThemeManager.current.titleColor, for: .highlighted)
         button.titleLabel?.font = .pingFangFontRegular(ofSize: 12)
-        button.titleLabel?.textAlignment = .center
-        
-        // 图片在上，文字在下，并居中对齐
-        let spacing: CGFloat = 4
-        let imageSize = CGSize(width: 20, height: 20)
-        button.titleLabel?.sizeToFit()
-        let btnTitleWidth = CGRectGetWidth(button.titleLabel!.bounds)
-        
-        button.imageEdgeInsets = UIEdgeInsets(
-            top: -(imageSize.height + spacing),
-            left: 0,
-            bottom: 0,
-            right: -btnTitleWidth
-        )
-        
-        button.titleEdgeInsets = UIEdgeInsets(
-            top: 0,
-            left: -imageSize.width,
-            bottom: -(imageSize.height + spacing),
-            right: 0
-        )
-        
-        button.contentHorizontalAlignment = .center
-        button.contentVerticalAlignment = .center
+        button.imageUpTitleDown(spacing: 4)
         return button
-    }
-    
-    // MARK: - Actions
-    @objc private func buttonTapped(_ sender: UIButton) {
-        if sender == uploadButton {
-            operateHandler?(4)
-        } else {
-            operateHandler?(sender.tag)
-        }
     }
     
     // MARK: - Public Methods
@@ -350,27 +370,27 @@ class LookRouteOperateView: UIStackView {
         // 计算可见按钮
         let visibleButtons = arrangedSubviews.filter { !$0.isHidden }
         let buttonCount = visibleButtons.count
-        
+
         if buttonCount == 0 {
             return
         }
-        
+
         // 移除所有现有约束
         for button in visibleButtons {
             button.snp.removeConstraints()
         }
-        
-        // 计算可用宽度
-        let totalWidth = bounds.width
-        
+
+        // 计算可用宽度（减去 layoutMargins 的左右边距）
+        let totalWidth = bounds.width - layoutMargins.left - layoutMargins.right
+
         // 检查是否包含上传按钮
         let hasUploadButton = visibleButtons.contains(uploadButton)
-        
+
         if hasUploadButton {
             // 包含上传按钮的情况
             let spacingTotal = CGFloat(buttonCount - 1) * spacing
             let flexibleWidth = (totalWidth - 175 - spacingTotal) / CGFloat(buttonCount - 1)
-            
+
             for button in visibleButtons {
                 if button == uploadButton {
                     button.snp.makeConstraints { make in
@@ -388,7 +408,7 @@ class LookRouteOperateView: UIStackView {
             // 不包含上传按钮的情况
             let spacingTotal = CGFloat(buttonCount - 1) * spacing
             let equalWidth = (totalWidth - spacingTotal) / CGFloat(buttonCount)
-            
+
             for button in visibleButtons {
                 button.snp.makeConstraints { make in
                     make.width.equalTo(equalWidth)
@@ -396,6 +416,10 @@ class LookRouteOperateView: UIStackView {
                 }
             }
         }
+    }
+    
+    func setVisible(_ visible: Bool) {
+        showButton.isSelected = visible
     }
     
     // MARK: - Layout

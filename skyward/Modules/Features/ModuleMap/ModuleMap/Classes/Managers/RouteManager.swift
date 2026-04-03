@@ -7,6 +7,8 @@
 
 import Foundation
 import CoreLocation
+import SWKit
+import SWNetwork
 
 class RouteManager: NSObject {
     private let dataManager = RouteDataManager()
@@ -42,47 +44,52 @@ class RouteManager: NSObject {
         dataManager.writePointToSessionTxtFile(point)
     }
     
-    func getAllRoutes() -> [Route] {
-        return dataManager.getRoutes(type: .route)
-    }
-
-    func getPointsInRoute(routeId: String) -> [CLLocationCoordinate2D]? {
-        return dataManager.readCoordinatesFromGPXFile(from: routeId)
+    func revocation() -> Bool {
+        return dataManager.sessionRouteRemoveLastPoint()
     }
     
-    func saveRoute(name: String, desc: String?, completion: @escaping ()->Void) {
-        dataManager.updateSessionRoute(name: name, desc: desc)
+    func clear() -> Bool {
+        return dataManager.sessionRouteRemoveAllPoint()
+    }
+    
+    // MARK: 保存轨迹相关
+    
+    func isValidSessionRoute() -> Bool {
         guard let route = dataManager.sessionRoute else {
-            return
+            return false
         }
-        UIWindow.topWindow?.sw_showLoading()
-        dataManager.saveRouteToService(route) { [weak self] rspRoute, errorMsg in
-            UIWindow.topWindow?.sw_hideLoading()
-            if let rspRoute = rspRoute {
-                self?.dataManager.saveSessionRouteToLocal(rspRoute)
-                UIWindow.topWindow?.sw_showSuccessToast("保存成功")
-                completion()
-            } else {
-                if let msg = errorMsg {
-                    UIWindow.topWindow?.sw_showWarningToast(msg)
-                }
-            }
-        }
+        return route.endLatitude != nil && route.endLongitude != nil
     }
     
-    func deleteRoute(_ routeId: String, completion: ((Bool) -> Void)?) {
-        dataManager.deleteRouteFromService(routeId: routeId) { success, errorMsg in
-            completion?(success)
-            
-            if success == false, let msg = errorMsg {
-                UIWindow.topWindow?.sw_showWarningToast(msg)
-            }
-        }
-    }
-    
-    func getSessionRoute(completion: @escaping (Route?) ->Void) {
+    func assembleSessionRoute(completion: @escaping (Route?) ->Void) {
         dataManager.assembleSessionRoute { [weak self] in
             completion(self?.dataManager.sessionRoute)
+        }
+    }
+
+    func saveSessionRoute(newName: String?, desc: String?, coverImage: UIImage?, completion: @escaping (Bool) -> Void) {
+        if let newName = newName, !newName.isEmpty {
+            dataManager.sessionRoute?.routeName = newName
+        }
+        
+        if let desc = desc {
+            dataManager.sessionRoute?.description = desc
+        }
+        
+        guard let route = dataManager.sessionRoute else {
+            completion(false)
+            return
+        }
+        
+        if NetworkMonitor.shared.isConnected {
+            dataManager.checkSensitiveWords(newName) { [weak self] success in
+                if success {
+                    self?.dataManager.saveRouteToServer(route, coverImage: coverImage, completion: completion)
+                }
+            }
+        } else {
+            RouteDataManager.saveRouteCoverToLocal(coverImage, routeId: route.id)
+            completion(dataManager.saveSessionRouteToLocal())
         }
     }
     

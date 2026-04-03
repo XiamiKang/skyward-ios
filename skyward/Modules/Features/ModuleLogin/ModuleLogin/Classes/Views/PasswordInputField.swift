@@ -26,7 +26,7 @@ class PasswordInputField: BaseInputField {
     }()
     
     private let forgotPasswordButton: UIButton = {
-        let button = UIButton(type: .system)
+        let button = UIButton(type: .custom)
         button.setTitle("忘记密码?", for: .normal)
         button.setTitleColor(UIColor.init(hex: "#84888C"), for: .normal)
         button.titleLabel?.font = UIFont.systemFont(ofSize: 14, weight: .regular)

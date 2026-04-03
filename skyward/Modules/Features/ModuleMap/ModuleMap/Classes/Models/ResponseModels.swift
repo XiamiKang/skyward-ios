@@ -194,13 +194,4 @@ public struct WeatherWarningData: Codable {
     public let related: String?         //与本条预警相关联的预警ID
 }
 
-public struct UserPOIData: Codable {
-    public let poiId: String?
-    public let id: String?
-    public let name: String?
-    public let description: String?
-    public let lon: Double?
-    public let lat: Double?
-    public let category: Int?
-    public let imgUrlList: [String]?
-}
+

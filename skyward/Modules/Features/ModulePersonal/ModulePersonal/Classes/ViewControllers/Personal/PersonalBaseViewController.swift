@@ -65,7 +65,7 @@ public class PersonalBaseViewController: UIViewController {
             backButton.heightAnchor.constraint(equalToConstant: 24),
             
             customTitle.centerXAnchor.constraint(equalTo: customNavView.centerXAnchor),
-            customTitle.bottomAnchor.constraint(equalTo: customNavView.bottomAnchor, constant: -10),
+            customTitle.centerYAnchor.constraint(equalTo: backButton.centerYAnchor),
         ])
         
         backButton.addTarget(self, action: #selector(backButtonTapped), for: .touchUpInside)
