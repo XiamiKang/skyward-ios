@@ -19,6 +19,7 @@ public struct RouteTable {
     // 首页
     public static let homePageUrl = "sw://home/index"
     public static let homeWeatherInfoUrl = "sw://home/weather/info"
+    public static let homeLatestServiceMessageUrl = "sw://home/latestServiceMessage/sync"
     // 地图
     public static let mapPageUrl = "sw://map/index"
     public static let routeListPageUrl = "sw://map/route/list"

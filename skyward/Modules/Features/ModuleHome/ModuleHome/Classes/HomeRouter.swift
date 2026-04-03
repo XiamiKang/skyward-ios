@@ -48,3 +48,23 @@ class HomeWeatherInfoRouter: RoutableActionType {
         return ["\(RouteTable.homeWeatherInfoUrl)[^\\s]*"]
     }
 }
+
+/// 首页同步最新服务消息
+class HomeSyncLatestServiceMessageRouter: RoutableActionType {
+
+    static func handle(_ url: any URLConvertible, _ callback: ((Any?) -> Void)?) -> Bool {
+        
+        guard let params: [String : String] = url.urlValue?.queryParameters else {
+            return false
+        }
+
+        if let homeVC = UIWindow.findViewController(ofType: HomeViewController.self) {
+           homeVC.viewModel.syncLatestServiceMessage(params: params)
+        }
+        return true
+    }
+
+    static var patterns: [String] {
+        return ["\(RouteTable.homeLatestServiceMessageUrl)[^\\s]*"]
+    }
+}

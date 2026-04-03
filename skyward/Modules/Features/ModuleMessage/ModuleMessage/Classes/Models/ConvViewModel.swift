@@ -22,18 +22,11 @@ class ConvViewModel: ObservableObject {
     private(set) var hasMoreData = true
     private(set) var lastMessageId: String?
     
-    private lazy var sender: User = {
-        let sender = User(id: UserManager.shared.userId,
-                          nickname: UserManager.shared.userInfo?.nickname,
-                          avatar: UserManager.shared.userInfo?.avatar,
-                          phone: UserManager.shared.userInfo?.phone,
-                          role: 0)
-        return sender
-    }()
+    private(set) var hasSyncLatestServerMessage: Bool = false
     
     init(conversation: Conversation) {
         self.conversation = conversation
-        
+        Logger.debug("====当前conversation的lastMessageId：\(conversation.latestMessage?.id ?? "没ID") content: \(conversation.latestMessage?.displayText() ?? "没内容")")
         // 通知
         NotificationCenter.default.addObserver(
             self,
@@ -47,7 +40,7 @@ class ConvViewModel: ObservableObject {
         NotificationCenter.default.removeObserver(self)
     }
 
-    func sendMessage(_ message: Message, completion: (() ->Void)? = nil) {
+    func sendMessage(_ message: Message) {
         // 文本消息：内容不能为空、空字符串或纯空格
         if message.messageType == .chat {
             guard let content = message.content,
@@ -78,7 +71,12 @@ class ConvViewModel: ObservableObject {
                 } else {
                     updatedMessage.status = .failed
                 }
-                self?.syncSendMessageWithServer(updatedMessage)
+                // 更新数据库
+                self?.updateMessageIfExistWithServer(updatedMessage)
+                // 更新列表
+                if let index = self?.messageList.firstIndex(where: {$0.id == message.id}) {
+                    self?.messageList[index] = updatedMessage
+                }
             }
         } else {
             if let _ = BluetoothManager.shared.connectedPeripheral {
@@ -140,100 +138,73 @@ class ConvViewModel: ObservableObject {
         self.didSendMessage = true
     }
     
-    private func syncSendMessageWithServer(_ message: Message) {
-        guard let conversationId = message.conversationId, let senderId = message.sender?.id, let timestamp = message.sendTimeTimestamp else {
-            return
-        }
-        
-        // 文本消息
-        if message.messageType == .chat {
-            // 根据 content、sendTimeTimestamp、sender.id 三个条件匹配
-            guard let content = message.content else { return }
-            
-            // 更新数据库 - 不能用id来匹配，因为是拿服务端消息更新本地消息
-            let result = DBManager.shared.updateToDb(table: DBTableName.message.rawValue,
-                                                     on: Message.Properties.all,
-                                                     with: message,
-                                                     where: Message.Properties.content == content && Message.Properties.sendTimeTimestamp == timestamp && Message.Properties.conversationId == conversationId)
-            
-            // 更新列表
-            if result {
-                if let index = messageList.firstIndex(where: { existing in
-                    existing.content == content &&
-                    existing.sendTimeTimestamp == timestamp &&
-                    existing.sender?.id == senderId
-                }) {
-                    messageList[index] = message
-                }
-            }
-        }
-        
-        // 定位消息
-        if message.messageType == .location {
-            // 更新数据库
-            let result = DBManager.shared.updateToDb(table: DBTableName.message.rawValue,
-                                                     on: Message.Properties.all,
-                                                     with: message,
-                                                     where: Message.Properties.sendTimeTimestamp == timestamp && Message.Properties.conversationId == conversationId)
-            // 更新列表
-            if result {
-                if let index = messageList.firstIndex(where: { existing in
-                    existing.sendTimeTimestamp == timestamp &&
-                    existing.sender?.id == senderId
-                }) {
-                    messageList[index] = message
-                }
-            }
-        }
+    private enum MessageUpdateResult {
+        case updated      // 已更新
+        case skipped      // 跳过（已存在的在线消息, 但不符合更新条件）
+        case notFound     // 没找到，需要插入
     }
     
     @discardableResult
-    func syncOfflineMessagesWithServer(_ messages: [Message]) -> Bool {
-        // 获取本地离线发送的消息
-        let offlineMessages = queryNotSyncOfflineMessages()
-        guard offlineMessages.count > 0 else {
-            return false
+    private func updateMessageIfExistWithServer(_ message: Message, onlyOffline: Bool = false) -> MessageUpdateResult {
+        guard let conversationId = message.conversationId,
+              let senderId = message.sender?.id,
+              let timestamp = message.sendTimeTimestamp,
+              let content = message.displayText() else {
+            return .notFound
         }
-        
-        var hasUpdated = false
 
-        // 匹配离线消息和服务器返回的已发送消息
-        for offlineMsg in offlineMessages {
-            guard let offlineConvId = offlineMsg.conversationId,
-                  let offlineTimestamp = offlineMsg.sendTimeTimestamp else {
-                continue
+        if let index = messageList.firstIndex(where: { existing in
+            existing.displayText() == content &&
+            existing.sendTimeTimestamp == timestamp &&
+            existing.sender?.id == senderId
+        }) {
+            // 取出匹配的消息
+            let existingMessage = messageList[index]
+
+            // 如果指定 onlyOffline，只更新离线消息
+            if onlyOffline && existingMessage.offline != true {
+                // 已存在的在线消息，跳过
+                return .skipped
             }
 
-            // 查找匹配的服务器消息
-            if let matchedMsg = messages.first(where: { serverMsg in
-                return serverMsg.conversationId == offlineConvId && serverMsg.sendTimeTimestamp == offlineTimestamp
-            }) {
-                // 匹配成功，更新本地离线消息
-                var updatedMsg = matchedMsg
-                updatedMsg.status = .sent
+            // 构建更新条件
+            var condition = Message.Properties.conversationId == conversationId && Message.Properties.sendTimeTimestamp == timestamp
+            // 文本消息需要额外匹配内容
+            if message.messageType == .chat {
+                condition = condition && Message.Properties.content == content
+            }
 
-                // 更新数据库
-                DBManager.shared.updateToDb(table: DBTableName.message.rawValue,
-                                            on: Message.Properties.all,
-                                            with: updatedMsg,
-                                            where: Message.Properties.conversationId == offlineConvId && Message.Properties.sendTimeTimestamp == offlineTimestamp)
-                hasUpdated = true
-                
-                Logger.debug("同步了离线消息：\(matchedMsg.id ?? "未知id") 内容：\(matchedMsg.content ?? "未知内容")")
+            DBManager.shared.updateToDb(table: DBTableName.message.rawValue,
+                                        on: Message.Properties.all,
+                                        with: message,
+                                        where: condition)
+            return .updated
+        }
+        // 本地不存在
+        return .notFound
+    }
+
+    private func insertOrUpdateMessagesWithServer(_ messages: [Message]) {
+        var messagesToInsert: [Message] = []
+
+        for message in messages {
+            let result = updateMessageIfExistWithServer(message, onlyOffline: true)
+            if result == .notFound {
+                messagesToInsert.append(message)
             }
         }
-        
-        return hasUpdated
+
+        // 批量插入新消息
+        if !messagesToInsert.isEmpty {
+            DBManager.shared.insertToDb(objects: messagesToInsert, intoTable: DBTableName.message.rawValue)
+        }
+
+        Logger.debug("====更新了或跳过了 \(messages.count - messagesToInsert.count) 条已存在的消息，插入了 \(messagesToInsert.count) 条新消息")
     }
     
     func sendMessageForbidden() -> Bool {
         guard let enable = conversation.enable  else { return false }
         return enable == false
-    }
-    
-    // messageList有更新则会同步lastMessageId
-    func updateLastMessageId() {
-        lastMessageId = messageList.first(where: { $0.id != nil })?.id
     }
     
     //MARK: Message List
@@ -252,38 +223,10 @@ class ConvViewModel: ObservableObject {
     
     /// 查询未同步服务端的离线消息
     func queryNotSyncOfflineMessages() -> [Message] {
-        guard let convId = conversation.id else {
-            return []
-        }
-        
-        let condition = Message.Properties.conversationId == convId && Message.Properties.offline == true
-        
-        guard let result = DBManager.shared.queryFromDb(fromTable: DBTableName.message.rawValue,
-                                                        cls: Message.self,
-                                                        where: condition,
-                                                        orderBy: [Message.Properties.sendTimeTimestamp.order(.ascending)]) else {
-            return []
-        }
-        
-        return result.filter { message in
+        return messageList.filter { message in
             guard let id = message.id else { return false }
             return id.hasPrefix("-")
         }
-    }
-    
-    private func queryLatestMessageId() -> String? {
-        guard let convId = conversation.id else {
-            return nil
-        }
-        
-        guard let result = DBManager.shared.queryFromDb(fromTable: DBTableName.message.rawValue,
-                                                        cls: Message.self,
-                                                        where: Message.Properties.conversationId == convId,
-                                                        orderBy: [Message.Properties.sendTimeTimestamp.order(.descending)]) else {
-            return nil
-        }
-        
-        return result.first(where: {$0.id?.hasPrefix("-") == false})?.id
     }
     
     /// 加载初始页面
@@ -293,21 +236,12 @@ class ConvViewModel: ObservableObject {
         if messageList.count > 0 {
             self.messageList = messageList
             self.didLoadPage = true
-            if NetworkMonitor.shared.isConnected {
-                _Concurrency.Task {
-                    if queryNotSyncOfflineMessages().count > 0 {
-                        await loadHistoryForSyncOfflineMessages()
-                    } else {
-                        await loadUnread()
-                    }
-                }
-            }
-        } else {
-            if NetworkMonitor.shared.isConnected {
-                _Concurrency.Task {
-                    await loadHistory()
-                    self.didLoadPage = true
-                }
+        }
+        
+        if queryNotSyncOfflineMessages().count > 0 || hasSyncLatestServerMessage == false {
+            _Concurrency.Task {
+                await loadHistory()
+                self.didLoadPage = true
             }
         }
     }
@@ -328,115 +262,41 @@ class ConvViewModel: ObservableObject {
             "conversationId": convId,
             "pageSize": pageSize
         ]
+        
         if let lastMessageId = lastMessageId {
             params["lastMessageId"] = lastMessageId
         }
-        guard let messageList = await requestMessages(params: params) else {
+        
+        guard let messageList = await requestMessages(params: params), messageList.count > 0 else {
             return
         }
-
-        if messageList.count > 0 {
-            DBManager.shared.insertToDb(objects: messageList, intoTable: DBTableName.message.rawValue)
-            self.messageList = queryMessages()
+        // 标记本次请求返回的最后第一条消息ID，因为是降序的
+        lastMessageId = messageList.last?.id
+        Logger.debug("====接口返回的lastMessageId：\(lastMessageId ?? "没ID") content: \(messageList.last?.displayText() ?? "没内容")")
+        // 获取列表最后一条消息ID
+        let latestValidMessageId = latestValidMessageId()
+        // 本次结果包含列表的消息，说明已经同步了服务端最新消息
+        if messageList.contains(where: {$0.id == latestValidMessageId}) {
+            Logger.debug("====已经同步了服务端最新消息了")
+            hasSyncLatestServerMessage = true
         }
+
+        insertOrUpdateMessagesWithServer(messageList)
+        self.messageList = queryMessages()
         
         self.hasMoreData = messageList.count >= pageSize
     }
     
-    func loadHistoryForSyncOfflineMessages() async {
-        guard queryNotSyncOfflineMessages().count > 0 else {
-            return
-        }
-        
-        guard let convId = conversation.id else {
-            return
-        }
-        
-        let params: [String: Any] = [
-            "conversationId": convId,
-            "pageSize": -1
-        ]
-        
-        guard let messageList = await requestMessages(params: params), messageList.count > 0 else {
-            return
-        }
-
-        if syncOfflineMessagesWithServer(messageList) {
-            self.messageList = queryMessages()
-        }
+    private func latestValidMessageId() -> String? {
+        return self.messageList.reversed().first(where: {$0.id?.hasPrefix("-") == false})?.id
     }
-
-    ///  加载未读消息 （加载本地最后一条消息后面的最新消息）
-    func loadUnread() async {
-        guard let convId = conversation.id else {
-            return
-        }
-        
-        var params: [String: Any] = [
-            "conversationId": convId,
-            "pageSize": -1,
-            "isBefore": false
-        ]
-        
-        if let lastMessageId = queryLatestMessageId() {
-            params["lastMessageId"] = lastMessageId
-        }
-        
-        guard let messageList = await requestMessages(params: params), messageList.count > 0 else {
-            return
-        }
-        
-        DBManager.shared.insertToDb(objects: messageList, intoTable: DBTableName.message.rawValue)
-        self.messageList = queryMessages()
-    }
-    
-    //MARK: - Private
-    
-    func generateTxtMessage(content: String) -> Message? {
-        guard let convId = conversation.id else {
-            return nil
-        }
-        let timestamp = Int64(Date().timeIntervalSince1970 * 1000)
-        
-        let message = Message(id: String(-timestamp),
-                              conversationId: convId,
-                              sender: self.sender,
-                              content: content,
-                              sendTimeTimestamp: timestamp,
-                              messageType: .chat,
-                              location: nil,)
-        return message
-    }
-
-    func generateLocationMessage(address: AroundPOIData) -> Message? {
-        guard let convId = conversation.id else {
-            return nil
-        }
-        
-        let lon = address.longitude
-        let lat = address.latitude
-        
-        let timestamp = Int64(Date().timeIntervalSince1970 * 1000)
-        
-        let location = IMLocation(longitude: lon,
-                                  latitude: lat,
-                                  address: address.address,
-                                  addressName: address.name)
-        
-        let message = Message(id: String(-timestamp),
-                              conversationId: convId,
-                              sender: sender,
-                              content: nil,
-                              sendTimeTimestamp: timestamp,
-                              messageType: .location,
-                              location: location)
-        return message
-    }
-    
     
     // MARK: - network
     
     func requestMessages(params: [String : Any]) async -> [Message]? {
+        guard NetworkMonitor.shared.isConnected else {
+            return nil
+        }
         do {
             let rsp = try await NetworkProvider<MessageAPI>().request(.messageList(params: params))
             let networkResponse = try JSONDecoder().decode(NetworkResponse<MessageList>.self, from: rsp.data)

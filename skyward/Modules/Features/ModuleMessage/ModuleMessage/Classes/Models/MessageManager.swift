@@ -88,12 +88,7 @@ class MessageManager: MQTTManagerDelegate {
     
     /// 收到离线上报状态的通知（SOS/报平安）
     @objc private func receiveOfflineReportState(_ notification: Notification) {
-        Logger.debug("[离线上报] 收到通知: \(notification.object ?? "未知")")
-
-        // 如果 ReportType 是枚举，可能需要用 rawValue 或者从 userInfo 中获取
         guard let type = notification.object as? ReportType else {
-            // 如果类型转换失败，尝试其他方式
-            Logger.debug("[离线上报] 类型转换失败")
             return
         }
 
@@ -184,13 +179,7 @@ class MessageManager: MQTTManagerDelegate {
         
         let sendTimestamp = Int64(timestamp) * 1000
         
-        var nickname: String?
-        if [1, 2, 3, 4].contains(messageType) {
-            nickname = "天行探索平台"
-        }
-        if role == 1 {
-            nickname = (UserManager.shared.emergencyContact?.first?.name ?? UserManager.shared.emergencyContact?.first?.phone) ?? "紧急联系人"
-        }
+        let nickname = MessageManager.roleText(role: Int(role))
         
         let sender = User(id: String(senderId),
                           nickname: nickname,
@@ -231,6 +220,14 @@ class MessageManager: MQTTManagerDelegate {
             Logger.debug("  纬度: \(Double(lat)/1e7)")
             Logger.debug("  时间戳: \(timestamp)")
             
+            let content: String?
+            if messageType == 1 {
+                content = "【SOS紧急求助】上报成功,已成功上报给紧急联系人"
+            } else if messageType == 2 {
+                content = "【安全上报】上报成功,已成功上报给紧急联系人"
+            } else {
+                content = nil
+            }
             
             let location = IMLocation(longitude: Double(lon)/1e7,
                                       latitude: Double(lat)/1e7,
@@ -240,7 +237,7 @@ class MessageManager: MQTTManagerDelegate {
             return  Message(id: String(-timestamp),
                             conversationId: String(conversationId),
                             sender: sender,
-                            content: nil,
+                            content: content,
                             sendTimeTimestamp: sendTimestamp,
                             messageType: MessageType(rawValue: Int(messageType)),
                             location: location)
@@ -255,8 +252,8 @@ class MessageManager: MQTTManagerDelegate {
             // msgLength (2字节)
             offset += 2
             
-            let msg = String(data: data[offset...], encoding: .utf8) ?? ""
-            offset += msg.count
+            let content = String(data: data[offset...], encoding: .utf8) ?? ""
+            offset += content.count
             
             Logger.debug("✅ 解析出来的数据:")
             Logger.debug("  命令指令: 0x\(protocolVersion)")
@@ -265,20 +262,24 @@ class MessageManager: MQTTManagerDelegate {
             Logger.debug("  消息类型: \(messageType)")
             Logger.debug("  用户角色: \(role)")
             Logger.debug("  时间戳: \(timestamp)")
-            Logger.debug("  消息内容: \(msg)")
+            Logger.debug("  消息内容: \(content)")
             
             return  Message(id: String(-timestamp),
                             conversationId: String(conversationId),
                             sender: sender,
-                            content: msg,
+                            content: content,
                             sendTimeTimestamp: sendTimestamp,
                             messageType: MessageType(rawValue: Int(messageType)),
                             location: nil)
         }
     }
     
-    public static func generateTxtMessage(convId: String, content: String) -> Message? {
-        guard !convId.isEmpty else {
+    public static func generateTxtMessage(convId: String?, content: String?) -> Message? {
+        guard let convId = convId, !convId.isEmpty else {
+            return nil
+        }
+        
+        guard let content = content, !content.isEmpty else {
             return nil
         }
         
@@ -294,6 +295,51 @@ class MessageManager: MQTTManagerDelegate {
         return message
     }
     
+    public static func generateLocationMessage(convId: String?, address: AroundPOIData?) -> Message? {
+        guard let convId = convId, !convId.isEmpty else {
+            return nil
+        }
+        
+        guard let address = address else {
+            return nil
+        }
+        
+        let lon = address.longitude
+        let lat = address.latitude
+        
+        let timestamp = Int64(Date().timeIntervalSince1970 * 1000)
+        
+        let location = IMLocation(longitude: lon,
+                                  latitude: lat,
+                                  address: address.address,
+                                  addressName: address.name)
+        
+        let message = Message(id: String(-timestamp),
+                              conversationId: convId,
+                              sender: sender,
+                              content: nil,
+                              sendTimeTimestamp: timestamp,
+                              messageType: .location,
+                              location: location)
+        return message
+    }
+    
+    private static func roleText(role: Int) ->String {
+        switch role {
+        case 0:
+            return "群主"
+        case 1:
+            return "紧急联系人"
+        case 2:
+            return "天行探索平台"
+        case 3:
+            return "救援队"
+        case 4:
+            return "保险公司"
+        default:
+            return ""
+        }
+    }
     
     //MARK: - MQTT (用于有网络接收消息)
     

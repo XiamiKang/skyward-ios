@@ -106,31 +106,12 @@ class ConversationCell: BaseCell {
         
         let latestMessage = conversation.latestMessage
         
-        var content: String?
-        if latestMessage?.messageType == .location, let location = latestMessage?.location {
-            if let addressName = location.addressName, !addressName.isEmpty {
-                content = addressName
-            } else if let address = location.address, !address.isEmpty {
-                content = address
-            } else if let lon = location.longitude?.convertToDMSString(isLongitude: true), let lat = location.latitude?.convertToDMSString(isLongitude: false) {
-                content = "\(lon), \(lat)"
-            }
-        } else {
-            content = latestMessage?.content
-        }
-        
-        if let content = content, !content.isEmpty {
+        if let content = latestMessage?.displayText(), !content.isEmpty {
             contentLabel.text = content
             contentLabel.isHidden = false
-            titleLabel.snp.updateConstraints { make in
-                make.top.equalTo(avatarImageView.snp.top).offset(swAdaptedValue(1))
-            }
         } else {
             contentLabel.text = nil
             contentLabel.isHidden = true
-            titleLabel.snp.updateConstraints { make in
-                make.top.equalTo(avatarImageView.snp.top).offset(swAdaptedValue(12))
-            }
         }
         
         if let time = latestMessage?.sendTimeTimestamp {
@@ -139,6 +120,16 @@ class ConversationCell: BaseCell {
         } else {
             timeLabel.isHidden = true
             timeLabel.text = nil
+        }
+        
+        if contentLabel.isHidden, timeLabel.isHidden {
+            titleLabel.snp.updateConstraints { make in
+                make.top.equalTo(avatarImageView.snp.top).offset(swAdaptedValue(12))
+            }
+        } else {
+            titleLabel.snp.updateConstraints { make in
+                make.top.equalTo(avatarImageView.snp.top).offset(swAdaptedValue(1))
+            }
         }
         
         if let unreadCount = conversation.unreadCount, unreadCount > 0 {

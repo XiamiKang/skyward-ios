@@ -32,6 +32,10 @@ class ConvViewController: BaseViewController {
 
     // templateView 是否显示
     private var isTemplateViewVisible = false
+
+    // 保存上次的滚动位置，用于判断滚动方向
+    private var lastScrollOffsetY: CGFloat = 0
+    private var isScrollingUp = false
     
     // MARK: - UI Components
     
@@ -194,6 +198,7 @@ class ConvViewController: BaseViewController {
         // - Delegates & Actions
         tableView.delegate = self
         tableView.dataSource = self
+        tableView.prefetchDataSource = self
         messageTextView.delegate = self
         
         let refreshControl = UIRefreshControl()
@@ -296,7 +301,6 @@ class ConvViewController: BaseViewController {
         //会话列表
         bindPublisher(viewModel.$messageList.eraseToAnyPublisher()) { [weak self] _ in
             self?.tableView.reloadData()
-            self?.viewModel.updateLastMessageId()
         }
         //加载完数据
         bindPublisher(viewModel.$didLoadPage.eraseToAnyPublisher()) { [weak self] res in
@@ -382,6 +386,7 @@ class ConvViewController: BaseViewController {
 
         UIView.animate(withDuration: 0.3) {
             self.view.layoutIfNeeded()
+        } completion: { _ in
             self.scrollToBottom(animated: true)
         }
     }
@@ -407,7 +412,7 @@ class ConvViewController: BaseViewController {
             view.sw_showWarningToast("消息长度不能超过70个字符")
             return
         }
-        guard let message = viewModel.generateTxtMessage(content: content) else {
+        guard let message = MessageManager.generateTxtMessage(convId: viewModel.conversation.id, content: content) else {
             return
         }
         sendMessage(message)
@@ -416,7 +421,7 @@ class ConvViewController: BaseViewController {
     @objc private func locationButtonTapped() {
         let vc = ChoosePOIAddressViewController()
         vc.onSelectedAddressHandler = { address in
-            guard let message = self.viewModel.generateLocationMessage(address: address) else {
+            guard let message = MessageManager.generateLocationMessage(convId: self.viewModel.conversation.id, address: address) else {
                 return
             }
             self.sendMessage(message)
@@ -426,7 +431,7 @@ class ConvViewController: BaseViewController {
     
     private func scrollToBottom(animated: Bool) {
         DispatchQueue.main.async {
-            let rows = self.viewModel.messageList.count
+            let rows = self.tableView.numberOfRows(inSection: 0)
             guard rows > 0 else { return }
             
             let lastIndexPath = IndexPath(row: rows - 1, section: 0)
@@ -504,6 +509,36 @@ extension ConvViewController: UITableViewDelegate, UITableViewDataSource {
             }
         }
         return cell
+    }
+    
+    func scrollViewDidScroll(_ scrollView: UIScrollView) {
+        // 判断是否向上滚动
+        let currentOffsetY = tableView.contentOffset.y
+        isScrollingUp = currentOffsetY < lastScrollOffsetY
+        lastScrollOffsetY = currentOffsetY
+    }
+}
+
+// MARK: - UITableViewDataSourcePrefetching
+
+extension ConvViewController: UITableViewDataSourcePrefetching {
+
+    func tableView(_ tableView: UITableView, prefetchRowsAt indexPaths: [IndexPath]) {
+        guard isScrollingUp else {
+            return
+        }
+
+        // 判断 indexPaths 是否包含 lastMessageId 对应的消息
+        guard let lastMessageId = viewModel.lastMessageId,
+              let lastMessageIndex = viewModel.messageList.firstIndex(where: { $0.id == lastMessageId }),
+              indexPaths.contains(where: { $0.row == lastMessageIndex }) else {
+            return
+        }
+
+        // 满足条件：向上滚动且预加载包含 lastMessageId 的消息
+        if viewModel.queryNotSyncOfflineMessages().count > 0 || viewModel.hasSyncLatestServerMessage == false {
+            loadHistory()
+        }
     }
 }
 
@@ -585,13 +620,12 @@ extension ConvViewController: UIGestureRecognizerDelegate {
         // 计算键盘高度
         let keyboardHeight = keyboardFrame.height
         
-        // 调整inputBottomView的底部约束
-        inputBottomConstraint?.update(inset: keyboardHeight)
-        
         // 使用与键盘相同的动画参数更新约束
         UIView.animate(withDuration: duration, delay: 0, options: UIView.AnimationOptions(rawValue: curve)) {
-            self.view.layoutIfNeeded()
-            self.scrollToBottom(animated: false)
+            // 调整inputBottomView的底部约束
+            self.inputBottomConstraint?.update(inset: keyboardHeight)
+        } completion: { _ in
+            self.scrollToBottom(animated: true)
         }
     }
     
@@ -602,13 +636,10 @@ extension ConvViewController: UIGestureRecognizerDelegate {
             return
         }
         
-        // 恢复inputBottomView的原始底部约束
-        inputBottomConstraint?.update(inset: originalBottomInset)
-        
         // 使用与键盘相同的动画参数更新约束
         UIView.animate(withDuration: duration, delay: 0, options: UIView.AnimationOptions(rawValue: curve)) {
-            self.view.layoutIfNeeded()
-            self.scrollToBottom(animated: false)
+            // 恢复inputBottomView的原始底部约束
+            self.inputBottomConstraint?.update(inset: self.originalBottomInset)
         }
     }
     

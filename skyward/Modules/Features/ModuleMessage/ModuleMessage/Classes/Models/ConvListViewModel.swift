@@ -15,14 +15,16 @@ class ConvListViewModel: ObservableObject, MQTTManagerDelegate {
     
     private var currentConversationId: String?
     
-    private let serviceConversationId = UserManager.shared.userId
-    
     // MARK: - Initialization
     
     init() {
 
         // 处理服务中心消息
-        if DBManager.shared.queryFromDb(fromTable: DBTableName.conversation.rawValue, cls: Conversation.self, where: Conversation.Properties.id == serviceConversationId)?.first == nil {
+        if let latestServiceMessage = queryLatestMessage(convId: MessageManager.serviceConversationId) {
+            DispatchQueue.main.async {
+                self.syncHomeLatestServiceMessage(latestServiceMessage)
+            }
+        } else {
             let serviceConversation = Conversation.serviceConversation()
             DBManager.shared.insertToDb(objects: [serviceConversation], intoTable: DBTableName.conversation.rawValue)
         }
@@ -55,6 +57,9 @@ class ConvListViewModel: ObservableObject, MQTTManagerDelegate {
 
     @discardableResult
     func requestConversationList() async -> Bool {
+        guard NetworkMonitor.shared.isConnected else {
+            return false
+        }
         
         do {
             let rsp = try await NetworkProvider<MessageAPI>().request(.conversationList())
@@ -68,6 +73,7 @@ class ConvListViewModel: ObservableObject, MQTTManagerDelegate {
                                                                     cls: Conversation.self,
                                                                     where: Conversation.Properties.id == convId)?.first {
                         mutableConv.unreadCount = localConv.unreadCount
+                        mutableConv.latestMessage = localConv.latestMessage
                     }
                     return mutableConv  
                 }
@@ -124,11 +130,10 @@ class ConvListViewModel: ObservableObject, MQTTManagerDelegate {
             return
         }
         
-        guard let latestMessage = DBManager.shared.queryFromDb(fromTable: DBTableName.message.rawValue, cls: Message.self, where: Message.Properties.conversationId == currentConvId)?.last else {
+        guard let latestMessage = queryLatestMessage(convId: currentConvId) else {
             return
         }
         
-        Logger.debug("发送后的最新消息：\(latestMessage.content ?? "没内容")")
         conv.latestMessage = latestMessage
         DBManager.shared.updateToDb(table: DBTableName.conversation.rawValue,
                                        on: [Conversation.Properties.latestMessage],
@@ -136,6 +141,11 @@ class ConvListViewModel: ObservableObject, MQTTManagerDelegate {
                                        where: Conversation.Properties.id == currentConvId)
         
         refreshConversationList()
+        
+        // 如果是服务中心会话，同步首页
+        if currentConvId == MessageManager.serviceConversationId {
+            syncHomeLatestServiceMessage(latestMessage)
+        }
     }
     
     // MARK: - Notification
@@ -144,8 +154,13 @@ class ConvListViewModel: ObservableObject, MQTTManagerDelegate {
         guard let message = notification.object as? Message else {
             return
         }
+        
+        guard let receivedConvId = message.conversationId else {
+            return
+        }
+        
         // 如果收到的消息是当前会话的，则该会话未读数设置为0
-        if let currentConvId = currentConversationId, let receivedConvId = message.conversationId, currentConvId == receivedConvId {
+        if let currentConvId = currentConversationId, currentConvId == receivedConvId {
             guard var conv = DBManager.shared.queryFromDb(fromTable: DBTableName.conversation.rawValue, cls: Conversation.self, where: Conversation.Properties.id == receivedConvId)?.first else {
                 return
             }
@@ -157,6 +172,11 @@ class ConvListViewModel: ObservableObject, MQTTManagerDelegate {
         }
 
         refreshConversationList()
+        
+        // 如果是服务中心会话，同步首页
+        if receivedConvId == MessageManager.serviceConversationId {
+            syncHomeLatestServiceMessage(message)
+        }
     }
     
     // MARK: - Private Methods
@@ -168,7 +188,7 @@ class ConvListViewModel: ObservableObject, MQTTManagerDelegate {
         }
         
         // 过滤掉可能已存在的 serviceConversation
-        let filteredConversations = conversations.filter { $0.id != serviceConversationId }
+        let filteredConversations = conversations.filter { $0.id != MessageManager.serviceConversationId }
 
         // 剩余会话按时间戳排序
         let sortedConversations = filteredConversations.sorted { conv1, conv2 in
@@ -177,7 +197,7 @@ class ConvListViewModel: ObservableObject, MQTTManagerDelegate {
             return timestamp1 > timestamp2 // 降序：时间戳大的在前面
         }
         
-        if let serviceConversation = conversations.first(where: {$0.id == serviceConversationId}) {
+        if let serviceConversation = conversations.first(where: {$0.id == MessageManager.serviceConversationId}) {
             /// 根据最新消息时间戳对会话列表排序（降序），serviceConversation 固定在顶部
             convList = [serviceConversation] + sortedConversations
         } else {
@@ -197,7 +217,31 @@ class ConvListViewModel: ObservableObject, MQTTManagerDelegate {
             } else {
                 vc?.tabBarItem.badgeValue = nil
             }
+            
+            if #available(iOS 16.0, *) {
+                UNUserNotificationCenter.current().setBadgeCount(unreadCount)
+            } else {
+                UIApplication.shared.applicationIconBadgeNumber = unreadCount
+            }
         }
+    }
+    
+    private func syncHomeLatestServiceMessage(_ latestMessage: Message) {
+
+        guard let content = latestMessage.displayText(), !content.isEmpty else {
+            return
+        }
+        
+        let timestamp = "\(latestMessage.sendTimeTimestamp ?? 0)"
+        
+        SWRouter.handle(RouteTable.homeLatestServiceMessageUrl, parameters: ["content": content, "timestamp": timestamp])
+    }
+    
+    private func queryLatestMessage(convId: String) -> Message? {
+        return DBManager.shared.queryFromDb(fromTable: DBTableName.message.rawValue,
+                                            cls: Message.self,
+                                            where: Message.Properties.conversationId == convId,
+                                            orderBy: [Message.Properties.sendTimeTimestamp.order(.descending)])?.first
     }
     
     // MARK: - MQTTManagerDelegate

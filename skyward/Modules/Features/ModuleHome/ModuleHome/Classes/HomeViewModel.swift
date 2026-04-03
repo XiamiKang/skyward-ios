@@ -126,7 +126,13 @@ public class HomeViewModel: ObservableObject {
     }
     
     func loadNoticeList() {
-        self.noticeList = DBManager.shared.queryFromDb(fromTable: DBTableName.homeNotice.rawValue, cls: HomeNoticeItem.self, orderBy: [HomeNoticeItem.Properties.noticeTimeTimestamp.order(.descending)]) ?? []
+        // 如有紧急消息，需放首位，其他则按时间倒序
+        let noticeList = DBManager.shared.queryFromDb(fromTable: DBTableName.homeNotice.rawValue, cls: HomeNoticeItem.self, orderBy: [HomeNoticeItem.Properties.noticeTimeTimestamp.order(.descending)]) ?? []
+        if let latestMessage = latestMessage {
+            self.noticeList = [latestMessage] + noticeList
+        } else {
+            self.noticeList = noticeList
+        }
     }
     
     func cleanMessage() {
@@ -135,6 +141,18 @@ public class HomeViewModel: ObservableObject {
     
     private func didReceiveNotice(_ notice: HomeNoticeItem) {
         DBManager.shared.insertToDb(objects: [notice], intoTable: DBTableName.homeNotice.rawValue)
+        loadNoticeList()
+    }
+    
+    func syncLatestServiceMessage(params: [String: Any]) {
+        guard let content = params["content"] as? String else {
+            return
+        }
+        
+        let timestamp = params["timestamp"] as? String ?? "0"
+        
+        latestMessage = HomeNoticeItem(noticeId: nil, noticeType: .service, noticeContent: content, reportId: nil, noticeTimeTimestamp: Int64(timestamp))
+        
         loadNoticeList()
     }
     
@@ -244,12 +262,7 @@ public class HomeViewModel: ObservableObject {
     
     /// 收到离线上报状态的通知（SOS/报平安）
     @objc private func receiveOfflineReportState(_ notification: Notification) {
-        Logger.debug("[离线上报] 收到通知: \(notification.object ?? "未知")")
-
-        // 如果 ReportType 是枚举，可能需要用 rawValue 或者从 userInfo 中获取
         guard let type = notification.object as? ReportType else {
-            // 如果类型转换失败，尝试其他方式
-            Logger.debug("[离线上报] 类型转换失败")
             return
         }
 

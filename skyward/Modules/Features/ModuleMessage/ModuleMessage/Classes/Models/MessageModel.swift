@@ -182,15 +182,6 @@ struct Conversation: TableCodable {
         }
     }
     
-    static func serviceConversation() -> Conversation {
-        let date = DateFormatter.fullPretty.date(from: UserManager.shared.userInfo?.createTime ?? "2025-08-01 00:00:01") ?? Date()
-        let timestamp = Int64(date.timeIntervalSince1970 * 1000)
-        return Conversation(id: MessageManager.serviceConversationId,
-                            name: "服务中心",
-                            type: .group,
-                            createTimeTimestamp: timestamp,
-                            enable: true)
-    }
 }
 
 struct MessageList: Codable {
@@ -203,4 +194,42 @@ struct IMLocation: ColumnJSONCodable {
     let latitude: Double?
     let address: String?
     let addressName: String?
+}
+
+// MARK: - Extension
+
+
+extension Conversation {
+    
+    static func serviceConversation() -> Conversation {
+        let date = DateFormatter.fullPretty.date(from: UserManager.shared.userInfo?.createTime ?? "2025-08-01 00:00:01") ?? Date()
+        let timestamp = Int64(date.timeIntervalSince1970 * 1000)
+        return Conversation(id: MessageManager.serviceConversationId,
+                            name: "服务中心",
+                            type: .group,
+                            createTimeTimestamp: timestamp,
+                            enable: true)
+    }
+}
+
+extension Message {
+    
+    func displayText() -> String? {
+        let displayText: String?
+        if messageType == .location, let location = location {
+            if let addressName = location.addressName, !addressName.isEmpty {
+                displayText = addressName
+            } else if let address = location.address, !address.isEmpty {
+                displayText = address
+            } else if let lon = location.longitude?.convertToDMSString(isLongitude: true), let lat = location.latitude?.convertToDMSString(isLongitude: false) {
+                displayText = "\(lon), \(lat)"
+            } else {
+                displayText = nil
+            }
+        } else {
+            displayText = content
+        }
+        
+        return displayText
+    }
 }

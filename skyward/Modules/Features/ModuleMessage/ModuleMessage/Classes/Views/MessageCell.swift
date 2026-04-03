@@ -130,7 +130,7 @@ class MessageCell: BaseCell {
         if isSelf {
             if message.offline == true {
                 statusView.isHidden = false
-                if message.status == .sent {
+                if message.id?.hasPrefix("-") == false {
                     statusView.statusLabel.text = "已收到回执"
                 } else {
                     statusView.statusLabel.text = "已发送行者mini"
