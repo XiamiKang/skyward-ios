@@ -10,6 +10,7 @@ import WCDBSwift
 
 /// 提醒类型
 enum NoticeType: Int, ColumnCodable {
+    case unknown = 0     // 未知类型
     case sos = 1         // SOS紧急求助
     case safety = 2      // 报平安
     case weather = 3     // 天气通知
@@ -21,15 +22,37 @@ enum NoticeType: Int, ColumnCodable {
     }
     
     init?(with value: WCDBSwift.Value) {
-        self.init(rawValue: Int(value.int32Value))
+        let rawValue = Int(value.int32Value)
+        if let type = Self(rawValue: rawValue) {
+            self = type
+        } else {
+            self = .unknown
+        }
     }
     
     func archivedValue() -> WCDBSwift.Value {
         return FundamentalValue.init(Int32(self.rawValue))
     }
     
+    init(from decoder: Decoder) throws {
+        let container = try decoder.singleValueContainer()
+        let rawValue = try container.decode(Int.self)
+        if let type = Self(rawValue: rawValue) {
+            self = type
+        } else {
+            self = .unknown
+        }
+    }
+    
+    func encode(to encoder: Encoder) throws {
+        var container = encoder.singleValueContainer()
+        try container.encode(rawValue)
+    }
+    
     var title: String {
         switch self {
+        case .unknown:
+            return "其他"
         case .sos:
             return "SOS报警"
         case .safety:
@@ -39,12 +62,14 @@ enum NoticeType: Int, ColumnCodable {
         case .service:
             return "紧急联系人消息"
         case .disarmSOS:
-            return "解除SOS"
+            return "解除SOS报警"
         }
     }
     
     var icon: String {
         switch self {
+        case .unknown:
+            return "chat_service_new_icon"
         case .sos:
             return "chat_sos_new_icon"
         case .safety:
@@ -59,14 +84,14 @@ enum NoticeType: Int, ColumnCodable {
     }
 }
  
-struct HomeNoticeItem: TableCodable {
+struct HomeNoticeItem: TableCodable, Codable {
     public let noticeId: String?
     public let noticeType: NoticeType?
     public let noticeContent: String?
     public let reportId: String?
     public let noticeTimeTimestamp: Int64?
     
-    enum CodingKeys: String, CodingTableKey {
+    enum CodingKeys: String, CodingTableKey, CodingKey {
         typealias Root = HomeNoticeItem
         
         case noticeId
