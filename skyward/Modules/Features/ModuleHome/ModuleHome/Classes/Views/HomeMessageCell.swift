@@ -89,11 +89,10 @@ class HomeMessageCell: UITableViewCell {
         }
         
         contentLabel.snp.makeConstraints { make in
-            make.height.greaterThanOrEqualTo(swAdaptedValue(20))
             make.left.equalTo(iconImageView.snp.right).offset(Layout.hSpacing)
             make.right.equalTo(nextImageView.snp.left).offset(-Layout.hSpacing)
             make.top.equalTo(msgTitleLabel.snp.bottom).offset(swAdaptedValue(4))
-            make.bottom.equalToSuperview().inset(swAdaptedValue(10))
+            make.bottom.lessThanOrEqualToSuperview().inset(swAdaptedValue(10))
         }
         
         msgTitleLabel.snp.makeConstraints { make in
