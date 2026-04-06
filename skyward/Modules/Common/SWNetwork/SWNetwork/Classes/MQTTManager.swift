@@ -78,11 +78,11 @@ public struct MQTTConfiguration {
                                        password: "txts123456")
 #else
         // 生产
-        let config = MQTTConfiguration(host: "39.102.203.24",
+        let config = MQTTConfiguration(host: "mqtt.bjtxts.com",
                                        port: 8883,
                                        clientID: "ios-app-\(UUID().uuidString)",
-                                       username: "txts-ios",
-                                       password: "ios@txtsqaz.")
+                                       username: "apple_end",
+                                       password: "txts@qaz.")
 #endif
         
         return config
