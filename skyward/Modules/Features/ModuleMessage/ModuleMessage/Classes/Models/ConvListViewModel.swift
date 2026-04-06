@@ -73,7 +73,10 @@ class ConvListViewModel: ObservableObject, MQTTManagerDelegate {
                                                                     cls: Conversation.self,
                                                                     where: Conversation.Properties.id == convId)?.first {
                         mutableConv.unreadCount = localConv.unreadCount
-                        mutableConv.latestMessage = localConv.latestMessage
+                        //latestMessage 本地和服务端谁的最新用谁的
+                        if let locTimestamp = localConv.latestMessage?.sendTimeTimestamp, let serverTimestamp = mutableConv.latestMessage?.sendTimeTimestamp, locTimestamp > serverTimestamp {
+                            mutableConv.latestMessage = localConv.latestMessage
+                        }
                     }
                     return mutableConv  
                 }
