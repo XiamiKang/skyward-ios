@@ -457,6 +457,31 @@ extension MQTTManager: CocoaMQTT5Delegate {
 //        print("mqtt5_DidReceivePong")
     }
     
+    // 手动验证 SSL 证书（允许自签名证书）
+    public func mqtt5(_ mqtt5: CocoaMQTT5, didReceive trust: SecTrust, completionHandler: @escaping (Bool) -> Void) {
+        debugPrint("[MQTT] 🔐 收到SSL证书，开始验证...")
+
+        // 方案1：直接信任所有证书（用于开发/测试，生产环境不推荐）
+        completionHandler(true)
+
+        // 方案2：更严谨的验证（如果需要更严格的安全性，可以取消注释下面的代码）
+        /*
+        // 创建基本的验证策略
+        let serverTrustPolicy = ServerTrustPolicy.performDefaultEvaluation(validateHost: true)
+        let serverTrustEvaluator = DefaultServerTrustEvaluator()
+
+        switch serverTrustPolicy.evaluate(trust, forHost: configuration.host) {
+        case .success:
+            debugPrint("[MQTT] ✅ SSL证书验证成功")
+            completionHandler(true)
+        case .failure(let error):
+            debugPrint("[MQTT] ⚠️ SSL证书验证失败: \(error)")
+            // 对于自签名证书，仍然选择信任
+            completionHandler(true)
+        }
+        */
+    }
+    
     public func mqtt5DidDisconnect(_ mqtt5: CocoaMQTT5, withError err: (any Error)?) {
 //        print("mqtt5_mqtt5DidDisconnect: \(String(describing: err?.localizedDescription))")
         connectionState = .disconnected
