@@ -107,30 +107,6 @@ class FirmwareUpgradeDialog: UIView {
         return button
     }()
     
-//    private let logTextView: UITextView = {
-//        let textView = UITextView()
-//        textView.isEditable = false
-//        textView.isSelectable = false
-//        textView.font = .systemFont(ofSize: 12)
-//        textView.textColor = UIColor(hex: "#666666")
-//        textView.backgroundColor = UIColor(hex: "#F8F8F8")
-//        textView.layer.cornerRadius = 4
-//        textView.layer.masksToBounds = true
-//        textView.isHidden = true
-//        textView.translatesAutoresizingMaskIntoConstraints = false
-//        return textView
-//    }()
-//    
-//    private let showLogButton: UIButton = {
-//        let button = UIButton(type: .system)
-//        button.setTitle("显示日志", for: .normal)
-//        button.setTitle("隐藏日志", for: .selected)
-//        button.titleLabel?.font = .systemFont(ofSize: 12)
-//        button.setTitleColor(UIColor(hex: "#999999"), for: .normal)
-//        button.translatesAutoresizingMaskIntoConstraints = false
-//        return button
-//    }()
-    
     // MARK: - Properties
     private var upgradeManager: AdvancedFirmwareUpdateManager?
     private var firmwarePath: String = ""
@@ -220,16 +196,6 @@ class FirmwareUpgradeDialog: UIView {
             loadingImageView.widthAnchor.constraint(equalToConstant: 40),
             loadingImageView.heightAnchor.constraint(equalToConstant: 40),
             
-//            // Show Log Button
-//            showLogButton.topAnchor.constraint(equalTo: loadingImageView.bottomAnchor, constant: 20),
-//            showLogButton.centerXAnchor.constraint(equalTo: containerView.centerXAnchor),
-//            
-//            // Log Text View
-//            logTextView.topAnchor.constraint(equalTo: showLogButton.bottomAnchor, constant: 8),
-//            logTextView.leadingAnchor.constraint(equalTo: containerView.leadingAnchor, constant: 20),
-//            logTextView.trailingAnchor.constraint(equalTo: containerView.trailingAnchor, constant: -20),
-//            logTextView.heightAnchor.constraint(equalToConstant: 100),
-            
             // Cancel Button
             cancelButton.topAnchor.constraint(equalTo: loadingImageView.bottomAnchor, constant: 20),
             cancelButton.centerXAnchor.constraint(equalTo: containerView.centerXAnchor),
@@ -241,7 +207,6 @@ class FirmwareUpgradeDialog: UIView {
     
     private func setupActions() {
         cancelButton.addTarget(self, action: #selector(cancelButtonTapped), for: .touchUpInside)
-//        showLogButton.addTarget(self, action: #selector(toggleLog), for: .touchUpInside)
     }
     
     private func setupUpgradeManager() {
@@ -252,10 +217,8 @@ class FirmwareUpgradeDialog: UIView {
             }
         }
         
-        upgradeManager?.onLogReceived = { [weak self] log in
-            DispatchQueue.main.async {
-//                self?.addLogMessage(log)
-            }
+        upgradeManager?.onLogReceived = { _ in
+            
         }
         
         upgradeManager?.onUpgradeComplete = { [weak self] result in
@@ -307,9 +270,6 @@ class FirmwareUpgradeDialog: UIView {
     
     /// 开始升级
     func startUpgrade() {
-//        addLogMessage("🚀 开始固件升级流程")
-//        addLogMessage("📁 固件文件: \(firmwarePath)")
-        
         upgradeManager?.startUpgrade(firmwarePath: firmwarePath) { result in
             // 结果通过回调处理
             print("升级完成回调: \(result)")
@@ -331,16 +291,10 @@ class FirmwareUpgradeDialog: UIView {
     /// 更新状态文本
     func updateStatus(_ text: String) {
         statusLabel.text = text
-        
-        // 特殊状态的特殊显示
-        if text.contains("擦除Flash") {
-//            addLogMessage("🧹 " + text)
-        } else if text.contains("发送固件") {
-//            addLogMessage("📤 " + text)
-        } else if text.contains("发送数据包") {
-            // 数据包发送不频繁记录日志
-        } else {
-//            addLogMessage("📋 " + text)
+        // 判断是否升级完成
+        if text == "升级完成" {
+            // 升级完成时的处理
+            handleUpgradeCompletion()
         }
     }
     
@@ -359,11 +313,9 @@ class FirmwareUpgradeDialog: UIView {
         
         if let message = message {
             statusLabel.text = message
-//            addLogMessage(success ? "✅ " + message : "❌ " + message)
         } else {
             let defaultMessage = success ? "固件升级已完成，设备将重启" : "固件升级失败，请重试"
             statusLabel.text = defaultMessage
-//            addLogMessage(success ? "✅ " + defaultMessage : "❌ " + defaultMessage)
         }
         
         if success {
@@ -413,27 +365,6 @@ class FirmwareUpgradeDialog: UIView {
         }
     }
     
-//    private func addLogMessage(_ message: String) {
-//        let timestamp = DateFormatter.localizedString(from: Date(), dateStyle: .none, timeStyle: .medium)
-//        let logMessage = "[\(timestamp)] \(message)"
-//        
-//        logMessages.append(logMessage)
-//        
-//        // 保持最多50条日志
-//        if logMessages.count > 50 {
-//            logMessages.removeFirst(logMessages.count - 50)
-//        }
-//        
-//        // 更新日志文本
-//        logTextView.text = logMessages.joined(separator: "\n")
-//        
-//        // 自动滚动到底部
-//        if logTextView.text.count > 0 {
-//            let bottom = NSMakeRange(logTextView.text.count - 1, 1)
-//            logTextView.scrollRangeToVisible(bottom)
-//        }
-//    }
-    
     private func handleUpgradeResult(_ result: Result<Bool, Error>) {
         switch result {
         case .success:
@@ -450,7 +381,6 @@ class FirmwareUpgradeDialog: UIView {
                 errorMessage = wifiError.errorDescription ?? errorMessage
             }
             
-//            addLogMessage("❌ 升级失败: \(errorMessage)")
             complete(success: false, message: errorMessage)
         }
     }
@@ -469,10 +399,8 @@ class FirmwareUpgradeDialog: UIView {
     
     @objc private func toggleLog() {
         isShowingLog.toggle()
-//        showLogButton.isSelected = isShowingLog
         
         UIView.animate(withDuration: 0.3) {
-//            self.logTextView.isHidden = !self.isShowingLog
             self.layoutIfNeeded()
         }
     }
@@ -485,12 +413,34 @@ class FirmwareUpgradeDialog: UIView {
         alert.addAction(UIAlertAction(title: "继续升级", style: .cancel))
         alert.addAction(UIAlertAction(title: "确定取消", style: .destructive) { _ in
             self.upgradeManager?.cancelUpgrade()
-//            self.addLogMessage("⏹️ 用户取消了升级")
             self.complete(success: false, message: "升级已取消")
         })
         
         // 在当前View的window上显示alert
         self.window?.rootViewController?.present(alert, animated: true)
+    }
+    
+    private func handleUpgradeCompletion() {
+        // 停止动画
+        stopLoadingAnimation()
+        
+        // 更新UI状态
+        titleLabel.text = "升级成功"
+        cancelButton.setTitle("完成", for: .normal)
+        
+        // 确保进度为100%
+        updateProgress(1.0)
+        
+        // 可选：播放成功提示音
+        // UINotificationFeedbackGenerator().notificationOccurred(.success)
+        
+        // 5秒后自动消失
+        DispatchQueue.main.asyncAfter(deadline: .now() + 5) { [weak self] in
+            self?.dismiss()
+        }
+        
+        // 触发成功回调
+        onUpgradeComplete?(.success(true))
     }
 }
 

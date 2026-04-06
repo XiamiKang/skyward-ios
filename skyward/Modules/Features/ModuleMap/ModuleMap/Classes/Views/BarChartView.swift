@@ -128,7 +128,7 @@ class BarChartView: UIView {
                                               y: yPosition, 
                                               width: barWidth, 
                                               height: normalizedHeight))
-            barView.backgroundColor = .systemBlue
+            barView.backgroundColor = UIColor(str: "#007AFF")
             barView.layer.cornerRadius = barWidth / 4
             barView.layer.maskedCorners = [.layerMinXMinYCorner, .layerMaxXMinYCorner]
             barView.clipsToBounds = true

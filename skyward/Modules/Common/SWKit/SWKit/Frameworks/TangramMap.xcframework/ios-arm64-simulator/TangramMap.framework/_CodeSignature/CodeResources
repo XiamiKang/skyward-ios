@@ -38,7 +38,7 @@
 		</data>
 		<key>Headers/TGMapView.h</key>
 		<data>
-		/maUpf7BmbKdX2q71XGGbdD+yy4=
+		SuY+ouVx9a71BNuWDHztuApai5k=
 		</data>
 		<key>Headers/TGMapViewDelegate.h</key>
 		<data>
@@ -46,7 +46,7 @@
 		</data>
 		<key>Headers/TGMarker.h</key>
 		<data>
-		5Xt+K1kQKTyYfP+iKVgvZrNpvLs=
+		Yeeom5ouE4KwbLkCcz3mrJn9i/s=
 		</data>
 		<key>Headers/TGMarkerPickResult.h</key>
 		<data>
@@ -74,7 +74,7 @@
 		</data>
 		<key>Info.plist</key>
 		<data>
-		IHQYx4StG7aioBhIX/2rcACiuC4=
+		xdOCMyivtEIYDGJaNh3VQNC0pQw=
 		</data>
 		<key>Modules/module.modulemap</key>
 		<data>
@@ -143,7 +143,7 @@
 		<dict>
 			<key>hash2</key>
 			<data>
-			/aF0JoNlYdeDKvn6bIysDPe3b1mdkVA1UBBb5CXiB9M=
+			D1MPXqPk7u9JWkpv83M4b5aE6Ljj8RygnW3+/K1ERbc=
 			</data>
 		</dict>
 		<key>Headers/TGMapViewDelegate.h</key>
@@ -157,7 +157,7 @@
 		<dict>
 			<key>hash2</key>
 			<data>
-			RGUf91pmnBOrRBO9jbvyjW+hQ/VyySnOAWgxbc/mrYY=
+			XdzF7SFzTPms2ksUv0koY3lqask6qXK6nPBHJ+nHX1Q=
 			</data>
 		</dict>
 		<key>Headers/TGMarkerPickResult.h</key>

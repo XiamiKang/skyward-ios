@@ -20,6 +20,7 @@ extension DateFormatter {
     // common
     static public let fullPretty = DateFormatter(format: "yyyy-MM-dd HH:mm:ss")
     static public let fullPretty1 = DateFormatter(format: "yyyy/MM/dd HH:mm:ss")
+    static public let fullPretty2 = DateFormatter(format: "yyyy-MM-dd HH:mm")
     static public let yearMonthDay = DateFormatter(format: "yyyy-MM-dd")
     static public let monthDay = DateFormatter(format: "MM-dd")
     

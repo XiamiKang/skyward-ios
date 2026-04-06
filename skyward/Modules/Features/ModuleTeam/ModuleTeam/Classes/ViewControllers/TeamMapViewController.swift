@@ -171,7 +171,7 @@ class TeamMapViewController: BaseViewController {
 //                    }
 //                    
 //                }else {
-                    let devicelistVC = DeviceListViewController()
+                    let devicelistVC = DeviceListViewController(selectedDeviceType: 0)
                     self?.navigationController?.pushViewController(devicelistVC, animated: true)
 //                }
             }
@@ -264,7 +264,7 @@ class TeamMapViewController: BaseViewController {
         }, for: .touchUpInside)
         view.sosButton.addAction(UIAction {[weak self] _ in
             self?.dismissKeyboard()
-            ReportManager.report(.sos)
+            ReportManager.report(.openSOS)
         }, for: .touchUpInside)
         return view
     }()
@@ -367,11 +367,11 @@ class TeamMapViewController: BaseViewController {
             mapManager.markerLayerManager?.removeMarker(markerData.id, from: layerId)
         }
         if message.messageType == .safety {
-            mapManager.markerLayerManager?.addMarkerWithPresetStyle(to: "safe", data: markerData, styleType: .safe)
+            mapManager.markerLayerManager?.addMarker(to: "safe", data: markerData)
         } else if message.messageType == .sos {
-            mapManager.markerLayerManager?.addMarkerWithPresetStyle(to: "sos", data: markerData, styleType: .sos)
+            mapManager.markerLayerManager?.addMarker(to: "sos", data: markerData)
         } else if message.messageType == .location {
-            mapManager.markerLayerManager?.addMarkerWithPresetStyle(to: "memberLocation", data: markerData, styleType: .memberLocation)
+            mapManager.markerLayerManager?.addMarker(to: "memberLocation", data: markerData)
         }
     }
     

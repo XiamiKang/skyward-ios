@@ -1,17 +1,17 @@
 {
   "images" : [
     {
-      "filename" : "icon_scenery.png",
+      "filename" : "poi_public_scenery.png",
       "idiom" : "universal",
       "scale" : "1x"
     },
     {
-      "filename" : "icon_scenery@2x.png",
+      "filename" : "poi_public_scenery@2x.png",
       "idiom" : "universal",
       "scale" : "2x"
     },
     {
-      "filename" : "icon_scenery@3x.png",
+      "filename" : "poi_public_scenery@3x.png",
       "idiom" : "universal",
       "scale" : "3x"
     }

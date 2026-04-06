@@ -13,16 +13,18 @@ Pod::Spec.new do |s|
   s.ios.deployment_target = '13.0'
   s.swift_version = '5.0'
   
-  s.source_files = 'ModulePersonal/Classes/**/*'
+  # 包含所有源文件（包括 .h 和 .m）
+  s.source_files = 'ModulePersonal/Classes/**/*.{h,m,swift}'
   
+  # 资源文件
   s.resource_bundles = {
     'ModulePersonal' => ['ModulePersonal/Assets/*.xcassets']
   }
   
-  # 依赖框架（根据您的代码可能需要）
+  # 依赖框架
   s.frameworks = 'UIKit', 'CoreBluetooth'
   
-  # 如果有其他 pod 依赖
+  # 其他依赖
   s.dependency 'SnapKit'
   s.dependency 'TXKit'
   s.dependency 'TXRouterKit'
@@ -32,5 +34,4 @@ Pod::Spec.new do |s|
   s.dependency 'lottie-ios'
   s.dependency 'SDWebImage'
   s.dependency 'ModuleLogin'
-  
 end

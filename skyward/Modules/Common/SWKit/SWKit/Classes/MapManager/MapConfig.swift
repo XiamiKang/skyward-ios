@@ -17,26 +17,26 @@ public class MapConfig {
     public var minZoom: CGFloat = 0.0
     public var maxZoom: CGFloat = 20.5
     public var userPosition = CLLocationCoordinate2D(latitude: 39.9042, longitude: 116.4074)
-    public var defaultZoom: CGFloat = 15.0
+    public var defaultZoom: CGFloat = 16.0
     public var showCompass: Bool = true
     public var showScaleBar: Bool = true
+    public var showUserLocation: Bool = true
     
     // 地图源配置
     public private(set) var tileSources: [String: String] = [
         "天地图街道": "http://t1.tianditu.com/DataServer?T=vec_w&x={x}&y={y}&l={z}&tk=88e2f1d5ab64a7477a7361edd6b5f68a",
         "天地图影像": "http://t1.tianditu.com/DataServer?T=img_w&x={x}&y={y}&l={z}&tk=88e2f1d5ab64a7477a7361edd6b5f68a",
         "吉林长光影像": "https://api.jl1mall.com/getMap/{z}/{x}/{y}?mk=3ddec00f5f435270285ffc7ad1a60ce5&tk=c4e73a6b0428f65a94fb6fbe677d2375",
-        "海图": "https://m12.shipxy.com/tile.c?l=Na&m=o&x={x}&y={y}&z={z}",
-        "谷歌地图": "https://gdtc.shipxy.com/tile.g?z={z}&x={x}&y={y}",
-        "谷歌卫星": "https://gwxc.shipxy.com/tile.g?z={z}&x={x}&y={y}"
+        "谷歌地图": "http://mts0.googleapis.com/vt?lyrs=y&x={x}&y={y}&z={z}"
     ]
     
     /// 当前选中的地图源名称
-    public var currentTileSourceName: String = "吉林长光影像"
+    public var currentTileSourceName: String = isInChina() ? "吉林长光影像" : "谷歌地图"
     
     /// 当前选中的地图源URL
     public var currentTileSourceURL: String? {
-        return tileSources[currentTileSourceName]
+        let tileSourceName = UserDefaults.standard.string(forKey: "ChooseTileSourceName") ?? currentTileSourceName
+        return tileSources[tileSourceName]
     }
     
     /// 默认的地图源路径（根据你的实际配置修改）
@@ -155,13 +155,19 @@ public class MapConfig {
         minZoom = 0.0
         maxZoom = 20.5
         userPosition = CLLocationCoordinate2D(latitude: 39.9042, longitude: 116.4074)
-        defaultZoom = 15.0
+        defaultZoom = 16.0
         showCompass = true
         showScaleBar = true
-        currentTileSourceName = "吉林长光影像"
+        print("yifan-----手机是否在国内：\(isInChina() ? "是的" : "不是")")
+        let tileSourceName = UserDefaults.standard.string(forKey: "ChooseTileSourceName") ?? "吉林长光影像"
+        currentTileSourceName = isInChina() ? tileSourceName : "谷歌地图"
         
         UserDefaults.standard.removeObject(forKey: configKey)
         print("地图配置已重置为默认值")
+    }
+    
+    public func resetCurrentTileSourceName() {
+        currentTileSourceName = isInChina() ? "吉林长光影像" : "谷歌地图"
     }
     
     // MARK: - 配置信息

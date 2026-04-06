@@ -17,6 +17,10 @@ target 'skyward' do
   
   pod 'WCDB.swift'
   
+  pod 'CocoaLumberjack/Swift'
+  
+  pod 'Bugly'
+
   # 本地模块
 #  pod 'TXKit', :path => '../TXKit'
 #  pod 'TXRouterKit', :path => '../TXRouterKit'

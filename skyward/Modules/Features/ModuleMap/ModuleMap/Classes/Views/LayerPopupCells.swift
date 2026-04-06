@@ -188,6 +188,13 @@ class AnnotationOptionCell: UICollectionViewCell {
         nameLabel.textColor = option.isSelected ? UIColor(str: "#FE6A00") : UIColor(str: "#070808")
     }
     
+    func configure(with option: POIOption) {
+        nameLabel.text = option.name
+        containerView.layer.borderColor = option.isSelected ? UIColor(str: "#FE6A00").cgColor : UIColor(str: "#E9EBF0").cgColor
+        checkmarkView.isHidden = !option.isSelected
+        nameLabel.textColor = option.isSelected ? UIColor(str: "#FE6A00") : UIColor(str: "#070808")
+    }
+    
     override func prepareForReuse() {
         super.prepareForReuse()
         nameLabel.text = nil

@@ -8,6 +8,7 @@
 import UIKit
 import SnapKit
 import SWKit
+import SWTheme
 
 class RegisterViewController: LoginBaseViewController {
     
@@ -244,7 +245,7 @@ class RegisterViewController: LoginBaseViewController {
         
         let label = UILabel()
         label.text = titleName
-        label.textColor = defaultBlackColor
+        label.textColor = ThemeManager.current.titleColor
         label.font = UIFont.systemFont(ofSize: 14, weight: .bold)
         view.addSubview(label)
         
@@ -313,7 +314,7 @@ extension RegisterViewController {
             passwordTipLabel.textColor = UIColor.init(hex: "#84888C")
         } else {
             passwordTipLabel.text = isValid ? "密码格式正确" : "需包含英文大小写和数字，长度6~20位"
-            passwordTipLabel.textColor = isValid ? UIColor.systemGreen : UIColor.orange
+            passwordTipLabel.textColor = isValid ? UIColor.green : UIColor.orange
         }
     }
     
@@ -324,7 +325,7 @@ extension RegisterViewController {
             rePasswordTipLabel.textColor = UIColor.init(hex: "#84888C")
         } else {
             rePasswordTipLabel.text = isValid ? "密码一致" : "两次输入的密码不一致"
-            rePasswordTipLabel.textColor = isValid ? UIColor.systemGreen : UIColor.orange
+            rePasswordTipLabel.textColor = isValid ? UIColor.green : UIColor.orange
         }
     }
     
@@ -379,7 +380,8 @@ extension RegisterViewController {
             
             DispatchQueue.main.asyncAfter(deadline: .now() + 1) {
                 // 注册成功后的操作，比如跳转到登录页面
-                self.navigationController?.popViewController(animated: true)
+                let LoginEmergencyContactVC = LoginEmergencyContactViewController()
+                self.navigationController?.pushViewController(LoginEmergencyContactVC, animated: true)
             }
             
         case .failure(let error):

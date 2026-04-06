@@ -11,41 +11,64 @@ import Moya
 import SWKit
 
 enum MessageAPI {
-    case urgentMessages(page: Int, size: Int)
-    case sendUrgentMessage(msg: String)
+    case conversationList(_ pageNum: Int = 1)
+    case messageList(params: [String : Any])
+    case sendMessage(params: [String : Any])
+    case checkPOIWithAround(location: String)
+    
+    // 会话列表
+    static var convList_sub: String {
+        return "txts/im/servertoapp/conversation/list/\(UserManager.shared.userId)"
+    }
+    // 接收消息
+    static var receiveMessage_sub: String {
+        return "txts/im/servertoapp/message/receive/\(UserManager.shared.userId)"
+    }
 }
 
 extension MessageAPI: NetworkAPI {
     
     var path: String {
         switch self {
-        case .urgentMessages:
-            return "/txts-user-center-app/api/v1/urgent-message/page/list"
-        case .sendUrgentMessage:
-            return "/txts-user-center-app/api/v1/urgent-message/sign/add"
+        case .conversationList:
+            return "/txts-user-center-app/api/v1/conversations/list"
+        case . messageList:
+            return "/txts-user-center-app/api/v1/messages/page"
+        case .sendMessage:
+            return "/txts-user-center-app/api/v1/messages/send"
+        case .checkPOIWithAround:
+            return "/txts-data-app/api/v1/data/map/poi/around"
         }
     }
     
     var method: Moya.Method {
         switch self {
-        case .urgentMessages:
+
+        case .conversationList,
+              .messageList,
+              .checkPOIWithAround:
             return .get
-        case .sendUrgentMessage:
+        case .sendMessage:
             return .post
         }
     }
     
     var task: Moya.Task {
         switch self {
-        case .urgentMessages(let page, let size):
-            // 将经纬度参数作为查询参数添加到URL中
+        case .conversationList(let pageNum):
             let parameters: [String: Any] = [
-                "pageNum": page,
-                "pageSize": size
+                "userId": UserManager.shared.userId,
+                "pageNum" : pageNum,
+                "pageSize": -1
             ]
             return .requestParameters(parameters: parameters, encoding: URLEncoding.queryString)
-        case .sendUrgentMessage(let msg):
-            return .requestParameters(parameters: ["content" : msg], encoding: JSONEncoding.default)
+        case .messageList(let params):
+            
+            return .requestParameters(parameters: params, encoding: URLEncoding.queryString)
+        case .sendMessage(let params):
+            return .requestParameters(parameters: params, encoding: JSONEncoding.default)
+        case .checkPOIWithAround(let location):
+            return .requestParameters(parameters: ["location" : location, "radius": 5000], encoding: URLEncoding.default)
         }
     }
     
@@ -58,10 +81,6 @@ extension MessageAPI: NetworkAPI {
         
         return headers
     }
-}
-
-// 接收消息
-// 将MQTT接口定义从let常量改为计算属性，确保每次访问都能获取最新的userId
-var receiveUrgentMessage_sub: String {
-    return "txts/home/servertoapp/urgentMessage/receive/\(UserManager.shared.userId)"
+    
+    
 }

@@ -19,27 +19,12 @@ public class HomeViewModel: ObservableObject {
     @Published var weatherInfo: WeatherInfo?
     @Published var selectedMiniDevice: MiniDevice?
     @Published var selectedProDevice: WiFiDevice?
+    
     private var selectedMiniDeviceStatusInfo: StatusInfo?  //选中的设备的状态信息
     private var selectedMiniDeviceSatelliteNum: Int?       //选中的设备的卫星信号
     
-    var savedMiniDevices: [MiniDevice] {
-        get {
-            let baseModel = BaseModel(pageNum: 1, pageSize: 20)
-            PersonalViewModel().input.deviceListRequest.send(baseModel)
-            let miniDeviceList = getSaveMiniDeviceListData()
-            return miniDeviceList
-        }
-    }
-    var latestMessage: HomeNewMessageModel?
-    var noticeReponse: HomeNoticeModel = HomeNoticeModel(totalCount: 0, safeCount: 0, sosCount: 0, weatherCount: 0, safeList: [], sosList: [], weatherList: [])
+    private var latestMessage: HomeNoticeItem?
     
-    private var homeCache: SWCache?
-    
-    @Published var noticeTypeItems: [NoticeTypeItem] = [NoticeTypeItem(noticeType: .all, selected: true, count: 0),
-                                                        NoticeTypeItem(noticeType: .sos, selected: false, count: 0),
-                                                        NoticeTypeItem(noticeType: .safety, selected: false, count: 0),
-                                                        NoticeTypeItem(noticeType: .weather, selected: false, count: 0),
-                                                        NoticeTypeItem(noticeType: .service, selected: false, count: 0)]
     private var didPublish: Bool = false
     
     private let locationManager = LocationManager()
@@ -52,15 +37,9 @@ public class HomeViewModel: ObservableObject {
         // 通知
         setupNotifications()
         
-        // 初始化缓存
-        setupCaches()
-        
-        // 初始加载缓存数据
-        loadCacheData()
-        
         // MQTT
         MQTTManager.shared.addDelegate(self)
-        MQTTManager.shared.subscribe(to: [noticeList_sub,latestMessage_sub])
+        MQTTManager.shared.subscribe(to: [HomeAPI.noticeNew_sub])
         
         // 启动在线心跳定时器
         startOnlinePingTimer()
@@ -78,7 +57,10 @@ public class HomeViewModel: ObservableObject {
     
     // MARK: - Public Methods
     
-    func getSaveMiniDeviceListData() -> [MiniDevice] {
+    func getMiniDeviceListData() -> [MiniDevice] {
+        let baseModel = BaseModel(pageNum: 1, pageSize: 20)
+        PersonalViewModel().input.deviceListRequest.send(baseModel)
+        
         var savedMiniDevices: [MiniDevice] = []
         let connectedMiniDevice = BluetoothManager.shared.connectedScannedPeripheral
         if let miniDevices = MiniDeviceDBManager.shared.qureyFromMiniDeviceDataAllData() {
@@ -103,7 +85,7 @@ public class HomeViewModel: ObservableObject {
     
     func setupDevice() {
         
-        if let miniDevice = self.savedMiniDevices.first {
+        if let miniDevice = getMiniDeviceListData().first {
             selectedMiniDevice = miniDevice
             linkOrBreakMiniDevice(miniDevice)
         }
@@ -117,30 +99,12 @@ public class HomeViewModel: ObservableObject {
         }
     }
     
-    func selectNoticeTypeItem(_ noticeTypeItem: NoticeTypeItem) {
-        // 如果点击的已经是选中项，则不需要操作
-        guard !noticeTypeItem.selected else {
-            return
-        }
-        
-        // 根据传入item的noticeType，重新创建noticeTypeItems数组，设置正确的selected状态
-        noticeTypeItems = noticeTypeItems.map { item in
-            var mutableItem = item
-            // 匹配的项设为选中，非匹配项设为未选中
-            mutableItem.selected = (item.noticeType == noticeTypeItem.noticeType)
-            return mutableItem
-        }
-        
-        // 根据选中的类型更新通知列表
-        updateNoticeList()
-    }
-    
     func linkOrBreakMiniDevice(_ device: MiniDevice) {
         if device.connected {
             BluetoothManager.shared.disconnectPeripheral()
         } else {
             let scannedMiniDevices = BluetoothManager.shared.getAllScannedDevices()
-            print("扫描出来的窄带设备--\(scannedMiniDevices)")
+            Logger.debug("扫描出来的窄带设备--\(scannedMiniDevices)")
             for miniDevice in scannedMiniDevices {
                 if device.info.imeiNum == miniDevice.imei {
                     BluetoothManager.shared.connectToPeripheral(miniDevice.peripheral)
@@ -151,184 +115,98 @@ public class HomeViewModel: ObservableObject {
         }
     }
     
-    public func cleanMessage() {
-        MQTTManager.shared.publish(message: "{}", to: cleanMessage_pub, qos: .qos1)
-    }
+    // MARK: - Notice List
     
-    // MARK: - Private
-    
-    /// 更新通知类型计数
-    private func updateNoticeTypeItems() {
-        noticeTypeItems = noticeTypeItems.map { item in
-            var mutableItem = item
-            switch item.noticeType {
-            case .all:
-                if latestMessage == nil {
-                    mutableItem.count = noticeReponse.totalCount
-                } else {
-                    mutableItem.count = noticeReponse.totalCount + 1
-                }
-            case .sos:
-                mutableItem.count = noticeReponse.sosCount
-            case .safety:
-                mutableItem.count = noticeReponse.safeCount
-            case .weather:
-                mutableItem.count = noticeReponse.weatherCount
-            case .service:
-                if latestMessage == nil {
-                    mutableItem.count = 0
-                } else {
-                    mutableItem.count = 1
-                }
-            }
-            return mutableItem
+    func loadPage() {
+        loadNoticeList()
+        _Concurrency.Task {
+            await requestNoticeList()
+            loadNoticeList()
         }
     }
     
-    private func updateNoticeList() {
-        // 找到选中的通知类型项
-        guard let selectedItem = noticeTypeItems.first(where: { $0.selected }) else {
+    func loadNoticeList() {
+        // 如有紧急消息，需放首位，其他则按时间倒序
+        let noticeList = DBManager.shared.queryFromDb(fromTable: DBTableName.homeNotice.rawValue, cls: HomeNoticeItem.self, orderBy: [HomeNoticeItem.Properties.noticeTimeTimestamp.order(.descending)]) ?? []
+        if let latestMessage = latestMessage {
+            self.noticeList = [latestMessage] + noticeList
+        } else {
+            self.noticeList = noticeList
+        }
+    }
+    
+    func cleanMessage() {
+        MQTTManager.shared.publish(message: "{}", to: HomeAPI.cleanMessage_pub, qos: .qos1)
+    }
+    
+    private func didReceiveNotice(_ notice: HomeNoticeItem) {
+        DBManager.shared.insertToDb(objects: [notice], intoTable: DBTableName.homeNotice.rawValue)
+        loadNoticeList()
+    }
+    
+    func syncLatestServiceMessage(params: [String: Any]) {
+        guard let content = params["content"] as? String else {
             return
         }
         
-        // 根据选中类型获取对应的通知列表
-        var filteredNotices: [HomeNoticeItem]
+        let timestamp = params["timestamp"] as? String ?? "0"
         
-        // 处理最新消息，声明为可选类型
-        var latestNotice: HomeNoticeItem?
-        if let latestMessage = latestMessage {
-            latestNotice = HomeNoticeItem(noticeId: nil,
-                                         noticeType: .service,
-                                         noticeContent: latestMessage.message,
-                                         reportId: latestMessage.sendId,
-                                         noticeTime: nil)
-        }
+        latestMessage = HomeNoticeItem(noticeId: nil, noticeType: .service, noticeContent: content, reportId: nil, noticeTimeTimestamp: Int64(timestamp))
         
-        switch selectedItem.noticeType {
-        case .all:
-            filteredNotices = noticeReponse.allNotices
-        case .sos:
-            filteredNotices = noticeReponse.sosList
-        case .safety:
-            filteredNotices = noticeReponse.safeList
-        case .weather:
-            filteredNotices = noticeReponse.weatherList
-        case .service:
-            filteredNotices = latestNotice != nil ? [latestNotice!] : []
-        }
-        
-        // 按noticeTime降序排序
-        filteredNotices.sort { item1, item2 in
-            guard let time1 = item1.noticeTime else { return false }  // 没有时间的排在后面
-            guard let time2 = item2.noticeTime else { return true }   // 有时间的排在前面
-            return time1 > time2  // 降序排序（时间大的排前面）
-        }
-        
-        if selectedItem.noticeType == .all {
-            // 如果是所有，有最新通知，将其插入到列表最前面
-            if let latestNotice = latestNotice {
-                filteredNotices.insert(latestNotice, at: 0)
-            }
-        }
-        
-        // 在主线程更新UI
-        DispatchQueue.main.async {
-            self.noticeList = filteredNotices
-        }
+        loadNoticeList()
     }
+    
+    // MARK: - network
 
-    func getWeatherInfo() {
+    private func getWeatherInfo() {
         locationManager.getCurrentLocation {[weak self] location, error in
             guard let location = location else {
                 return
             }
+            
+            var districtName = ""
+            var weatherInfo: WeatherInfo?
+            
+            let group = DispatchGroup()
+            group.enter()
+            LocationManager.reverseGeocode(location: location) { placemark in
+                if let district = placemark?.subLocality {
+                    districtName = district
+                }
+                group.leave()
+            }
+            
+            group.enter()
             NetworkProvider<HomeAPI>().request(.weatherInfo(longitude: location.coordinate.longitude, latitude: location.coordinate.latitude)) { result in
+                group.leave()
                 if case .success(let rsp) = result {
                     do {
                         let networkResponse = try rsp.map(NetworkResponse<WeatherInfo>.self)
-                        if let weatherInfo = networkResponse.data {
-                            self?.weatherInfo = weatherInfo
-                        }
+                        weatherInfo = networkResponse.data
                     } catch {
                         
                     }
                 }
             }
-        }
-    }
-    
-    // MARK: - Cache
-    
-    private func setupCaches() {
-        do {
-            homeCache = try SWCache(dirName: CacheModuleName.home.module)
-        } catch {
-            print("❌ SWCache 创建失败: \(error)")
-            print("错误详情: \(error.localizedDescription)")
-        }
-    }
-    
-    private func loadCacheData() {
-        // 加载最新消息缓存
-        loadCacheValue(forKey: latestMessage_sub) { [weak self] (data: Data?) in
-            guard let self = self, let data = data else { return }
-            self.latestMessage = try? JSONDecoder().decode(HomeNewMessageModel.self, from: data)
-            self.updateNoticeTypeItems()
-            self.updateNoticeList()
-        }
-        
-        // 加载通知列表缓存
-        loadCacheValue(forKey: noticeList_sub) { [weak self] (data: Data?) in
-            guard let self = self, let data = data else { return }
-            if let reponse = try? JSONDecoder().decode(HomeNoticeModel.self, from: data) {
-                self.noticeReponse = reponse
-            }
-
-            self.updateNoticeTypeItems()
-            self.updateNoticeList()
-        }
-    }
-    
-    private func loadCacheValue(forKey key: String,completion: @escaping (Data?) -> Void) {
-        guard let cache = homeCache else {
-            completion(nil)
-            return
-        }
-        
-        cache.value(forKey: key) { result in
-            switch result {
-            case .success(let cacheResult):
-                switch cacheResult {
-                case .memory(let data), .disk(let data):
-                    completion(data)
-                case .none:
-                    print("没有缓存数据 for key: \(key)")
-                    completion(nil)
-                }
-            case .failure(let error):
-                print("❌ 加载缓存失败 for key: \(key): \(error)")
-                completion(nil)
-            }
-        }
-    }
-    
-    private func saveCacheValue(data: Data, forKey key: String) {
-        guard let cache = homeCache else { return }
-        
-        cache.setValue(data, forKey: key, toDisk: true) { result in
-            switch result.memoryCacheResult {
-            case .success:
-                print("✅ 内存存储成功 for key: \(key)")
-            case .failure(let error):
-                print("❌ 内存存储失败 for key: \(key): \(error)")
-            }
             
-            switch result.diskCacheResult {
-            case .success:
-                print("✅ 磁盘存储成功 for key: \(key)")
-            case .failure(let error):
-                print("❌ 磁盘存储失败 for key: \(key): \(error)")
+            group.notify(queue: .main) {
+                weatherInfo?.district = districtName
+                if weatherInfo != nil {
+                    self?.weatherInfo = weatherInfo
+                }
             }
+        }
+    }
+    
+    private func requestNoticeList() async {
+        do {
+            let rsp = try await NetworkProvider<HomeAPI>().request(.noticeList)
+            let networkResponse = try JSONDecoder().decode(NetworkResponse<[HomeNoticeItem]>.self, from: rsp.data)
+            if let notices = networkResponse.data, notices.count > 0 {
+                DBManager.shared.insertToDb(objects: notices, intoTable: DBTableName.homeNotice.rawValue)
+            }
+        } catch {
+            Logger.debug("[通知列表] 请求失败: \(error)")
         }
     }
     
@@ -347,6 +225,12 @@ public class HomeViewModel: ObservableObject {
             name: .didReceiveSatelliteInfo,
             object: nil
         )
+        NotificationCenter.default.addObserver(
+            self,
+            selector: #selector(receiveOfflineReportState(_:)),
+            name: .offlineReportState,
+            object: nil
+        )
     }
     
     @objc private func handleStatusInfoUpdate(_ notification: Notification) {
@@ -361,7 +245,7 @@ public class HomeViewModel: ObservableObject {
     @objc private func showSatelliteInfo(_ notification: Notification) {
         guard let userInfo = notification.userInfo else { return }
         if let satelliteInfo = userInfo["satelliteInfo"] as? String {
-            print("Mini设备卫星状态--首页Model--\(satelliteInfo)")
+            Logger.debug("Mini设备卫星状态--首页Model--\(satelliteInfo)")
             selectedMiniDeviceSatelliteNum = Int(satelliteInfo)
             uploadSelectedMiniDevice()
         }
@@ -374,74 +258,63 @@ public class HomeViewModel: ObservableObject {
             selectedMiniDevice?.connected = false
         }
     }
+    
+    
+    /// 收到离线上报状态的通知（SOS/报平安）
+    @objc private func receiveOfflineReportState(_ notification: Notification) {
+        guard let type = notification.object as? ReportType else {
+            return
+        }
+
+        let timestamp = Int64(Date().timeIntervalSince1970 * 1000)
+        
+        let noticeType: NoticeType
+        switch type {
+        case .safety:
+            noticeType = .safety
+        case .openSOS:
+            noticeType = .sos
+        case .closeSOS:
+            noticeType = .disarmSOS
+        }
+        
+        let notice = HomeNoticeItem(noticeId: String(timestamp), noticeType: noticeType, noticeContent: type.reportStateTip, reportId: nil, noticeTimeTimestamp: timestamp)
+        
+        didReceiveNotice(notice)
+    }
+    
 }
 
 extension HomeViewModel: MQTTManagerDelegate {
     public func mqttManager(_ manager: MQTTManager, didChangeState state: MQTTConnectState) {
         if state == .connected, !didPublish {
             sendOnlinePing()
-            //通知列表
-            manager.publish(message: "{}", to: noticeList_pub, qos:.qos1)
-            //最新消息
-            manager.publish(message: "{}", to: latestMessage_pub, qos:.qos1)
             didPublish = true
         }
     }
     
     public func mqttManager(_ manager: MQTTManager, didReceiveMessage message: String, fromTopic topic: String) {
-        let noticeListSubscribeTopic = noticeList_sub
-        let latestMessageSubscribeTopic = latestMessage_sub
-        guard topic == noticeListSubscribeTopic || topic == latestMessageSubscribeTopic else {
+        guard topic == HomeAPI.noticeNew_sub else {
             return
         }
         
-        // 确保在主线程更新UI
-        _Concurrency.Task { @MainActor in
-            do {
-                // 将消息字符串转换为Data
-                guard let jsonData = message.data(using: .utf8) else {
-                    print("[JSON解析] 消息转换为Data失败")
-                    return
-                }
-                
-                // 使用JSONDecoder直接解析数据
-                let decoder = JSONDecoder()
-
-                if topic == noticeListSubscribeTopic {
-                    self.noticeReponse = try decoder.decode(HomeNoticeModel.self, from: jsonData)
-                    saveCacheValue(data: jsonData, forKey: noticeListSubscribeTopic)
-                } else if topic == latestMessageSubscribeTopic {
-                    self.latestMessage = try decoder.decode(HomeNewMessageModel.self, from: jsonData)
-                    saveCacheValue(data: jsonData, forKey: latestMessageSubscribeTopic)
-                }
-                
-                // 更新通知类型计数
-                updateNoticeTypeItems()
-                
-                // 根据当前选中的通知类型更新列表
-                updateNoticeList()
-                
-                print("[JSON解析] 成功解析通知: 总数\(self.noticeReponse.totalCount), SOS\(self.noticeReponse.sosCount)")
-            } catch {
-                print("[JSON解析] 解析失败: \(error)")
-            }
+        guard let jsonData = message.data(using: .utf8) else {
+            return
+        }
+        
+        do {
+            let notice  = try JSONDecoder().decode(HomeNoticeItem.self, from: jsonData)
+            didReceiveNotice(notice)
+        } catch {
+            Logger.debug("[JSON解析] 解析失败: \(error)")
         }
     }
     
     public func mqttManager(_ manager: MQTTManager, didPublishMessage message: String, toTopic topic: String) {
-        if topic == cleanMessage_pub {
-            guard let cache = homeCache else { return }
-            cache.cleanMemoryAndDiskCache(forKey: noticeList_sub)
-            cache.cleanMemoryAndDiskCache(forKey: latestMessage_sub)
-            noticeReponse = HomeNoticeModel(totalCount: 0, safeCount: 0, sosCount: 0, weatherCount: 0, safeList: [], sosList: [], weatherList: [])
-            latestMessage = nil
-            updateNoticeTypeItems()
-            updateNoticeList()
+        if topic == HomeAPI.cleanMessage_pub {
+            DBManager.shared.deleteFromDb(fromTable: DBTableName.homeNotice.rawValue)
+            noticeList.removeAll()
         }
-    }
-    
-    public func mqttManager(_ manager: MQTTManager, connectionDidFailWithError error: (any Error)?) {
-        
     }
 }
 
@@ -468,8 +341,8 @@ extension HomeViewModel {
     
     /// 发送在线心跳
     private func sendOnlinePing() {
-        MQTTManager.shared.publish(message: "{}", to: onlinePing_pub, qos: .qos1)
-        print("✅ 发送在线心跳到: \(onlinePing_pub)")
+        MQTTManager.shared.publish(message: "{}", to: HomeAPI.onlinePing_pub, qos: .qos1)
+        Logger.debug("✅ 发送在线心跳到: \(HomeAPI.onlinePing_pub)")
     }
 }
 

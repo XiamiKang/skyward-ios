@@ -22,14 +22,16 @@ public class MapManager: NSObject {
     
     // 定位相关 - 替换为统一的LocationManager
     private let locationManager = LocationManager()
-    private var userLocationMarker: TGMarker?
-    private var pointLocationMarker: TGMarker?
+    public var userLocationMarker: TGMarker?
+    public var pointLocationMarker: TGMarker?
+    private var cityWeatherMapData: TGMapData?
+    private var messagePointMapData: TGMapData?
+    private var cityWeatherDatas: [CityWeatherData] = []
     private var isFollowingUserLocation = true
     private var sceneUpdates: [TGSceneUpdate] = [] // 当前应用的地图场景更新
     
     // 权限
     public var isMeasurementStatus: Bool = false    // 是否测量状态
-    public var isAddPOIStatus: Bool = false         // 是否添加兴趣点状态
     public var isTrajectoryStatus: Bool = false     // 是否添加轨迹状态
     
     // 回调
@@ -40,9 +42,9 @@ public class MapManager: NSObject {
     public var onLayerVisibilityChanged: ((String, Bool) -> Void)?
     public var onLocationPermissionChanged: ((CLAuthorizationStatus) -> Void)?
     public var onTileSourceChanged: ((String) -> Void)? // 地图源切换回调
-    public var onMapSingleTapHandler: ((CLLocationCoordinate2D) -> Void)?
-    public var onAddCustomMarker: ((CLLocationCoordinate2D, CGPoint) -> Void)?
+    public var onMapSingleTapHandler: ((CLLocationCoordinate2D, CGPoint) -> Void)?
     public var onMapPanHandler: (() -> Void)?
+    public var onScreenshotCaptured: ((UIImage) -> Void)? // 截图完成回调
     
     // 状态跟踪
     private var isInitialized = false
@@ -51,8 +53,8 @@ public class MapManager: NSObject {
     // MARK: - 公开的初始化方法
     public override init() {
         super.init()
+        
         setupLocationManager()
-        print("地图管理器初始化，当前配置: \(config.currentTileSourceName)")
     }
     
     /// 创建地图视图（适用于不同尺寸的容器）
@@ -101,6 +103,7 @@ public class MapManager: NSObject {
         newMapView.zoom = config.defaultZoom
         newMapView.padding = UIEdgeInsets(top: 20, left: 20, bottom: 100, right: 20)
         
+        
         // 设置委托
         newMapView.mapViewDelegate = self
         newMapView.gestureDelegate = self
@@ -110,12 +113,16 @@ public class MapManager: NSObject {
         
         // 初始化标记层管理器
         setupMarkerLayerManager()
+        // 设置地图瓦片缓存
+        setupMapCacheTiles()
         
-        createUserLocationMarker()
+        if config.showUserLocation {
+            createUserLocationMarker()
+        }
         
         loadMapWithCurrentTileSource()
         
-        newMapView.cameraPosition = TGCameraPosition(center: config.userPosition, zoom: 15, bearing: 0, pitch: 0)
+        newMapView.cameraPosition = TGCameraPosition(center: config.userPosition, zoom: config.defaultZoom, bearing: 0, pitch: 0)
         
         // 添加到容器视图
         if let containerView = containerView {
@@ -192,24 +199,10 @@ public class MapManager: NSObject {
         let savedData = markerLayerManager?.saveMarkerData() ?? [:]
         
         if success, let tileSourceURL = config.currentTileSourceURL {
-            // 创建场景更新
-            let update = TGSceneUpdate()
-            update.path = config.tileSourcePath
-            update.value = tileSourceURL
             
-            print("当前的图源地址-----\(tileSourceURL)")
+            let mapUpdates = creatMapUpdates(tileSourceURL: tileSourceURL)
             
-            let tmsUpdate = TGSceneUpdate()
-            tmsUpdate.path = "sources.satellite.tms"
-            tmsUpdate.value = tileSourceURL.contains("jl1mall") ? "true" : "false"
-            
-            if tileSourceURL.contains("shipxy") {
-                mapView?.zoom = 12
-            }else {
-                mapView?.zoom = 16
-            }
-            
-            self.sceneUpdates = [update, tmsUpdate]
+            self.sceneUpdates = mapUpdates
             
             // 重新加载地图
             loadMapWithUpdates(self.sceneUpdates)
@@ -230,12 +223,43 @@ public class MapManager: NSObject {
         print("切换地图源结果: \(success ? "成功" : "失败")")
     }
     
-    public func reloadMapWithCurrentTileSource() {
-        guard let tileSourceURL = config.currentTileSourceURL else {
-            loadMap()
-            return
-        }
+    public func uploadNotesLayer(with isShow: Bool) {
+        let roadUpdate = TGSceneUpdate()
+        roadUpdate.path = "layers.road-overlay.visible"
+        roadUpdate.value = "\(isShow)"
         
+        loadMapWithUpdates([roadUpdate])
+    }
+    
+    public func loadMapWithCurrentTileSource() {
+        if let tileSourceURL = config.currentTileSourceURL {
+            let mapUpdates = creatMapUpdates(tileSourceURL: tileSourceURL)
+            loadMapWithUpdates(mapUpdates)
+        } else {
+            loadMapWithUpdates([])
+        }
+    }
+    
+    private func setupMapCacheTiles() {
+        guard let mapView = mapView else { return }
+        // 缓存地图瓦片到Caches目录下的tiles文件夹中（需要在mapView.loadScene前）
+        if let cacheDirectory = NSSearchPathForDirectoriesInDomains(.cachesDirectory, .userDomainMask, true).first {
+            let tileCachePath = cacheDirectory + "/tiles"
+            let fileManager = FileManager.default
+            // 检查tiles文件夹是否存在，不存在则创建
+            if !fileManager.fileExists(atPath: tileCachePath) {
+                do {
+                    try fileManager.createDirectory(atPath: tileCachePath, withIntermediateDirectories: true, attributes: nil)
+                    Logger.debug("tiles文件夹创建成功: \(tileCachePath)")
+                } catch {
+                    Logger.debug("创建tiles文件夹失败: \(error)")
+                }
+            }
+            mapView.setDiskTileCache(tileCachePath, cacheSizeBytes: 256 * 1024 * 1024)
+        }
+    }
+    
+    private func creatMapUpdates(tileSourceURL: String) -> [TGSceneUpdate] {
         let update = TGSceneUpdate()
         update.path = config.tileSourcePath
         update.value = tileSourceURL
@@ -244,35 +268,22 @@ public class MapManager: NSObject {
         tmsUpdate.path = "sources.satellite.tms"
         tmsUpdate.value = tileSourceURL.contains("jl1mall") ? "true" : "false"
         
-        if tileSourceURL.contains("shipxy") {
-            mapView?.zoom = 12
-        }else {
-            mapView?.zoom = 16
+        let cacheNameUpdate = TGSceneUpdate()
+        cacheNameUpdate.path = "sources.satellite.cache"
+        if tileSourceURL.contains("http://t1.tianditu.com/DataServer?T=vec") {
+            cacheNameUpdate.value = "tianditu-vec"
+        }
+        if tileSourceURL.contains("http://t1.tianditu.com/DataServer?T=img") {
+            cacheNameUpdate.value = "tianditu-img"
+        }
+        if tileSourceURL.contains("jl1mall") {
+            cacheNameUpdate.value = "jl1mall"
+        }
+        if tileSourceURL.contains("googleapis") {
+            cacheNameUpdate.value = "google"
         }
         
-        loadMapWithUpdates([update,tmsUpdate])
-    }
-    
-    private func loadMapWithCurrentTileSource() {
-        if let tileSourceURL = config.currentTileSourceURL {
-            let update = TGSceneUpdate()
-            update.path = config.tileSourcePath
-            update.value = tileSourceURL
-            
-            let tmsUpdate = TGSceneUpdate()
-            tmsUpdate.path = "sources.satellite.tms"
-            tmsUpdate.value = tileSourceURL.contains("jl1mall") ? "true" : "false"
-            
-            if tileSourceURL.contains("shipxy") {
-                mapView?.zoom = 12
-            }else {
-                mapView?.zoom = 16
-            }
-            
-            loadMapWithUpdates([update,tmsUpdate])
-        } else {
-            loadMapWithUpdates([])
-        }
+        return [update,tmsUpdate,cacheNameUpdate]
     }
     
     // MARK: - 地图加载方法
@@ -304,12 +315,17 @@ public class MapManager: NSObject {
             print("无法读取地图配置")
             return
         }
-        
+
+        // 合并天气纹理场景更新
+        let weatherTextureUpdates = createWeatherTextureSceneUpdates()
+        var allUpdates = updates
+        allUpdates.append(contentsOf: weatherTextureUpdates)
+
         let resourceURL = Bundle.main.resourceURL!
-        mapView.loadScene(fromYAML: yamlContent, relativeTo: resourceURL, with: updates)
+        mapView.loadScene(fromYAML: yamlContent, relativeTo: resourceURL, with: allUpdates)
         hasLoadedScene = false
-        
-        print("开始加载地图，使用更新数量: \(updates.count)")
+
+        print("开始加载地图，使用更新数量: \(allUpdates.count)（包含天气纹理更新: \(weatherTextureUpdates.count)）")
     }
     
     // MARK: - 公开方法
@@ -328,6 +344,7 @@ public class MapManager: NSObject {
         }
         
         createUserLocationMarker()
+        
         
         // 使用LocationManager的持续定位功能
         locationManager.startContinuousLocationUpdates { [weak self] locationPoint, error in
@@ -356,7 +373,7 @@ public class MapManager: NSObject {
             
             // 如果开启了跟随，移动地图
             if self.isFollowingUserLocation {
-                self.moveToUserLocation(animated: true)
+                self.moveToUserLocation()
             }
             
             isFollowingUserLocation = false
@@ -376,13 +393,13 @@ public class MapManager: NSObject {
     }
     
     /// 移动到用户位置
-    public func moveToUserLocation(animated: Bool = true) {
+    public func moveToUserLocation() {
         guard let mapView = mapView else { return }
         let coordinate = config.userPosition
         let cameraPosition = TGCameraPosition(
             center: coordinate,
-            zoom: 16.0,
-            bearing: mapView.bearing,
+            zoom: config.defaultZoom,
+            bearing: 0,
             pitch: mapView.pitch
         )
         
@@ -391,13 +408,7 @@ public class MapManager: NSObject {
             return
         }
         
-        if animated {
-            mapView.fly(to: cameraPosition, withDuration: 1.0) { _ in
-                // 飞行完成回调
-            }
-        } else {
-            mapView.cameraPosition = cameraPosition
-        }
+        mapView.cameraPosition = cameraPosition
         
         print("移动到用户位置: \(coordinate.latitude), \(coordinate.longitude)")
     }
@@ -427,7 +438,7 @@ public class MapManager: NSObject {
     
     /// 添加自定义标注
     public func addCustomMarker(layerId: String, coordinate: CLLocationCoordinate2D, title: String,
-                        subtitle: String? = nil, style: MarkerStyle = .defaultStyle) -> String? {
+                                subtitle: String? = nil, style: MarkerStyle = PointMarkerStyle.default) -> String? {
         guard let markerLayerManager = markerLayerManager else {
             print("标记层管理器未初始化")
             return nil
@@ -436,7 +447,7 @@ public class MapManager: NSObject {
         let markerId = UUID().uuidString
         let data = MarkerData(id: markerId, coordinate: coordinate, title: title, subtitle: subtitle)
         
-        return markerLayerManager.addMarker(to: layerId, data: data, style: style)
+        return markerLayerManager.addMarker(to: layerId, data: data)
     }
     
     public func createPointLocationMarker(with coordinate: CLLocationCoordinate2D) {
@@ -452,16 +463,67 @@ public class MapManager: NSObject {
         pointLocationMarker?.point = coordinate
         pointLocationMarker?.stylingString = """
         { style: 'points',
-          interactive: false,
+          interactive: true,
           color: 'white',
-          size: [40px, 40px],
+          size: [30px, 30px],
           order: 1005,
           collide: false }
         """
-        pointLocationMarker?.icon = SWKitModule.image(named: "measure_start")!
+        pointLocationMarker?.icon = SWKitModule.image(named: "map_search_marker")!
         if let positon = TGCameraPosition(center: coordinate, zoom: 16, bearing: 0, pitch: mapView.pitch) {
-            mapView.fly(to: positon, withDuration: 2)
+            mapView.fly(to: positon, withSpeed: 6)
         }
+    }
+    
+    // 创建天气点位
+    public func createWeatherPointMarker(with coordinate: CLLocationCoordinate2D) {
+        guard let mapView = mapView else { return }
+        
+        if let marker = pointLocationMarker {
+            mapView.markerRemove(marker)
+            pointLocationMarker = nil
+        }
+        pointLocationMarker = mapView.markerAdd()
+        pointLocationMarker?.point = coordinate
+        pointLocationMarker?.stylingString = """
+        { style: 'points',
+          interactive: false,
+          color: 'white',
+          size: [25px, 25px],
+          order: 1006,
+          collide: false }
+        """
+        pointLocationMarker?.icon = SWKitModule.image(named: "measure_start2")!
+    }
+    // 天气点位隐藏
+    public func hideWeatherPointMarker() {
+        guard let mapView = mapView, let marker = pointLocationMarker else { return }
+        mapView.markerRemove(marker)
+    }
+    
+    public func hideLocationMarker() {
+        guard let marker = userLocationMarker else { return }
+        marker.stylingString = """
+        { style: 'points',
+          interactive: false,
+          color: 'transparent',
+          size: [40px, 40px],
+          order: 1000,
+          collide: false,
+          opacity: 0}
+        """
+    }
+
+    public func showLocationMarker() {
+        guard let marker = userLocationMarker else { return }
+        marker.stylingString = """
+        { style: 'points',
+          interactive: false,
+          color: 'white',
+          size: [40px, 40px],
+          order: 1000,
+          collide: false }
+        """
     }
     
     // MARK: - 私有方法
@@ -486,6 +548,7 @@ public class MapManager: NSObject {
           collide: false }
         """
         
+        userLocationMarker?.drawOrder = 1000
         userLocationMarker?.icon = SWKitModule.image(named: "Location")!
     }
     
@@ -516,7 +579,6 @@ public class MapManager: NSObject {
         hasLoadedScene = false
         isFollowingUserLocation = false
         isMeasurementStatus = false
-        isAddPOIStatus = false
         isTrajectoryStatus = false
         sceneUpdates = []
         
@@ -532,6 +594,7 @@ public class MapManager: NSObject {
         onLayerVisibilityChanged = nil
         onLocationPermissionChanged = nil
         onTileSourceChanged = nil
+        onScreenshotCaptured = nil
     }
 }
 
@@ -547,17 +610,22 @@ extension MapManager: TGMapViewDelegate {
             hasLoadedScene = true
             onSceneLoaded?(sceneID)
             
-            // 地图加载成功后检查定位权限
-            let status = locationManager.authorizationStatus
-            if status == .authorizedWhenInUse || status == .authorizedAlways {
-                startLocationTracking()
+            if config.showUserLocation {
+                // 地图加载成功后检查定位权限
+                let status = locationManager.authorizationStatus
+                if status == .authorizedWhenInUse || status == .authorizedAlways {
+                    startLocationTracking()
+                }
+                moveToUserLocation()
             }
-            moveToUserLocation()
         }
     }
     
     public func mapView(_ mapView: TGMapView, didSelectMarker markerPickResult: TGMarkerPickResult?,
                 atScreenPosition position: CGPoint) {
+        
+        print("yifan----marker点击代理方法回调")
+        
         guard let result = markerPickResult,
               let markerId = markerLayerManager?.findMarkerId(for: result.marker) else {
             return
@@ -567,6 +635,10 @@ extension MapManager: TGMapViewDelegate {
         if let (layerId, _) = markerLayerManager?.findLayerAndData(for: markerId) {
             markerLayerManager?.selectMarker(markerId, in: layerId)
         }
+    }
+
+    public func mapView(_ mapView: TGMapView, didCaptureScreenshot screenshot: UIImage) {
+        onScreenshotCaptured?(screenshot)
     }
 }
 
@@ -605,34 +677,26 @@ extension MapManager: TGRecognizerDelegate {
         let coordinate = mapView.coordinate(fromViewPosition: location)
         print("单点手势位置：经度=\(coordinate.longitude)--纬度=\(coordinate.latitude)")
 
-        onMapSingleTapHandler?(coordinate)
-        
-        if isAddPOIStatus {
-            onAddCustomMarker?(coordinate, location)
-            isAddPOIStatus = false
-        }
+        onMapSingleTapHandler?(coordinate, location)
         
         // 如果是轨迹记录状态，添加轨迹点
         if isTrajectoryStatus {
             if markerLayerManager?.findMarker(for: "trajectory") == nil {
                 _ = markerLayerManager?.createLayer(id: "trajectory", name: "轨迹", isVisible: true)
             }
-            
             // 添加轨迹点
             _ = addCustomMarker(
                 layerId: "trajectory",
                 coordinate: coordinate,
                 title: "轨迹点",
                 subtitle: "手动添加的轨迹点",
-                style: MarkerStyle(
+                style: PointMarkerStyle(
                     color: "orange",
                     size: [12, 12]
                 )
             )
         }
-        
     }
-    
     
 }
 
@@ -792,52 +856,195 @@ extension MapManager {
     }
     
     private func updateLocationMarker(to heading: CLLocationDirection) {
-        guard let locationIcon = SWKitModule.image(named: "Location") else {
-            print("❌ 找不到定位图标资源")
+        userLocationMarker?.stylingString = """
+        { style: 'points',
+          interactive: false,
+          color: 'white',
+          size: [40px, 40px],
+          order: 1000,
+          collide: false,
+          angle: \(heading)
+        }
+        """
+        userLocationMarker?.point = self.config.userPosition
+    }
+}
+
+
+// MapManager+Weather.swift
+extension MapManager {
+
+    /// 生成天气纹理的场景更新
+    /// 将Assets.xcassets中的天气图标转换为data URI并更新到场景中
+    /// - Returns: 天气纹理的场景更新数组
+    func createWeatherTextureSceneUpdates() -> [TGSceneUpdate] {
+        var updates: [TGSceneUpdate] = []
+
+        // 天气代码列表（对应scene3d.yaml中的textures定义）
+        let weatherCodes = ["0", "1", "2", "3", "45", "48", "51", "53", "55", "56",
+                            "57", "61", "63", "65", "66", "67", "71", "73", "75",
+                            "77", "80", "81", "82", "85", "86", "95", "96", "99", "100"]
+
+        for code in weatherCodes {
+            // 从Assets.xcassets加载对应的图片
+            let imageName = "weather_\(code)"
+            if let image = UIImage(named: imageName),
+               let dataURI = createDataURI(from: image) {
+                // 创建场景更新来设置纹理URL
+                let update = TGSceneUpdate()
+                update.path = "textures.\(code).url"
+                update.value = "\(dataURI)"
+                updates.append(update)
+                Logger.debug("已添加天气纹理更新: \(code)")
+            } else {
+                Logger.debug("警告: 未找到天气图标 \(imageName) 或转换失败")
+            }
+        }
+
+        return updates
+    }
+
+    /// 将UIImage转换为base64 data URI字符串
+    /// - Parameter image: 源图片
+    /// - Returns: data URI字符串（如 "data:image/png;base64,iVBORw0KG..."）
+    private func createDataURI(from image: UIImage) -> String? {
+        guard let imageData = image.pngData() else {
+            return nil
+        }
+        let base64String = imageData.base64EncodedString()
+        return "data:image/png;base64,\(base64String)"
+    }
+
+    public func buildCityWeatherMapData() {
+        
+        guard let mapView = mapView else { return }
+        cityWeatherMapData = mapView.addDataLayer("city-weather-source", generateCentroid: true)
+        
+        CityWeatherDBManager.shared.fetchCityWeathers { [weak self] cityWeatherDatas in
+            guard let self = self, let cityWeatherMapData = self.cityWeatherMapData else {
+                print("城市天气数据层未初始化")
+                return
+            }
+            
+            var features: [TGMapFeature] = []
+            
+            for item in cityWeatherDatas {
+                guard let lat = item.lat,
+                      let lon = item.lon else { continue }
+                
+                let coordinate = CLLocationCoordinate2D(latitude: lat, longitude: lon)
+                
+                let properties: [String: String] = [
+                    "city": item.cityName ?? "未知城市",
+                    "temperature": "\(item.tempMin ?? 0)~\(item.tempMax ?? 0)℃",
+                    "weatherCode": String(item.weatherCode ?? "0"),
+                    "provincial": item.isProvincial ?? false ? "hide" : "show"
+                ]
+                
+                let feature = TGMapFeature(point: coordinate, properties: properties)
+                features.append(feature)
+            }
+            
+            // 设置要素到数据层
+            cityWeatherMapData.setFeatures(features)
+            print("已添加 \(features.count) 个城市天气标注")
+        }
+    }
+    
+    
+    public func ShowOrHideCityWeatherLayer(isShow: Bool) {
+        let roadUpdate = TGSceneUpdate()
+        roadUpdate.path = "layers.marker_with_label2.visible"
+        roadUpdate.value = isShow ? "ture": "false"
+        
+        loadMapWithUpdates([roadUpdate])
+    }
+    
+    
+    public func buildMessagePointMapData(with data: AroundPOIData) {
+        guard let mapView = mapView else { return }
+        
+        if messagePointMapData == nil {
+            messagePointMapData = mapView.addDataLayer("message-point-source", generateCentroid: true)
+        }
+        
+        guard let messagePointMapData = self.messagePointMapData else {
+            print("周围位置数据未初始化")
             return
         }
         
-        // 1. 将图标按方向旋转
-        let rotatedIcon = rotateImage(locationIcon, byDegrees: CGFloat(heading))
         
-        // 2. 更新定位标记图标
-        userLocationMarker?.icon = rotatedIcon ?? locationIcon
-    }
-
-    /// 旋转图像指定角度
-    /// - Parameters:
-    ///   - image: 要旋转的原始图像
-    ///   - degrees: 旋转角度（顺时针，0-360度）
-    /// - Returns: 旋转后的新图像
-    private func rotateImage(_ image: UIImage, byDegrees degrees: CGFloat) -> UIImage? {
-        // 标准化到0-360范围
-        var normalizedDegrees = degrees.truncatingRemainder(dividingBy: 360)
-        if normalizedDegrees < 0 {
-            normalizedDegrees += 360
+        let lat = data.latitude
+        let lon = data.longitude
+        
+        let coordinate = CLLocationCoordinate2D(latitude: lat, longitude: lon)
+        
+        var name = formatCoordinate(longitude: lon, latitude: lat)
+        if let pointName = data.name {
+            name = pointName
+        }
+        let properties: [String: String] = [
+            "name": name,
+            "image": "100"
+        ]
+        
+        let feature = TGMapFeature(point: coordinate, properties: properties)
+        // 设置要素到数据层
+        messagePointMapData.setFeatures([feature])
+        
+        if let positon = TGCameraPosition(center: coordinate, zoom: 16, bearing: 0, pitch: mapView.pitch) {
+            mapView.fly(to: positon, withSpeed: 6)
         }
         
-        // 转换为弧度
-        let radians = normalizedDegrees * .pi / 180.0
+        print("已更新消息点位: \(data.name ?? "未知") 经度:\(lon) 纬度:\(lat)")
+    }
+    
+    public func buildSearchDataPointMapData(with datas: [MapSearchPointMsgData]) {
+        guard let mapView = mapView else { return }
         
-        // 创建旋转后的图像
-        UIGraphicsBeginImageContextWithOptions(image.size, false, image.scale)
-        defer { UIGraphicsEndImageContext() }
+        if messagePointMapData == nil {
+            messagePointMapData = mapView.addDataLayer("message-point-source", generateCentroid: true)
+        }
         
-        guard let context = UIGraphicsGetCurrentContext() else { return nil }
+        guard let messagePointMapData = self.messagePointMapData else {
+            print("周围位置数据未初始化")
+            return
+        }
         
-        // 移动到图像中心
-        context.translateBy(x: image.size.width / 2, y: image.size.height / 2)
-        context.rotate(by: radians)
+        var features: [TGMapFeature] = []
         
-        // 绘制图像
-        let drawRect = CGRect(
-            x: -image.size.width / 2,
-            y: -image.size.height / 2,
-            width: image.size.width,
-            height: image.size.height
-        )
-        image.draw(in: drawRect)
+        for item in datas {
+            guard let lat = item.latitude,
+                  let lon = item.longitude else { continue }
+            
+            let coordinate = CLLocationCoordinate2D(latitude: lat, longitude: lon)
+            
+            let properties: [String: String] = [
+                "name": item.name ?? "",
+                "image": "100"
+            ]
+            
+            let feature = TGMapFeature(point: coordinate, properties: properties)
+            features.append(feature)
+        }
         
-        return UIGraphicsGetImageFromCurrentImageContext()
+        // 设置要素到数据层
+        messagePointMapData.setFeatures(features)
+        
+        if let data = datas.first {
+            let coordinate = CLLocationCoordinate2D(latitude: data.latitude ?? 0.0, longitude: data.longitude ?? 0.0)
+            if let positon = TGCameraPosition(center: coordinate, zoom: 16, bearing: 0, pitch: mapView.pitch) {
+                mapView.fly(to: positon, withSpeed: 6)
+            }
+        }
+    }
+    
+    private func formatCoordinate(longitude: Double?, latitude: Double?) -> String {
+        guard let lon = longitude, let lat = latitude else {
+            return "未知位置"
+        }
+        let lonStr = String(format: "%.6fE", lon)
+        let latStr = String(format: "%.6fN", lat)
+        return "\(latStr), \(lonStr)"
     }
 }

@@ -13,7 +13,7 @@ import SWTheme
 
 struct SettingData {
     let titleStr: String
-    let contentStr: String
+    var contentStr: String
     let canChange: Bool
 }
 
@@ -41,7 +41,7 @@ class MiniDeviceSettingViewController: PersonalBaseViewController {
         button.translatesAutoresizingMaskIntoConstraints = false
         button.setTitle("解除绑定", for: .normal)
         button.setTitleColor(UIColor(hex: "#F7594B"), for: .normal)
-        button.backgroundColor = UIColor(hex: "#F2F3F4")
+        button.backgroundColor = ThemeManager.current.mediumGrayBGColor
         button.titleLabel?.font = .systemFont(ofSize: 16, weight: .medium)
         button.layer.masksToBounds = true
         button.layer.cornerRadius = 8
@@ -58,7 +58,7 @@ class MiniDeviceSettingViewController: PersonalBaseViewController {
     }
     
     private func setupUI() {
-        view.backgroundColor = UIColor(hex: "#FFFFFF")
+        view.backgroundColor = .white
         customTitle.text = "设置"
         
         view.addSubview(tableView)
@@ -214,9 +214,9 @@ class MiniDeviceSettingViewController: PersonalBaseViewController {
     }
     
     @objc private func unBindClick() {
-        var bindData = Data()
-        bindData.append(0x00) // 解除绑定
-        BluetoothManager.shared.sendCommand(.setBindStatus, messageContent: bindData)
+        BluetoothManager.shared.setBindStatus(false)
+        // 改变设备状态
+        unBindMiniDeviceSuccess()
         
         let userId = Int(UserManager.shared.userId) ?? 0
         if let imei = deviceInfo?.imeiNum, let macAddress = deviceInfo?.macAddress {
@@ -227,7 +227,7 @@ class MiniDeviceSettingViewController: PersonalBaseViewController {
                     
                 } receiveValue: { [weak self] data in
                     if data {
-                        self?.unBindMiniDeviceSuccess()
+                        MiniDeviceDBManager.shared.deleteMiniDeviceWithIMEI(imei: imei)
                     }else {
                         self?.view.sw_showSuccessToast("解除设备失败")
                     }
@@ -252,7 +252,12 @@ class MiniDeviceSettingViewController: PersonalBaseViewController {
     }
     
     private func unBindMiniDeviceSuccess() {
-        MiniDeviceDBManager.shared.deleteMiniDeviceWithIMEI(imei: deviceInfo?.imeiNum ?? "")
+        guard var deviceInfo = deviceInfo else {
+            print("没有设备信息")
+            return
+        }
+        deviceInfo.state = 1
+        MiniDeviceDBManager.shared.updateMiniDeviceWithIMEI(deviceInfo, imei: deviceInfo.imeiNum ?? "")
         BluetoothManager.shared.disconnectPeripheral()
         NotificationCenter.default.post(name: .deviceListNeedToUpdate, object: nil)
         self.view.sw_showSuccessToast("解除设备成功")

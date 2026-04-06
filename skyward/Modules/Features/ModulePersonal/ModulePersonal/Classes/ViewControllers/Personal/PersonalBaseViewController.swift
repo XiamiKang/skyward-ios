@@ -18,11 +18,10 @@ public class PersonalBaseViewController: UIViewController {
         return view
     }()
     
-    private let backButton: UIButton = {
-        let button = UIButton(type: .system)
+    public var backButton: UIButton = {
+        let button = UIButton(type: .custom)
         button.translatesAutoresizingMaskIntoConstraints = false
         button.setImage(PersonalModule.image(named: "default_back"), for: .normal)
-        button.tintColor = .black
         return button
     }()
     
@@ -66,7 +65,7 @@ public class PersonalBaseViewController: UIViewController {
             backButton.heightAnchor.constraint(equalToConstant: 24),
             
             customTitle.centerXAnchor.constraint(equalTo: customNavView.centerXAnchor),
-            customTitle.bottomAnchor.constraint(equalTo: customNavView.bottomAnchor, constant: -10),
+            customTitle.centerYAnchor.constraint(equalTo: backButton.centerYAnchor),
         ])
         
         backButton.addTarget(self, action: #selector(backButtonTapped), for: .touchUpInside)

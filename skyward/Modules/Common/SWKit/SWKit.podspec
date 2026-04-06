@@ -50,4 +50,5 @@ TODO: Add long description of the pod here.
   s.dependency 'Moya'
   s.dependency 'SnapKit'
   s.dependency 'WCDB.swift'
+  s.dependency 'CocoaLumberjack'
 end

@@ -42,7 +42,7 @@ class HourlyWeatherCell: UICollectionViewCell {
         timeLabel.translatesAutoresizingMaskIntoConstraints = false
         
         // 天气图标
-        iconImageView.image = MapModule.image(named: "100")
+        iconImageView.image = MapModule.image(named: "999")
         iconImageView.contentMode = .scaleAspectFit
         iconImageView.translatesAutoresizingMaskIntoConstraints = false
         
@@ -50,7 +50,7 @@ class HourlyWeatherCell: UICollectionViewCell {
         tempLabel.textColor = UIColor(str: "#070808")
         tempLabel.font = UIFont.systemFont(ofSize: 12, weight: .medium)
         tempLabel.textAlignment = .center
-        tempLabel.text = "10°C"
+        tempLabel.text = "--"
         tempLabel.translatesAutoresizingMaskIntoConstraints = false
         
         // 添加到容器
@@ -86,9 +86,9 @@ class HourlyWeatherCell: UICollectionViewCell {
     // MARK: - 配置方法
     func configure(with model: EveryHoursWeatherData) {
         timeLabel.text = "\(model.hourString ?? "00"):00"
-        tempLabel.text = "\(model.temp ?? "00")°C"
+        tempLabel.text = "\(model.temp ?? "--")°C"
         // 设置天气图标
-        setWeatherIcon(model.icon ?? "100")
+        setWeatherIcon(model.icon ?? "999")
     }
     
     // MARK: - 设置天气图标

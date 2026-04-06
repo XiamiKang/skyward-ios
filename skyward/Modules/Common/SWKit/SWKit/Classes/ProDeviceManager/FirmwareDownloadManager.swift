@@ -45,12 +45,36 @@ public enum FirmwareDownloadError: LocalizedError {
     }
 }
 
+// MARK: - 固件数据模型
 public struct FirmwareData: Codable {
     public let versionCode: Int?                  // 设备版本号
     public let versionName: String?               // 设备版本名称
-    public let firmwareUrl: String?               // 设备固件地址
+    public let firmwareUrl: String?               // 设备固件地址（优先使用）
     public let forceUpdate: Bool?                 // 是否强制更新
-    public let hardwareModel: String?             // 设备型号
+    public let hardwareModel: String?             // 设备批号
+    public let deviceType: Int?                   // 设备类型（1：窄带，2：宽带）
+    public let firmwareFileAttributeList: [FirmwareAttribute]?  // 固件属性列表
+    
+    // 计算属性：获取有效的固件URL
+    public var effectiveFirmwareUrl: String? {
+        // 优先使用直接指定的 firmwareUrl
+        if let url = firmwareUrl, !url.isEmpty {
+            return url
+        }
+        
+        // 否则从 firmwareFileAttributeList 中查找第一个非空的 firmwareUrl
+        return firmwareFileAttributeList?
+            .compactMap { $0.firmwareUrl }
+            .first { !$0.isEmpty }
+    }
+}
+
+// MARK: - 固件属性
+public struct FirmwareAttribute: Codable {
+    public let firmwareUrl: String?
+    public let firmwareSize: Int?
+    public let firmwareMd5: String?
+    public let firmwareType: Int?
 }
 
 // MARK: - 固件下载管理器
@@ -89,7 +113,8 @@ public class FirmwareDownloadManager: NSObject, ObservableObject {
     ///   - firmwareData: 固件数据
     ///   - forceDownload: 是否强制重新下载（如果文件已存在）
     public func downloadFirmware(_ firmwareData: FirmwareData, forceDownload: Bool = false) {
-        guard let firmwareUrlString = firmwareData.firmwareUrl,
+        // 获取有效的固件URL
+        guard let firmwareUrlString = firmwareData.effectiveFirmwareUrl,
               let firmwareURL = URL(string: firmwareUrlString) else {
             downloadStatus = .failed(error: FirmwareDownloadError.invalidURL)
             return
@@ -112,7 +137,8 @@ public class FirmwareDownloadManager: NSObject, ObservableObject {
         }
         
         // 开始下载
-        let request = URLRequest(url: firmwareURL)
+        var request = URLRequest(url: firmwareURL)
+        request.timeoutInterval = 300
         downloadTask = urlSession.downloadTask(with: request)
         downloadTask?.resume()
         downloadStatus = .downloading(progress: 0.0)

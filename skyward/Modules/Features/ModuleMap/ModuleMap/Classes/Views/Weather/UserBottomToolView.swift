@@ -6,13 +6,14 @@
 //
 
 import UIKit
+import SWTheme
+import SWKit
 
 class UserBottomToolView: UIView {
     
-    private let deleteView = UIView()
-    private var deleteImageView = UIImageView()
-    private let deleteLabel = UILabel()
     private let deleteButton = UIButton()
+    private let editButton = UIButton()
+    private let showButton = UIButton()
     
     private let navigationView = UIView()
     private var navigationImageView = UIImageView()
@@ -21,7 +22,12 @@ class UserBottomToolView: UIView {
     
     // 按钮点击回调
     var onDeleteTapped: (() -> Void)?
+    var onEditTapped: (() -> Void)?
+    var onShowTapped: ((Bool) -> Void)?
     var onNavigationTapped: (() -> Void)?
+    
+    // 状态
+    var isPOIHide: Bool = false
     
     override init(frame: CGRect) {
         super.init(frame: frame)
@@ -42,13 +48,44 @@ class UserBottomToolView: UIView {
         layer.shadowRadius = 4
         layer.shadowOpacity = 0.1
         
-        deleteView.backgroundColor = UIColor(str: "#F2F3F4")
-        deleteView.layer.cornerRadius = 8
-        deleteImageView.image = MapModule.image(named: "map_user_delete")
-        deleteLabel.text = "删除"
-        deleteLabel.textColor = .black
-        deleteLabel.font = UIFont.systemFont(ofSize: 16, weight: .regular)
-        deleteButton.backgroundColor = .clear
+        var config = UIButton.Configuration.plain()
+        config.image = MapModule.image(named: "map_user_delete")
+        config.title = "删除"
+        config.imagePlacement = .top
+        config.imagePadding = 8
+        config.titleTextAttributesTransformer = UIConfigurationTextAttributesTransformer { incoming in
+            var outgoing = incoming
+            outgoing.font = UIFont.systemFont(ofSize: 12, weight: .regular)
+            outgoing.foregroundColor = UIColor.black
+            return outgoing
+        }
+        deleteButton.configuration = config
+        
+        var eidtConfig = UIButton.Configuration.plain()
+        eidtConfig.image = MapModule.image(named: "map_user_edit")
+        eidtConfig.title = "编辑"
+        eidtConfig.imagePlacement = .top
+        eidtConfig.imagePadding = 8
+        eidtConfig.titleTextAttributesTransformer = UIConfigurationTextAttributesTransformer { incoming in
+            var outgoing = incoming
+            outgoing.font = UIFont.systemFont(ofSize: 12, weight: .regular)
+            outgoing.foregroundColor = UIColor.black
+            return outgoing
+        }
+        editButton.configuration = eidtConfig
+        
+        var showConfig = UIButton.Configuration.plain()
+        showConfig.image = MapModule.image(named: "map_user_hide")
+        showConfig.title = "隐藏"
+        showConfig.imagePlacement = .top
+        showConfig.imagePadding = 8
+        showConfig.titleTextAttributesTransformer = UIConfigurationTextAttributesTransformer { incoming in
+            var outgoing = incoming
+            outgoing.font = UIFont.systemFont(ofSize: 12, weight: .regular)
+            outgoing.foregroundColor = UIColor.black
+            return outgoing
+        }
+        showButton.configuration = showConfig
         
         navigationView.backgroundColor = UIColor(str: "#FE6A00")
         navigationView.layer.cornerRadius = 8
@@ -58,12 +95,10 @@ class UserBottomToolView: UIView {
         navigationLabel.font = UIFont.systemFont(ofSize: 16, weight: .regular)
         navigationButton.backgroundColor = .clear
         
-        addSubview(deleteView)
+        addSubview(deleteButton)
+        addSubview(editButton)
+        addSubview(showButton)
         addSubview(navigationView)
-        
-        deleteView.addSubview(deleteImageView)
-        deleteView.addSubview(deleteLabel)
-        deleteView.addSubview(deleteButton)
         
         navigationView.addSubview(navigationImageView)
         navigationView.addSubview(navigationLabel)
@@ -74,6 +109,8 @@ class UserBottomToolView: UIView {
     
     private func setupActions() {
         deleteButton.addTarget(self, action: #selector(deleteButtonTapped), for: .touchUpInside)
+        editButton.addTarget(self, action: #selector(editButtonTapped), for: .touchUpInside)
+        showButton.addTarget(self, action: #selector(showButtonTapped), for: .touchUpInside)
         navigationButton.addTarget(self, action: #selector(navigationButtonTapped), for: .touchUpInside)
     }
     
@@ -81,41 +118,74 @@ class UserBottomToolView: UIView {
         onDeleteTapped?()
     }
     
+    @objc private func editButtonTapped() {
+        onEditTapped?()
+    }
+    
+    @objc private func showButtonTapped() {
+        if isPOIHide {
+            var showConfig = UIButton.Configuration.plain()
+            showConfig.image = MapModule.image(named: "map_user_show")
+            showConfig.title = "显示"
+            showConfig.imagePlacement = .top
+            showConfig.imagePadding = 8
+            showConfig.titleTextAttributesTransformer = UIConfigurationTextAttributesTransformer { incoming in
+                var outgoing = incoming
+                outgoing.font = UIFont.systemFont(ofSize: 12, weight: .regular)
+                outgoing.foregroundColor = UIColor.black
+                return outgoing
+            }
+            showButton.configuration = showConfig
+        }else {
+            var showConfig = UIButton.Configuration.plain()
+            showConfig.image = MapModule.image(named: "map_user_hide")
+            showConfig.title = "隐藏"
+            showConfig.imagePlacement = .top
+            showConfig.imagePadding = 8
+            showConfig.titleTextAttributesTransformer = UIConfigurationTextAttributesTransformer { incoming in
+                var outgoing = incoming
+                outgoing.font = UIFont.systemFont(ofSize: 12, weight: .regular)
+                outgoing.foregroundColor = UIColor.black
+                return outgoing
+            }
+            showButton.configuration = showConfig
+        }
+        onShowTapped?(isPOIHide)
+        isPOIHide = !isPOIHide
+    }
+    
     @objc private func navigationButtonTapped() {
         onNavigationTapped?()
     }
     
     private func setConstraint() {
-        deleteView.translatesAutoresizingMaskIntoConstraints = false
-        deleteImageView.translatesAutoresizingMaskIntoConstraints = false
-        deleteLabel.translatesAutoresizingMaskIntoConstraints = false
         deleteButton.translatesAutoresizingMaskIntoConstraints = false
+        editButton.translatesAutoresizingMaskIntoConstraints = false
+        showButton.translatesAutoresizingMaskIntoConstraints = false
         navigationView.translatesAutoresizingMaskIntoConstraints = false
         navigationImageView.translatesAutoresizingMaskIntoConstraints = false
         navigationLabel.translatesAutoresizingMaskIntoConstraints = false
         navigationButton.translatesAutoresizingMaskIntoConstraints = false
         
         NSLayoutConstraint.activate([
-            deleteView.topAnchor.constraint(equalTo: topAnchor, constant: 10),
-            deleteView.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 16),
-            deleteView.widthAnchor.constraint(equalToConstant: (UIScreen.main.bounds.width - 48)/2),
-            deleteView.heightAnchor.constraint(equalToConstant: 50),
             
-            deleteImageView.centerXAnchor.constraint(equalTo: deleteView.centerXAnchor, constant: -20),
-            deleteImageView.centerYAnchor.constraint(equalTo: deleteView.centerYAnchor),
-            deleteImageView.heightAnchor.constraint(equalToConstant: 20),
-            deleteImageView.widthAnchor.constraint(equalToConstant: 20),
+            deleteButton.topAnchor.constraint(equalTo: topAnchor, constant: 10),
+            deleteButton.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 16),
+            deleteButton.widthAnchor.constraint(equalToConstant: 50),
+            deleteButton.heightAnchor.constraint(equalToConstant: 50),
             
-            deleteLabel.leadingAnchor.constraint(equalTo: deleteImageView.trailingAnchor, constant: 5),
-            deleteLabel.centerYAnchor.constraint(equalTo: deleteView.centerYAnchor),
+            editButton.topAnchor.constraint(equalTo: topAnchor, constant: 10),
+            editButton.leadingAnchor.constraint(equalTo: deleteButton.trailingAnchor, constant: 5),
+            editButton.widthAnchor.constraint(equalToConstant: 50),
+            editButton.heightAnchor.constraint(equalToConstant: 50),
             
-            deleteButton.topAnchor.constraint(equalTo: deleteView.topAnchor),
-            deleteButton.leadingAnchor.constraint(equalTo: deleteView.leadingAnchor),
-            deleteButton.trailingAnchor.constraint(equalTo: deleteView.trailingAnchor),
-            deleteButton.bottomAnchor.constraint(equalTo: deleteView.bottomAnchor),
+            showButton.topAnchor.constraint(equalTo: topAnchor, constant: 10),
+            showButton.leadingAnchor.constraint(equalTo: editButton.trailingAnchor, constant: 5),
+            showButton.widthAnchor.constraint(equalToConstant: 50),
+            showButton.heightAnchor.constraint(equalToConstant: 50),
             
-            navigationView.centerYAnchor.constraint(equalTo: deleteView.centerYAnchor),
-            navigationView.leadingAnchor.constraint(equalTo: deleteView.trailingAnchor, constant: 16),
+            navigationView.centerYAnchor.constraint(equalTo: showButton.centerYAnchor),
+            navigationView.leadingAnchor.constraint(equalTo: showButton.trailingAnchor, constant: 16),
             navigationView.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -16),
             navigationView.heightAnchor.constraint(equalToConstant: 50),
             
@@ -132,5 +202,20 @@ class UserBottomToolView: UIView {
             navigationButton.trailingAnchor.constraint(equalTo: navigationView.trailingAnchor),
             navigationButton.bottomAnchor.constraint(equalTo: navigationView.bottomAnchor),
         ])
+    }
+    
+    func changeShowState(_ isShow: Bool) {
+        var showConfig = UIButton.Configuration.plain()
+        showConfig.image = MapModule.image(named: isShow ? "map_user_show" : "map_user_hide")
+        showConfig.title = isShow ? "显示" : "隐藏"
+        showConfig.imagePlacement = .top
+        showConfig.imagePadding = 8
+        showConfig.titleTextAttributesTransformer = UIConfigurationTextAttributesTransformer { incoming in
+            var outgoing = incoming
+            outgoing.font = UIFont.systemFont(ofSize: 12, weight: .regular)
+            outgoing.foregroundColor = UIColor.black
+            return outgoing
+        }
+        showButton.configuration = showConfig
     }
 }

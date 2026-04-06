@@ -17,18 +17,21 @@ import ModuleMessage
 import ModuleTeam
 import ModuleLogin
 import SWNetwork
+import Combine
+import Bugly
 
 @main
 
 class AppDelegate: UIResponder, UIApplicationDelegate {
     
     var window: UIWindow?
+    private var cancellables = Set<AnyCancellable>()
     
     // MARK: - Config && Process
-    /// 配置所有的应用模块
-    func setupModules() -> [ModuleType] {
-        return [HomeModule(), MapModule(), MessageModule(),  PersonalModule(), TeamModule(), LoginModule()]
-    }
+    
+    /// 设置该属性，配置所有的应用模块
+    private var modules: [ModuleType] = [HomeModule(), MapModule(), MessageModule(),  PersonalModule(), LoginModule()]
+
     /// 配置所有的服务
     func setupServices() -> [AppServiceType] {
         return []
@@ -41,6 +44,32 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
         }
     }()
     
+    private override init() {
+        super.init()
+        setupNotifications()
+    }
+    
+    
+    // MARK: - Notification
+    
+    private func setupNotifications() {
+        // 监听登录成功通知
+        NotificationCenter.default.addObserver(
+            self,
+            selector: #selector(handleLoginSuccess),
+            name: .loginSuccess,
+            object: nil
+        )
+        
+        // 监听登出成功通知
+        NotificationCenter.default.addObserver(
+            self,
+            selector: #selector(handleLogoutSuccess),
+            name: .logoutSuccess,
+            object: nil
+        )
+    }
+    
 }
 
 
@@ -48,24 +77,26 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
 extension AppDelegate {
     
     func application(_ application: UIApplication, didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?) -> Bool {
-        
-        for service in _sortedServices {
-            service.application(application, didFinishLaunchingWithOptions: launchOptions)
-        }
-        
-        // 模块初始化
-        self.setupModules().forEach{ module in
-            module.moduleSetup()
-            Router.default.registe(module.routeSettings)
-        }
+        // 初始化日志管理器
+        Logger.registe(with: .other) //TODO:根据环境来配置
+        // bugly初始化
+        Bugly.start(withAppId: "ea0cccaf98")
         
         if UserManager.shared.isLogin {
             //初始化数据库
             DBManager.shared.initDb(userId: UserManager.shared.userId)
             //MQTT开始链接
             MQTTManager.shared.connect()
-            //组队模块监听消息
-            SWRouter.handle(RouteTable.teamStartMonitorMessage)
+        }
+        
+        for service in _sortedServices {
+            service.application(application, didFinishLaunchingWithOptions: launchOptions)
+        }
+        
+        // 模块初始化
+        modules.forEach{ module in
+            module.moduleSetup()
+            Router.default.registe(module.routeSettings)
         }
         
         // 在后台线程检查并刷新快过期的token，避免阻塞UI启动 暂时写这里，后面移至SWWakeUpService
@@ -74,55 +105,66 @@ extension AppDelegate {
         }
 
         NetworkMonitor.shared.startMonitoring()
+        // 静默启动位置服务
+        LocationRegionManager.shared.startLocationService()
+        // 加载危险点数据
+        DangerZoneMonitor.shared.loadDangerPoints(
+            from: "encrypted_points.txt",
+            password: "kL8#pQ3$rT9&vN2@"
+        ) { result in
+            switch result {
+            case .success(let points):
+                print("加载成功，共 \(points.count) 个点")
+            case .failure(let error):
+                print("加载失败: \(error)")
+            }
+        }
         // 初始化地图
         MapConfig.shared.resetToDefaults()
+        // 判断pro的固件版本
+        AppLaunchManager.shared.performLaunchTasks()
+        // 上传宽带存储的数据
+        DeviceDataCollectionScheduler.shared.checkAndUploadViaMQTT()
         // 下载公共兴趣点
-        DispatchQueue.main.asyncAfter(deadline: .now() + 2) {
+        DispatchQueue.main.asyncAfter(deadline: .now() + 5) {
             POIDownloadManager.shared.startSilentDownload()
         }
+        // 上传宽带存储的数据
+        DeviceDataCollectionScheduler.shared.checkAndUploadViaMQTT()
         
-        let aWindow = UIWindow(frame: UIScreen.main.bounds)
-        self.window = aWindow
-        self.window?.backgroundColor = .white
-        Bootstrap.shared.window = aWindow
-        Bootstrap.shared.runMainFlow()
-        self.window?.makeKeyAndVisible()
+        UserDefaults.standard.set(["zh-Hans"], forKey: "AppleLanguages")
+        UserDefaults.standard.synchronize()
         
         DispatchQueue.main.async {
-            if let win = self.window, !win.isKeyWindow {
-                print("⚠️ 窗口不是keyWindow，重新设置")
-                self.useFallbackWindowStrategy()
-            }
+            let aWindow = UIWindow(frame: UIScreen.main.bounds)
+            self.window = aWindow
+            self.window?.backgroundColor = .white
+            Bootstrap.shared.window = aWindow
+            Bootstrap.shared.runMainFlow()
+            self.window?.makeKeyAndVisible()
         }
 
         return true
-    }
-    
-    private func useFallbackWindowStrategy() {
-        print("使用备用窗口策略...")
-        
-        // 创建全新的窗口，使用更高的windowLevel
-        let fallbackWindow = UIWindow(frame: UIScreen.main.bounds)
-        fallbackWindow.windowLevel = .alert + 1  // 非常高的层级
-        fallbackWindow.backgroundColor = .white  // 明显的测试颜色
-
-        Bootstrap.shared.window = fallbackWindow
-        Bootstrap.shared.runMainFlow()
-        
-        // 立即显示
-        fallbackWindow.isHidden = false
-        fallbackWindow.makeKey()
-        
-        // 替换原来的window
-        self.window = fallbackWindow
-        
-        print("✅ 备用窗口已激活")
     }
     
     public func applicationDidBecomeActive(_ application: UIApplication) {
         for service in _sortedServices {
             service.applicationDidBecomeActive(application)
         }
+        LocationRegionManager.shared.startLocationService()
+        WiFiDeviceManager.shared.checkWiFiPermission { wifiInfo in
+            if let wifiName = wifiInfo.ssid,
+               wifiName.contains("天行探索") {
+                WiFiDeviceManager.shared.connect()
+            }else {
+                WiFiDeviceManager.shared.disconnect()
+            }
+        }
+        NotificationCenter.default.post(name: .applicationDidBecomeActive, object: nil)
+
+        print("yifan-----APP进入活跃状态")
+        let connected = NetworkMonitor.shared.isConnected ? "有网络了，嘿嘿" : "还没有网络，恼火"
+        print("yifan-----\(connected)")
     }
     
     public func applicationWillResignActive(_ application: UIApplication) {
@@ -154,6 +196,7 @@ extension AppDelegate {
             service.application(application, performActionFor: shortcutItem, completionHandler: completionHandler)
         }
     }
+    
 }
 
 // MARK: - Hanlde URL
@@ -343,4 +386,45 @@ extension AppDelegate {
         return result
     }
 }
+
+
+// MARK: - 登录登出
+extension AppDelegate {
+    
+    /// 处理登录成功
+    @objc private func handleLoginSuccess() {
+        
+        guard UserManager.shared.isLogin else {
+            Logger.debug("接收登录成功通知，但是状态不对")
+            return
+        }
+        
+        DBManager.shared.initDb(userId: UserManager.shared.userId)
+        
+        MQTTManager.shared.reconnect()
+        
+        DispatchQueue.main.async {
+            Bootstrap.shared.runMainFlow()
+        }
+        
+        modules.forEach { module in
+            module.loginSuccess()
+        }
+    }
+    
+    /// 处理登出成功
+    @objc private func handleLogoutSuccess() {
+        
+        MQTTManager.shared.disconnect()
+        MQTTManager.shared.removeAllDelegates()
+        MQTTManager.shared.removeAllSubscribes()
+        
+        DBManager.shared.closeDb()
+        
+        modules.forEach { module in
+            module.logoutSuccess()
+        }
+    }
+}
+
 

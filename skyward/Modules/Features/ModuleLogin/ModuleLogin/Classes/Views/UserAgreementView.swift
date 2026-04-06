@@ -7,6 +7,7 @@
 
 
 import UIKit
+import SWTheme
 
 protocol UserAgreementViewDelegate: AnyObject {
     func userAgreementViewDidTapCheckbox(_ view: UserAgreementView, isSelected: Bool)
@@ -92,12 +93,12 @@ class UserAgreementView: UIView {
         
         // 设置《用户服务协议》为可点击样式
         let serviceRange = (fullText as NSString).range(of: "《用户服务协议》")
-        attributedString.addAttribute(.foregroundColor, value: defaultBlackColor, range: serviceRange)
+        attributedString.addAttribute(.foregroundColor, value: ThemeManager.current.titleColor, range: serviceRange)
         attributedString.addAttribute(.underlineStyle, value: NSUnderlineStyle.single.rawValue, range: serviceRange)
         
         // 设置《隐私政策》为可点击样式
         let privacyRange = (fullText as NSString).range(of: "《隐私政策》")
-        attributedString.addAttribute(.foregroundColor, value: defaultBlackColor, range: privacyRange)
+        attributedString.addAttribute(.foregroundColor, value: ThemeManager.current.titleColor, range: privacyRange)
         attributedString.addAttribute(.underlineStyle, value: NSUnderlineStyle.single.rawValue, range: privacyRange)
         
         agreementLabel.attributedText = attributedString

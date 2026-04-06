@@ -11,6 +11,14 @@ fonts:
           url: "DroidSansFallback.ttf"
 
 sources:
+
+    city-weather-source:
+        type: GeoJSON
+        data: { "type": "FeatureCollection", "features": [ ] }
+    message-point-source:
+        type: GeoJSON
+        data: { "type": "FeatureCollection", "features": [ ] }
+        
     elevation:
         type: Raster
         filtering: nearest
@@ -27,8 +35,12 @@ sources:
         headers:
             User-Agent: "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36"
         tms: true
-        max_zoom: 18
+        max_zoom: 20
         rasters: [ elevation ]
+        cache: jl1mall
+        # 2 years
+        max_age: 63072000
+        
     road:
         type: Raster
         url: http://t1.tianditu.com/DataServer?T=cia_w&x={x}&y={y}&l={z}&tk=88e2f1d5ab64a7477a7361edd6b5f68a
@@ -36,15 +48,15 @@ sources:
         headers:
             User-Agent: "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36"
         rasters: [ elevation ]
-    tianqi:
-        type: Raster
-        url: http://test.bjtxts.com:8081/qixiangpng/temp/{z}/{x}/{y}.png
-        max_zoom: 6
-        rasters: [ elevation ]
+        cache: road
+        # 2 years
+        max_age: 63072000
         
 scene:
     terrain_3d: false
     elevation_source: elevation
+    background:
+        color: '#F2F3F4'
 textures:
     loc-marker:
         density: 2
@@ -54,6 +66,94 @@ textures:
               <circle cx="0" cy="0" r="7" fill="#00FF00"/>
               <circle cx="0" cy="0" r="5.5" fill="#FF0000"/>
             </svg>
+    0:
+        density: 2
+        url: 0.png
+    1:
+        density: 2
+        url: 1.png
+    2:
+        density: 2
+        url: 2.png
+    3:
+        density: 2
+        url: 3.png
+    45:
+        density: 2
+        url: 45.png
+    48:
+        density: 2
+        url: 48.png
+    51:
+        density: 2
+        url: 51.png
+    53:
+        density: 2
+        url: 53.png
+    55:
+        density: 2
+        url: 55.png
+    56:
+        density: 2
+        url: 56.png
+    57:
+        density: 2
+        url: 57.png
+    61:
+        density: 2
+        url: 62.png
+    63:
+        density: 2
+        url: 63.png
+    65:
+        density: 2
+        url: 65.png
+    66:
+        density: 2
+        url: 66.png
+    67:
+        density: 2
+        url: 67.png
+    71:
+        density: 2
+        url: 71.png
+    73:
+        density: 2
+        url: 72.png
+    75:
+        density: 2
+        url: 75.png
+    77:
+        density: 2
+        url: 77.png
+    80:
+        density: 2
+        url: 80.png
+    81:
+        density: 2
+        url: 81.png
+    82:
+        density: 2
+        url: 82.png
+    85:
+        density: 2
+        url: 85.png
+    86:
+        density: 2
+        url: 86.png
+    95:
+        density: 2
+        url: 95.png
+    96:
+        density: 2
+        url: 96.png
+    99:
+        density: 2
+        url: 99.png
+    100:
+        density: 2
+        url: 100.png
+        
 styles:
     fog:
         shaders:
@@ -130,9 +230,10 @@ styles:
                 color: |
                     // 手动做 alpha 混合
                     color.a *= 0.4;   
-    loc-points:
+
+    loc-points: # 最后绘制的POI
         mix: poi-points
-        blend_order: 1000
+        blend_order: 1000 # 谁最后画(关键)
     poi-points:
         base: points
         # make sure this is drawn over search dots
@@ -145,6 +246,7 @@ styles:
         mix: terrain-3d
         # blend_order: 10000
         lighting: false
+        blend: overlay
     # unlit-lines:
     #     base: lines
     #     mix: global.terrain_3d_mixin
@@ -211,19 +313,7 @@ layers:
             raster-02:
                 style: raster-1
                 order: 2
-    tianqi-overlay:
-        data: { source: tianqi }
-        visible: true
-        draw:
-            raster-03:
-                style: raster-0
-                order: 1
-    # tianqi-overlay:
-    #     data: { source: tianqi_bounds }
-    #     draw:
-    #         polygons:
-    #             style: tianqi_overlay
-    #             order: 2
+                
     earth:
         data: { source: satellite }
         visible: true
@@ -358,8 +448,8 @@ layers:
                 font:
                     family: global.font_sans
                     size: 14px
-                    fill: green
-                    stroke: { color: "#FFFFFF", width: 10 }
+                    fill: '#FE6A00'
+                    stroke: { color: "#FFFFFF", width: 1 }
                 priority: 100
                 interactive: true
                 collide: false
@@ -406,20 +496,78 @@ layers:
                         width: 2px
                         color: white
                         miter_limit: 1.5
-#            marker:
-#                style: loc-points
-##                style: points
-#                texture: loc-marker
-##                flat: true
-#                interactive: true
-#                collide: false
-#                size: 32px
-#                #angle: 'function() { return feature.orientation + feature.map_rotation; }'  -- for flat: false
-#                # angle: 'function() { return feature.orientation; }'
-#                color: |
-#                    function() {  return '#FF0000'; }
-#                priority: 1000
-#                blend_order: 2000
-#                outline:
-#                    width: 2px
-#                    color: '#CF513D'
+
+    marker_with_label2:
+        data: { source: city-weather-source } # 获取数据源（重要）
+        visible: false
+        draw:
+            # 第二排：左边天气图标 + 右边温度文字
+            icon_and_text: # 名称不重要
+                style: loc-points # 样式
+                texture: function() { return feature.weatherCode ; } # 天气图标
+                flat: true # 图标 始终面向屏幕
+                interactive: false # 是否可交互
+                collide: false # 碰撞检测;false强制显示；true可能会被隐藏
+                size: 18px # 贴图大小
+                priority: 1100 # 优先级
+                # offset: [-32px, 0px]  # 向左偏移，向下偏移（第二排）
+            text: # points style的一个自能力，不能在写style了
+                text_source: function() { return feature.temperature || "N/A"; } # 温度
+                anchor: right   # 文字左侧对齐
+                offset: [ 10px, 0px ] # 文字在图标右侧
+                collide: false
+                font:
+                    family: global.font_sans # 统一字体
+                    size: 12px  # 像素大小
+                    fill: white # 填充色；颜色值white或者"#FFFFFF"
+                    stroke: { color: "#070808", width: 1px } # 描边
+            # 第一排：上方城市名称（居中）
+            city_name:
+                style: always-on-top-text # 必须：样式：text默认不会显示；always-on-top-text会显示
+                text_source: function() { return feature.city || "N/A"; } # 数据源：Feature.properties对齐；可以书写city也可以数额写function函数
+                anchor: top
+                offset: [ 10px, -10px ] # 向上偏移（第一排）
+                collide: false # 文本避让系统：重叠是否隐藏一部分
+                priority: 1100 # 优先级：数字越大越后画，越在上层；style设置text，priority设置10000也不显示；# blend_order：GPU 层最终绘制顺序；# priority 主要用来和其它 text 排序。
+                font:
+                    family: global.font_sans # 统一字体
+                    size: 12px  # 像素大小
+                    fill: white # 填充色；颜色值white或者"#FFFFFF"
+                    stroke: { color: "#070808", width: 1px } # 描边
+        class_city:
+            # path：zoom > 6 时显示，zoom ≤ 6 时隐藏
+            filter: { provincial: show }
+            hide_at_low_zoom:
+                filter: { $zoom: { max: 7 } }
+                draw:
+                    icon_and_text:  { visible: false }
+                    text: { visible: false }
+                    city_name: { visible: false }
+                    
+    message_point:
+        data: { source: message-point-source } # 获取数据源（重要）
+        visible: true
+        draw:
+            point_name:
+                style: always-on-top-text
+                text_source: function() { return feature.name ; }
+                anchor: top
+                offset: [ 0px, 40px ] # 向下偏移（第一排）
+                collide: false # 文本避让系统：重叠是否隐藏一部分
+                priority: 1100
+                font:
+                    family: global.font_sans # 统一字体
+                    size: 13px  # 像素大小
+                    fill: white # 填充色；颜色值white或者"#FFFFFF"
+                    stroke: { color: "#070808", width: 1px } # 描边
+            icon_and_text: # 名称不重要
+                style: loc-points # 样式
+                texture: function() { return feature.image ; } # 天气图标
+                flat: true # 图标 始终面向屏幕
+                interactive: false # 是否可交互
+                collide: false # 碰撞检测;false强制显示；true可能会被隐藏
+                size: 45px # 贴图大小
+                priority: 1100 # 优先级
+#                offset: [100px, -20px]
+            
+

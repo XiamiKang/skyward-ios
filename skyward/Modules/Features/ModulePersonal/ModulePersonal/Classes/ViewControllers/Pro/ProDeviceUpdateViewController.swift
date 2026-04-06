@@ -17,9 +17,10 @@ class ProDeviceUpdateViewController: PersonalBaseViewController {
     @Published var downloadedFileURL: URL?
     
     private let viewModel = PersonalViewModel()
-    private var cancellables = Set<AnyCancellable>()
     private var currentVersion: String = "1.0.0.0"
     private var currentFirmwareData: FirmwareData?
+    private let firmwareManager = FirmwareManager.shared
+    var firwareType: FirmwareType = .base
     
     // UI
     private var firmwareImageView = UIImageView()
@@ -31,23 +32,26 @@ class ProDeviceUpdateViewController: PersonalBaseViewController {
     private var firmwareUpdateText = UILabel()
     private let firmwareUpdateActivityIndicator = UIActivityIndicatorView(style: .medium)
     
+    init(type: FirmwareType) {
+        firwareType = type
+        super.init(nibName: nil, bundle: nil)
+    }
+    
+    @MainActor required init?(coder: NSCoder) {
+        fatalError("init(coder:) has not been implemented")
+    }
+    
     override func viewDidLoad() {
         super.viewDidLoad()
         
         setupUI()
         setConstraint()
         setupTapGesture()
-        setupDownloadObserver()
         getVersionMsg()
     }
     
     override func viewWillDisappear(_ animated: Bool) {
         super.viewWillDisappear(animated)
-        // 页面消失时暂停下载
-        if isDownloading {
-            FirmwareDownloadManager.shared.pauseDownload()
-            updateButtonState(isDownloading: false, progress: downloadProgress, text: "下载暂停")
-        }
     }
     
     private func setupUI() {
@@ -148,16 +152,6 @@ class ProDeviceUpdateViewController: PersonalBaseViewController {
         firmwareUpdateView.isUserInteractionEnabled = true
     }
     
-    // MARK: - 设置下载监听
-    private func setupDownloadObserver() {
-        FirmwareDownloadManager.shared.$downloadStatus
-            .receive(on: DispatchQueue.main)
-            .sink { [weak self] status in
-                self?.handleDownloadStatus(status)
-            }
-            .store(in: &cancellables)
-    }
-    
     // MARK: - 获取版本信息
     private func getVersionMsg() {
         WiFiDeviceManager.shared.queryDeviceInfo { [weak self] result in
@@ -165,12 +159,24 @@ class ProDeviceUpdateViewController: PersonalBaseViewController {
             switch result {
             case .success(let info):
                 self.currentVersion = String(info.ACUVersion.dropFirst())
-                let hardwareModel = "4.0"
-                let model = DeviceFirmwareModel(deviceType: 2, versionCode: self.currentVersion, hardwareModel: hardwareModel)
                 DispatchQueue.main.async {
                     self.firmwareVersionLabel.text = "当前版本：固件_\(self.currentVersion)"
-                    self.checkNewVersion(model: model)
                 }
+                let savedVersion = firmwareManager.getCurrentStoredVersion(for: firwareType)
+                
+                switch currentVersion.compareVersion(savedVersion) {
+                case .orderedAscending:
+                    print("\(currentVersion) < \(savedVersion)")
+                    if let firmwareData = firmwareManager.getDownloadedFirmware(for: firwareType) {
+                        updateUI(firmwareData: firmwareData)
+                    }
+                case .orderedDescending:
+                    print("\(currentVersion) > \(savedVersion)")
+                case .orderedSame:
+                    print("\(currentVersion) == \(savedVersion)")
+                }
+                
+
                 
             case .failure(let error):
                 // 处理错误
@@ -179,45 +185,15 @@ class ProDeviceUpdateViewController: PersonalBaseViewController {
         }
     }
     
-    private func checkNewVersion(model: DeviceFirmwareModel) {
-        viewModel.input.deviceFirmwareRequest.send(model)
-        
-        viewModel.$deviceFirmwareData
-            .receive(on: DispatchQueue.main)
-            .compactMap { $0 }
-            .sink { [weak self] firmwareData in
-                guard let self = self else { return }
-                print("固件信息-----\(firmwareData)")
-                self.currentFirmwareData = firmwareData
-                self.updateUI(firmwareData: firmwareData)
-                
-                // 检查是否已经下载过
-                if FirmwareDownloadManager.shared.firmwareFileExists(firmwareData: firmwareData) {
-                    self.updateButtonState(isDownloading: false, progress: 1.0, text: "下载完成，立即安装")
-                }
-            }
-            .store(in: &cancellables)
-        
-        viewModel.$error
-            .receive(on: DispatchQueue.main)
-            .compactMap { $0 }
-            .sink { [weak self] error in
-                // 处理错误
-                print("检查新版本失败: \(error)")
-            }
-            .store(in: &cancellables)
-    }
-    
-    private func updateUI(firmwareData: FirmwareData) {
+    private func updateUI(firmwareData: LocalFirmwareInfo) {
         DispatchQueue.main.async {
-            if let versionName = firmwareData.versionName {
-                self.firmwareVersionLabel.text = "发现新版本：固件_\(versionName)"
-            }
+            let versionName = firmwareData.versionName
+            self.firmwareVersionLabel.text = "发现新版本：固件_\(versionName)"
             self.firmwareMessageLabel.text = "当前版本：固件_\(self.currentVersion)"
             self.firmwareWarnLabel.isHidden = false
             self.firmwareWarnImageView.isHidden = false
             self.firmwareUpdateView.isHidden = false
-            
+            self.firmwareUpdateText.text = "下载完成，立即安装"
             // 检查是否需要强制更新
             if firmwareData.forceUpdate == true {
                 self.firmwareWarnLabel.text = "此版本为强制更新，请务必下载并安装"
@@ -228,46 +204,12 @@ class ProDeviceUpdateViewController: PersonalBaseViewController {
     
     // MARK: - 按钮点击事件
     @objc private func firmwareUpdateViewTapped() {
-        guard let currentText = firmwareUpdateText.text else { return }
-        
-        switch currentText {
-        case "下载固件", "重新下载":
-            startDownload()
-        case "下载完成，立即安装":
-            installFirmware()
-        case let text where text.contains("下载中"):
-            // 点击下载中按钮可以暂停
-            pauseDownload()
-        case "下载暂停", "继续下载":
-            resumeDownload()
-        default:
-            break
-        }
+        installFirmware()
     }
     
     // MARK: - 下载相关方法
-    private func startDownload() {
-        guard let firmwareData = currentFirmwareData else {
-            showErrorAlert(message: "没有可下载的固件数据")
-            return
-        }
-        
-        updateButtonState(isDownloading: true, progress: 0, text: "下载中 (0%)")
-        FirmwareDownloadManager.shared.downloadFirmware(firmwareData)
-    }
-    
-    private func pauseDownload() {
-        FirmwareDownloadManager.shared.pauseDownload()
-    }
-    
-    private func resumeDownload() {
-        FirmwareDownloadManager.shared.resumeDownload()
-        updateButtonState(isDownloading: true, progress: downloadProgress, text: String(format: "下载中 (%.0f%%)", downloadProgress * 100))
-    }
-    
     private func installFirmware() {
-        guard let firmwareData = currentFirmwareData,
-              let fileURL = FirmwareDownloadManager.shared.getLocalFirmwareFileURL(firmwareData: firmwareData) else {
+        guard let fileURL = firmwareManager.getDownloadedFirmwarePath(for: WiFiDeviceManager.shared.type) else {
             showErrorAlert(message: "没有找到固件文件")
             return
         }
@@ -276,65 +218,6 @@ class ProDeviceUpdateViewController: PersonalBaseViewController {
         showInstallAlert(fileURL: fileURL)
     }
     
-    // MARK: - 处理下载状态
-    private func handleDownloadStatus(_ status: FirmwareDownloadStatus) {
-        DispatchQueue.main.async {
-            switch status {
-            case .idle:
-                self.isDownloading = false
-                self.downloadProgress = 0
-                self.updateButtonState(isDownloading: false, progress: 0, text: "下载固件")
-                
-            case .downloading(let progress):
-                self.isDownloading = true
-                self.downloadProgress = progress
-                let percentage = Int(progress * 100)
-                self.updateButtonState(isDownloading: true, progress: progress, text: "下载中 (\(percentage)%)")
-                
-            case .paused(let progress):
-                self.isDownloading = false
-                self.downloadProgress = progress
-                let percentage = Int(progress * 100)
-                self.updateButtonState(isDownloading: false, progress: progress, text: "下载暂停 (\(percentage)%)")
-                
-            case .completed(let fileURL):
-                self.isDownloading = false
-                self.downloadedFileURL = fileURL
-                self.downloadProgress = 1.0
-                self.updateButtonState(isDownloading: false, progress: 1.0, text: "下载完成，立即安装")
-                
-                // 显示下载完成提示
-                self.showSuccessAlert(message: "固件下载完成")
-                
-            case .failed(let error):
-                self.isDownloading = false
-                self.downloadProgress = 0
-                self.updateButtonState(isDownloading: false, progress: 0, text: "重新下载")
-                
-                // 显示错误提示
-                if let firmwareError = error as? FirmwareDownloadError {
-                    self.showErrorAlert(message: firmwareError.localizedDescription)
-                } else {
-                    self.showErrorAlert(message: error.localizedDescription)
-                }
-            }
-        }
-    }
-    
-    // MARK: - 更新按钮状态
-    private func updateButtonState(isDownloading: Bool, progress: Double, text: String) {
-        DispatchQueue.main.async {
-            self.firmwareUpdateText.text = text
-            
-            if isDownloading {
-                self.firmwareUpdateActivityIndicator.startAnimating()
-                self.firmwareUpdateView.backgroundColor = UIColor(str: "#FE6A00").withAlphaComponent(0.7)
-            } else {
-                self.firmwareUpdateActivityIndicator.stopAnimating()
-                self.firmwareUpdateView.backgroundColor = UIColor(str: "#FE6A00")
-            }
-        }
-    }
     
     // MARK: - 弹窗提示
     private func showErrorAlert(message: String) {
@@ -372,7 +255,7 @@ class ProDeviceUpdateViewController: PersonalBaseViewController {
 extension ProDeviceUpdateViewController {
     
     private func startFirmwareUpgrade(fileURL: URL) {
-        guard WiFiDeviceManager.shared.isConnected == false else {
+        guard WiFiDeviceManager.shared.isConnected else {
             showErrorAlert(message: "设备未连接")
             return
         }

@@ -18,6 +18,23 @@ public class MessageModule: ModuleType {
     
     /// 当前模块的路由
     public var routeSettings: [any RoutableType.Type] {
-        return [ConvPageRouter.self, UrgentMessagePageRouter.self]
+        return [ConvPageRouter.self]
+    }
+    
+    public func moduleSetup() {
+//        DBManager.shared.dropTable(table: DBTableName.conversation.rawValue)
+//        DBManager.shared.dropTable(table: DBTableName.message.rawValue)
+        
+        DBManager.shared.createTable(table: DBTableName.conversation.rawValue, of: Conversation.self)
+        DBManager.shared.createTable(table: DBTableName.message.rawValue, of: Message.self)
+        MessageManager.shared.startMonitorMessage()
+    }
+    
+    public func loginSuccess() {
+        moduleSetup()
+    }
+    
+    public func logoutSuccess() {
+        MessageManager.shared.stopMonitorMessage()
     }
 }

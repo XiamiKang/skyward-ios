@@ -14,13 +14,31 @@ class EmergencyContactViewController: PersonalBaseViewController {
     
     private let viewModel = PersonalViewModel()
     
+    var isHideDelete: Bool = false
+    var emergencyData: EmergencyInfoData?
+    
+    private lazy var deleteButton: UIButton = {
+        let button = UIButton(type: .custom)
+        button.translatesAutoresizingMaskIntoConstraints = false
+        button.setTitle("删除", for: .normal)
+        button.setTitleColor(UIColor(hex: "#F7594B"), for: .normal)
+        button.titleLabel?.font = .systemFont(ofSize: 14, weight: .medium)
+        button.addTarget(self, action: #selector(deleteEmergencyClick), for: .touchUpInside)
+        button.isHidden = isHideDelete
+        return button
+    }()
+    
     // 昵称输入框
-    private let nicknameTextField: UITextField = {
+    private lazy var nicknameTextField: UITextField = {
         let textField = UITextField()
         textField.placeholder = "请输入紧急联系人昵称"
         textField.font = .pingFangFontRegular(ofSize: 14)
         textField.textColor = ThemeManager.current.titleColor
         textField.backgroundColor = ThemeManager.current.mediumGrayBGColor
+        textField.tintColor = ThemeManager.current.mainColor
+        if let emergencyData = emergencyData {
+            textField.text = emergencyData.name
+        }
         textField.layer.cornerRadius = 8
         textField.layer.masksToBounds = true
         textField.leftView = UIView(frame: CGRect(x: 0, y: 0, width: 16, height: textField.frame.height))
@@ -54,12 +72,16 @@ class EmergencyContactViewController: PersonalBaseViewController {
     }()
     
     // 电话输入框
-    private let phoneTextField: UITextField = {
+    private lazy var phoneTextField: UITextField = {
         let textField = UITextField()
         textField.placeholder = "请输入紧急联系人电话"
         textField.font = .pingFangFontRegular(ofSize: 14)
         textField.textColor = ThemeManager.current.titleColor
         textField.backgroundColor = ThemeManager.current.mediumGrayBGColor
+        textField.tintColor = ThemeManager.current.mainColor
+        if let emergencyData = emergencyData {
+            textField.text = emergencyData.phone
+        }
         textField.layer.cornerRadius = 8
         textField.layer.masksToBounds = true
         textField.keyboardType = .numberPad
@@ -109,6 +131,8 @@ class EmergencyContactViewController: PersonalBaseViewController {
         view.backgroundColor = UIColor(hex: "#FFFFFF")
         customTitle.text = "紧急联系人"
         
+        customNavView.addSubview(deleteButton)
+        
         view.addSubview(nicknameTitleLabel)
         view.addSubview(nicknameDescriptionLabel)
         view.addSubview(nicknameTextField)
@@ -132,6 +156,11 @@ class EmergencyContactViewController: PersonalBaseViewController {
         let margin: CGFloat = Layout.hMargin
         let spacing: CGFloat = 24
     
+        deleteButton.snp.makeConstraints { make in
+            make.centerY.equalTo(customTitle.snp.centerY)
+            make.trailing.equalToSuperview().offset(-16)
+        }
+        
         nicknameTitleLabel.snp.makeConstraints { make in
             make.top.equalTo(customNavView.snp.bottom).offset(Layout.vMargin)
             make.leading.equalToSuperview().inset(margin)
@@ -183,7 +212,7 @@ class EmergencyContactViewController: PersonalBaseViewController {
             view.sw_showWarningToast("请输入正确的紧急联系人电话")
             return
         }
-        let emergencyModel = EmergencyContactModel(name: nickname, phone: phoneNumber)
+        let emergencyModel = EmergencyContactModel(id: emergencyData?.id, name: nickname, phone: phoneNumber)
         viewModel.updateEmergencyContact(model: emergencyModel)
             .receive(on: DispatchQueue.main)
             .sink { completion in
@@ -195,7 +224,7 @@ class EmergencyContactViewController: PersonalBaseViewController {
                         await UserManager.shared.requestUserInfo()
                     }
                     DispatchQueue.main.asyncAfter(deadline: .now() + 1) {
-                        self?.navigationController?.popToRootViewController(animated: true)
+                        self?.navigationController?.popViewController(animated: true)
                     }
                 }else {
                     self?.view.sw_showSuccessToast("设置紧急联系人失败")
@@ -205,4 +234,28 @@ class EmergencyContactViewController: PersonalBaseViewController {
         
     }
     
+    @objc private func deleteEmergencyClick() {
+        SWAlertView.showAlert(title: nil, message: "确认删除该紧急联系人吗？", confirmTitle: "确认删除") { [weak self] in
+            guard let self = self else { return }
+            if let emergencyData = emergencyData {
+                self.viewModel.deleteEmergencyContact(id: emergencyData.id ?? "")
+                    .receive(on: DispatchQueue.main)
+                    .sink { [weak self] completion in
+                        if case .failure(_) = completion {
+                            self?.view.sw_showWarningToast("删除紧急联系人失败")
+                        }
+                    } receiveValue: { [weak self] success in
+                        if success {
+                            self?.view.sw_showSuccessToast("删除紧急联系人成功")
+                            DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
+                                self?.navigationController?.popViewController(animated: true)
+                            }
+                        } else {
+                            self?.view.sw_showWarningToast("删除紧急联系人失败")
+                        }
+                    }
+                    .store(in: &self.viewModel.cancellables)
+            }
+        }
+    }
 }

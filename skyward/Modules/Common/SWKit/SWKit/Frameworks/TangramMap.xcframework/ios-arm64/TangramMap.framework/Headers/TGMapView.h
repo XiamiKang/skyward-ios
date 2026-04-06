@@ -355,6 +355,28 @@ TG_EXPORT
  */
 @property (strong, nonatomic) NSURL* resourceRoot;
 
+/**
+ Configure disk tile cache for tile sources that specify a 'cache' field in the scene file.
+ Must be called before loadSceneFromURL/loadSceneAsyncFromURL/loadSceneFromYAML/loadSceneAsyncFromYAML.
+ Cache files will be stored as: {cacheDir}/{cacheName}.mbtiles
+
+ @param cacheDir Directory path for cache files (e.g., NSSearchPathForDirectoriesInDomains(NSCachesDirectory, NSUserDomainMask, YES).firstObject)
+ @param cacheSizeBytes Maximum cache size in bytes (e.g., 256 * 1024 * 1024 for 256MB)
+ @param maxAgeSeconds Default max age for cached tiles in seconds (e.g., 180 * 24 * 60 * 60 for 180 days)
+ */
+- (void)setDiskTileCache:(NSString *)cacheDir
+            cacheSizeBytes:(long long)cacheSizeBytes
+              maxAgeSeconds:(long long)maxAgeSeconds;
+
+/**
+ Configure disk tile cache with default max age (180 days).
+ Must be called before loadSceneFromURL/loadSceneAsyncFromURL/loadSceneFromYAML/loadSceneAsyncFromYAML.
+
+ @param cacheDir Directory path for cache files
+ @param cacheSizeBytes Maximum cache size in bytes
+ */
+- (void)setDiskTileCache:(NSString *)cacheDir cacheSizeBytes:(long long)cacheSizeBytes;
+
 #pragma mark Rendering Behavior
 
 /**

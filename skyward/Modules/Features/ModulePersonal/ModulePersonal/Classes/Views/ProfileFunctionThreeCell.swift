@@ -7,6 +7,7 @@
 
 
 import UIKit
+import SWKit
 
 // MARK: - 功能列表Cell
 class ProfileFunctionThreeCell: UITableViewCell {
@@ -36,7 +37,7 @@ class ProfileFunctionThreeCell: UITableViewCell {
         label.text = "未认证"
         label.translatesAutoresizingMaskIntoConstraints = false
         label.font = .systemFont(ofSize: 12)
-        label.textColor = .systemGray    //#84888C
+        label.textColor = UIColor(str: "#A0A3A7")
         return label
     }()
     

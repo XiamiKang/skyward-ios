@@ -8,6 +8,7 @@
 
 import UIKit
 import Combine
+import SWTheme
 
 // MARK: - 主控制器
 public class LayerPopupController: UIViewController {
@@ -19,7 +20,7 @@ public class LayerPopupController: UIViewController {
     // MARK: - UI Components
     private lazy var collectionView: UICollectionView = {
         let collectionView = UICollectionView(frame: .zero, collectionViewLayout: createLayout())
-        collectionView.backgroundColor = .systemBackground
+        collectionView.backgroundColor = .white
         collectionView.showsVerticalScrollIndicator = false
         collectionView.translatesAutoresizingMaskIntoConstraints = false
         
@@ -55,7 +56,7 @@ public class LayerPopupController: UIViewController {
     
     private let headerView: UIView = {
         let view = UIView()
-        view.backgroundColor = .systemBackground
+        view.backgroundColor = .white
         view.translatesAutoresizingMaskIntoConstraints = false
         return view
     }()
@@ -64,7 +65,7 @@ public class LayerPopupController: UIViewController {
         let button = UIButton(type: .custom)
         button.setTitle("取消", for: .normal)
         button.setTitleColor(UIColor(str: "#070808"), for: .normal)
-        button.backgroundColor = UIColor(str: "#F2F3F4")
+        button.backgroundColor = ThemeManager.current.mediumGrayBGColor
         button.titleLabel?.font = UIFont.systemFont(ofSize: 16, weight: .medium)
         button.layer.masksToBounds = true
         button.layer.cornerRadius = 8
@@ -94,7 +95,7 @@ public class LayerPopupController: UIViewController {
     
     // MARK: - 设置UI
     private func setupUI() {
-        view.backgroundColor = .systemBackground
+        view.backgroundColor = .white
         
         // 设置头部
         closeButton.addTarget(self, action: #selector(closeButtonTapped), for: .touchUpInside)
@@ -170,7 +171,7 @@ public class LayerPopupController: UIViewController {
             switch section.type {
             case .map:
                 return self.createMapSectionLayout()
-            case .annotation, .poi, .weather:
+            case .annotation, .poi:
                 return self.createAnnotationSectionLayout()
             }
         }
@@ -257,6 +258,7 @@ public class LayerPopupController: UIViewController {
     
     @objc private func confirmButtonTapped() {
         let selectedOptions = viewModel.selectedOptions
+        let currentOptions = viewModel.currentSelectedOptions
         
         // 处理地图切换
         if let mapDict = selectedOptions["selectedMap"] as? [String: String],
@@ -265,36 +267,74 @@ public class LayerPopupController: UIViewController {
            let currentName = currentMap["name"] {
             
             if sceneName != currentName {
+                UserDefaults.standard.set(sceneName, forKey: "ChooseTileSourceName")
                 handleMapSourceLayerDisplay(sceneName)
             }
         }
         
-//        if let mapDict = selectedOptions["selectedMap"] as? [String: String],
-//           let sceneName = mapDict["name"] {
-//            handleMapSourceLayerDisplay(sceneName)
-//        }
+        // 处理矢量注记 - 单独处理
+        if let vectorAnnotations = selectedOptions["selectedVectorAnnotations"] as? [String],
+           let currentVector = currentOptions["selectedVectorAnnotations"] as? [String] {
+            if Set(vectorAnnotations) != Set(currentVector) {
+                let isVectorVisible = viewModel.handleVectorAnnotationLayer(vectorAnnotations)
+                handleVectorAnnotationLayerDisplay(isVectorVisible)
+            }
+        }
+        
+        // 处理天气 - 单独处理
+        if let weatherAnnotations = selectedOptions["selectedWeatherAnnotations"] as? [String],
+           let currentWeather = currentOptions["selectedWeatherAnnotations"] as? [String] {
+            if Set(weatherAnnotations) != Set(currentWeather) {
+                let isWeatherVisible = viewModel.handleWeatherAnnotationLayer(weatherAnnotations)
+                handleWeatherLayerDisplay(isWeatherVisible)
+            }
+        }
         
 
-        // 处理兴趣点
-        if let selectedPOIs = selectedOptions["selectedPOIs"] as? [String],
-           let currentPOIs = viewModel.currentSelectedOptions["selectedPOIs"] as? [String] {
-            if Set(selectedPOIs) != Set(currentPOIs) {
-                let poiLayers = viewModel.handlePOILayerDisplay(selectedPOIs)
-                handlePOILayerDisplay(poiLayers)
-            }
-        }
-        
-        // 处理天气图层
-        if let selectedWeathers = selectedOptions["selectedWeathers"] as? [String],
-           let currentWeathers = viewModel.currentSelectedOptions["selectedWeathers"] as? [String] {
-            if Set(selectedWeathers) != Set(currentWeathers) {
-                let weatherLayers = viewModel.handleWeatherLayerDisplay(selectedWeathers)
-                handleWeatherLayerDisplay(weatherLayers)
-            }
-        }
+        // 处理兴趣点 - 分别处理每个POI类型
+        handlePOIChanges(selectedOptions: selectedOptions, currentOptions: currentOptions)
         
         // 关闭弹窗
         dismiss(animated: true)
+    }
+    
+    // MARK: - 新增：处理POI变化的辅助方法
+    private func handlePOIChanges(selectedOptions: [String: Any], currentOptions: [String: Any]) {
+        // 处理露营地
+        if let selected = selectedOptions["selectedCampgrounds"] as? [String],
+           let current = currentOptions["selectedCampgrounds"] as? [String] {
+            if Set(selected) != Set(current) {
+                let isVisible = viewModel.handleCampgroundLayer(selected)
+                handleCampgroundLayerDisplay(isVisible)
+            }
+        }
+        
+        // 处理风景名胜
+        if let selected = selectedOptions["selectedScenics"] as? [String],
+           let current = currentOptions["selectedScenics"] as? [String] {
+            if Set(selected) != Set(current) {
+                let isVisible = viewModel.handleScenicLayer(selected)
+                handleScenicLayerDisplay(isVisible)
+            }
+        }
+        
+        // 处理加油站
+        if let selected = selectedOptions["selectedGasStations"] as? [String],
+           let current = currentOptions["selectedGasStations"] as? [String] {
+            if Set(selected) != Set(current) {
+                let isVisible = viewModel.handleGasStationLayer(selected)
+                handleGasStationLayerDisplay(isVisible)
+            }
+        }
+        
+        // 处理医疗
+        if let selected = selectedOptions["selectedMedicals"] as? [String],
+           let current = currentOptions["selectedMedicals"] as? [String] {
+            if Set(selected) != Set(current) {
+                let isVisible = viewModel.handleMedicalLayer(selected)
+                handleMedicalLayerDisplay(isVisible)
+            }
+        }
     }
 }
 
@@ -320,9 +360,12 @@ extension LayerPopupController: UICollectionViewDataSource {
             }
             return cell
             
-        default: // .annotation, .poi, .weather
+        default: // .annotation, .poi,
             let cell = collectionView.dequeueReusableCell(withReuseIdentifier: "AnnotationOptionCell", for: indexPath) as! AnnotationOptionCell
             if let option = item as? AnnotationOption {
+                cell.configure(with: option)
+            }
+            if let option = item as? POIOption {
                 cell.configure(with: option)
             }
             return cell
@@ -402,29 +445,70 @@ extension LayerPopupController {
         )
     }
     
-    // 处理兴趣点图层显示
-    private func handlePOILayerDisplay(_ poiLayers: [String: Bool]) {
-        // 发送通知更新POI图层
+    // 处理矢量注记 - 单独处理
+    private func handleVectorAnnotationLayerDisplay(_ isVisible: Bool) {
         NotificationCenter.default.post(
-            name: .updatePOILayers,
+            name: .updateVectorAnnotation,
             object: nil,
-            userInfo: ["poiLayers": poiLayers]
+            userInfo: ["isVisible": isVisible]
         )
     }
     
-    // 处理天气图层显示
-    private func handleWeatherLayerDisplay(_ weatherLayers: [String: Bool]) {
-        // 发送通知更新天气图层
-//        NotificationCenter.default.post(
-//            name: .updateWeatherLayers,
-//            object: nil,
-//            userInfo: ["weatherLayers": weatherLayers]
-//        )
+    // 处理天气 - 单独处理
+    private func handleWeatherLayerDisplay(_ isVisible: Bool) {
+        NotificationCenter.default.post(
+            name: .updateWeatherLayers,
+            object: nil,
+            userInfo: ["isVisible": isVisible]
+        )
     }
     
+    // 处理露营地
+    private func handleCampgroundLayerDisplay(_ isVisible: Bool) {
+        NotificationCenter.default.post(
+            name: .updateCampgroundLayer,
+            object: nil,
+            userInfo: ["isVisible": isVisible]
+        )
+    }
+    
+    // 处理风景名胜
+    private func handleScenicLayerDisplay(_ isVisible: Bool) {
+        NotificationCenter.default.post(
+            name: .updateScenicLayer,
+            object: nil,
+            userInfo: ["isVisible": isVisible]
+        )
+    }
+    
+    // 处理加油站
+    private func handleGasStationLayerDisplay(_ isVisible: Bool) {
+        NotificationCenter.default.post(
+            name: .updateGasStationLayer,
+            object: nil,
+            userInfo: ["isVisible": isVisible]
+        )
+    }
+    
+    // 处理医疗
+    private func handleMedicalLayerDisplay(_ isVisible: Bool) {
+        NotificationCenter.default.post(
+            name: .updateMedicalLayer,
+            object: nil,
+            userInfo: ["isVisible": isVisible]
+        )
+    }
 }
 
 extension Notification.Name {
-    public static let updateMapSource = Notification.Name("updateMapSource")
-    public static let updatePOILayers = Notification.Name("updatePOILayers")
+    public static let updateMapSource = Notification.Name("updateMapSource")                               // 图源
+    public static let updateVectorAnnotation = Notification.Name("updateVectorAnnotation")                 // 注记
+    public static let updateWeatherLayers = Notification.Name("updateWeatherLayers")                       // 天气
+    public static let updateCampgroundLayer = Notification.Name("updateCampgroundLayer")                   // 露营地
+    public static let updateScenicLayer = Notification.Name("updateScenicLayer")                           // 风景名胜
+    public static let updateGasStationLayer = Notification.Name("updateGasStationLayer")                   // 加油站
+    public static let updateMedicalLayer = Notification.Name("updateMedicalLayer")                         // 医疗
 }
+
+
+

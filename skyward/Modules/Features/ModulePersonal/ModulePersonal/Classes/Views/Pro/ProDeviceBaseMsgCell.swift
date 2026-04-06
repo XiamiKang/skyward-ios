@@ -7,56 +7,37 @@
 
 import UIKit
 import SWKit
-
-enum ProDeviceButtonState {
-    case incomplete   //未完成
-    case inprogress   //进行中
-    case completed    //已完成
-}
+import SWTheme
 
 class ProDeviceBaseMsgCell: UITableViewCell {
     
     private let bgView = UIView()
+    private var deviceNameLabel = UILabel()
+    private var connectionStatusLabel = UILabel()
+    private var wifiStatusImageView = UIImageView()
+    private var satelliteStatusImageView = UIImageView()
+    private var nowModelLabel = UILabel()
     private let deviceImageView = UIImageView()
-    private let deviceNameLabel = UILabel()
-    private let connectionStatusLabel = UILabel()
-    private let wifiStatusImageView = UIImageView()
-    private let modeCatImageView = UIImageView()
-    private let modeGroundImageView = UIImageView()
-    private let modeCatLabel = UILabel()
-    private let modeGroundLabel = UILabel()
-    private let modeCatButton = UIButton(type: .custom)
-    private let modeGroundButton = UIButton(type: .custom)
-    private let satelliteStatusImageView = UIImageView()
-    private let collectButton = UIButton(type: .custom)
-    private let lineStarButton = UIButton(type: .custom)
-    
-    // 新增活动指示器
-    private let collectActivityIndicator = UIActivityIndicatorView(style: .medium)
-    private let lineStarActivityIndicator = UIActivityIndicatorView(style: .medium)
+    private let satelliteImageView = UIImageView()
+    private let upArrowImageView = UIImageView()
+    private let downArrowImageView = UIImageView()
+    private let upNetworkMsgView = UIView()
+    private var upNetworkSpeedLabel = UILabel()
+    private var upNetworkSignalImageView = UIImageView()
+    private var upNetworkSignalLabel = UILabel()
+    private let downNetworkMsgView = UIView()
+    private var downNetworkSpeedLabel = UILabel()
+    private var downNetworkSignalImageView = UIImageView()
+    private var downNetworkSignalLabel = UILabel()
+    private let upNoDataLabel = UILabel()
+    private let downNoDataLabel = UILabel()
     
     // 新增点击计数器和时间记录
     private var tapCount = 0
     private var lastTapTime: Date?
     private let tapInterval: TimeInterval = 5.0 // 2秒内完成5次点击
     
-    var collectionAction: (() -> Void)?
-    var lineStarAction: (() -> Void)?
     var quintupleTapAction: (() -> Void)? // 新增：连续点击5次的回调
-    var resendModlAction: ((Int) -> Void)?
-    
-    // 按钮状态
-    private var isCollecting: ProDeviceButtonState = .incomplete {
-        didSet {
-            updateCollectButtonState()
-        }
-    }
-    
-    private var isLiningStar: ProDeviceButtonState = .incomplete {
-        didSet {
-            updateLineStarButtonState()
-        }
-    }
     
     override init(style: UITableViewCell.CellStyle, reuseIdentifier: String?) {
         super.init(style: style, reuseIdentifier: reuseIdentifier)
@@ -69,22 +50,11 @@ class ProDeviceBaseMsgCell: UITableViewCell {
     
     private func setupUI() {
         selectionStyle = .none
-        backgroundColor = UIColor(str: "#F2F3F4")
+        backgroundColor = ThemeManager.current.mediumGrayBGColor
         
         bgView.backgroundColor = .white
         bgView.layer.cornerRadius = 8
         contentView.addSubview(bgView)
-        
-        // 设备图片
-        deviceImageView.translatesAutoresizingMaskIntoConstraints = false
-        deviceImageView.contentMode = .scaleAspectFill
-        deviceImageView.image = PersonalModule.image(named: "device_pro_logo")
-        deviceImageView.isUserInteractionEnabled = true // 启用用户交互
-        bgView.addSubview(deviceImageView)
-        
-        // 添加点击手势识别器
-        let tapGesture = UITapGestureRecognizer(target: self, action: #selector(handleDeviceImageTap))
-        deviceImageView.addGestureRecognizer(tapGesture)
         
         // 设备名称
         deviceNameLabel.translatesAutoresizingMaskIntoConstraints = false
@@ -115,67 +85,101 @@ class ProDeviceBaseMsgCell: UITableViewCell {
         satelliteStatusImageView.contentMode = .scaleAspectFit
         bgView.addSubview(satelliteStatusImageView)
         
-        
         // 车载状态
-        modeCatImageView.translatesAutoresizingMaskIntoConstraints = false
-        modeCatImageView.image = PersonalModule.image(named: "device_pro_mode_sel")
-        bgView.addSubview(modeCatImageView)
-        modeCatLabel.translatesAutoresizingMaskIntoConstraints = false
-        modeCatLabel.text = "车载模式"
-        modeCatLabel.textColor = .black
-        modeCatLabel.font = .systemFont(ofSize: 12, weight: .regular)
-        bgView.addSubview(modeCatLabel)
-        modeCatButton.translatesAutoresizingMaskIntoConstraints = false
-        modeCatButton.backgroundColor = .clear
-        modeCatButton.addTarget(self, action: #selector(modeCatTapped), for: .touchUpInside)
-        bgView.addSubview(modeCatButton)
+        nowModelLabel.translatesAutoresizingMaskIntoConstraints = false
+        nowModelLabel.text = "当前模式：车载模式"
+        nowModelLabel.textColor = .black
+        nowModelLabel.font = .systemFont(ofSize: 12, weight: .regular)
+        bgView.addSubview(nowModelLabel)
         
-        // 地面状态
-        modeGroundImageView.translatesAutoresizingMaskIntoConstraints = false
-        modeGroundImageView.image = PersonalModule.image(named: "device_pro_mode")
-        bgView.addSubview(modeGroundImageView)
-        modeGroundLabel.translatesAutoresizingMaskIntoConstraints = false
-        modeGroundLabel.text = "地面模式"
-        modeGroundLabel.textColor = .black
-        modeGroundLabel.font = .systemFont(ofSize: 12, weight: .regular)
-        bgView.addSubview(modeGroundLabel)
-        modeGroundButton.translatesAutoresizingMaskIntoConstraints = false
-        modeGroundButton.backgroundColor = .clear
-        modeGroundButton.addTarget(self, action: #selector(modeGroundTapped), for: .touchUpInside)
-        bgView.addSubview(modeGroundButton)
+        // 设备图片
+        deviceImageView.translatesAutoresizingMaskIntoConstraints = false
+        deviceImageView.contentMode = .scaleAspectFill
+        deviceImageView.image = PersonalModule.image(named: "device_pro_logo")
+        deviceImageView.isUserInteractionEnabled = true // 启用用户交互
+        bgView.addSubview(deviceImageView)
         
-        // 收藏按钮
-        collectButton.translatesAutoresizingMaskIntoConstraints = false
-        collectButton.setTitle("收藏", for: .normal)
-        collectButton.backgroundColor = UIColor(str: "#F2F3F4")
-        collectButton.setTitleColor(UIColor(hex: "#C4C7CA"), for: .normal)
-        collectButton.layer.cornerRadius = 6
-        collectButton.titleLabel?.font = .systemFont(ofSize: 14, weight: .semibold)
-        collectButton.addTarget(self, action: #selector(collectionButtonTapped), for: .touchUpInside)
-        bgView.addSubview(collectButton)
+        // 添加点击手势识别器
+        let tapGesture = UITapGestureRecognizer(target: self, action: #selector(handleDeviceImageTap))
+        deviceImageView.addGestureRecognizer(tapGesture)
+        // 卫星图片
+        satelliteImageView.translatesAutoresizingMaskIntoConstraints = false
+        satelliteImageView.contentMode = .scaleAspectFill
+        satelliteImageView.image = PersonalModule.image(named: "device_pro_logo2")
+        bgView.addSubview(satelliteImageView)
         
-        // 收藏按钮活动指示器
-        collectActivityIndicator.translatesAutoresizingMaskIntoConstraints = false
-        collectActivityIndicator.hidesWhenStopped = true
-        collectActivityIndicator.color = UIColor(hex: "#FE6A00")
-        collectButton.addSubview(collectActivityIndicator)
+        // 上方箭头图片
+        upArrowImageView.translatesAutoresizingMaskIntoConstraints = false
+        upArrowImageView.contentMode = .scaleAspectFill
+        upArrowImageView.image = PersonalModule.image(named: "device_pro_arrow1")
+        bgView.addSubview(upArrowImageView)
         
-        // 对星按钮
-        lineStarButton.translatesAutoresizingMaskIntoConstraints = false
-        lineStarButton.setTitle("对星", for: .normal)
-        lineStarButton.backgroundColor = UIColor(str: "#FE6A00")
-        lineStarButton.setTitleColor(.white, for: .normal)
-        lineStarButton.layer.cornerRadius = 6
-        lineStarButton.titleLabel?.font = .systemFont(ofSize: 14, weight: .semibold)
-        lineStarButton.addTarget(self, action: #selector(lineStarButtonTapped), for: .touchUpInside)
-        bgView.addSubview(lineStarButton)
+        // 下方箭头图片
+        downArrowImageView.translatesAutoresizingMaskIntoConstraints = false
+        downArrowImageView.contentMode = .scaleAspectFill
+        downArrowImageView.image = PersonalModule.image(named: "device_pro_arrow2")
+        bgView.addSubview(downArrowImageView)
         
-        // 对星按钮活动指示器
-        lineStarActivityIndicator.translatesAutoresizingMaskIntoConstraints = false
-        lineStarActivityIndicator.hidesWhenStopped = true
-        lineStarActivityIndicator.color = .white
-        lineStarButton.addSubview(lineStarActivityIndicator)
-
+        // 上方没有数据时文字
+        upNoDataLabel.translatesAutoresizingMaskIntoConstraints = false
+        upNoDataLabel.text = "--"
+        upNoDataLabel.textColor = UIColor(str: "#C4C7CA")
+        upNoDataLabel.font = .systemFont(ofSize: 12, weight: .regular)
+        bgView.addSubview(upNoDataLabel)
+        
+        // 下方没有数据时文字
+        downNoDataLabel.translatesAutoresizingMaskIntoConstraints = false
+        downNoDataLabel.text = "--"
+        downNoDataLabel.textColor = UIColor(str: "#C4C7CA")
+        downNoDataLabel.font = .systemFont(ofSize: 12, weight: .regular)
+        bgView.addSubview(downNoDataLabel)
+        
+        // 上方数据
+        upNetworkMsgView.translatesAutoresizingMaskIntoConstraints = false
+        upNetworkMsgView.backgroundColor = .white
+        upNetworkMsgView.isHidden = false
+        bgView.addSubview(upNetworkMsgView)
+        
+        upNetworkSpeedLabel.translatesAutoresizingMaskIntoConstraints = false
+        upNetworkSpeedLabel.text = "--kb/s"
+        upNetworkSpeedLabel.textColor = UIColor(str: "#303236")
+        upNetworkSpeedLabel.font = .systemFont(ofSize: 12, weight: .regular)
+        upNetworkMsgView.addSubview(upNetworkSpeedLabel)
+        
+        upNetworkSignalImageView.translatesAutoresizingMaskIntoConstraints = false
+        upNetworkSignalImageView.contentMode = .scaleAspectFit
+        upNetworkSignalImageView.image = PersonalModule.image(named: "signal-full-00")
+        upNetworkMsgView.addSubview(upNetworkSignalImageView)
+        
+        upNetworkSignalLabel.translatesAutoresizingMaskIntoConstraints = false
+        upNetworkSignalLabel.text = "--db"
+        upNetworkSignalLabel.textColor = UIColor(str: "#303236")
+        upNetworkSignalLabel.font = .systemFont(ofSize: 12, weight: .regular)
+        upNetworkMsgView.addSubview(upNetworkSignalLabel)
+        
+        // 下方数据
+        downNetworkMsgView.translatesAutoresizingMaskIntoConstraints = false
+        downNetworkMsgView.backgroundColor = .white
+        downNetworkMsgView.isHidden = false
+        bgView.addSubview(downNetworkMsgView)
+        
+        downNetworkSpeedLabel.translatesAutoresizingMaskIntoConstraints = false
+        downNetworkSpeedLabel.text = "--kb/s"
+        downNetworkSpeedLabel.textColor = UIColor(str: "#303236")
+        downNetworkSpeedLabel.font = .systemFont(ofSize: 12, weight: .regular)
+        downNetworkMsgView.addSubview(downNetworkSpeedLabel)
+        
+        downNetworkSignalImageView.translatesAutoresizingMaskIntoConstraints = false
+        downNetworkSignalImageView.contentMode = .scaleAspectFit
+        downNetworkSignalImageView.image = PersonalModule.image(named: "signal-full-00")
+        downNetworkMsgView.addSubview(downNetworkSignalImageView)
+        
+        downNetworkSignalLabel.translatesAutoresizingMaskIntoConstraints = false
+        downNetworkSignalLabel.text = "--db"
+        downNetworkSignalLabel.textColor = UIColor(str: "#303236")
+        downNetworkSignalLabel.font = .systemFont(ofSize: 12, weight: .regular)
+        downNetworkMsgView.addSubview(downNetworkSignalLabel)
+        
         setConstraint()
     }
     
@@ -189,15 +193,9 @@ class ProDeviceBaseMsgCell: UITableViewCell {
             bgView.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -16),
             bgView.bottomAnchor.constraint(equalTo: bottomAnchor, constant: -12),
             
-            // 设备图片
-            deviceImageView.topAnchor.constraint(equalTo: bgView.topAnchor, constant: 16),
-            deviceImageView.leadingAnchor.constraint(equalTo: bgView.leadingAnchor, constant: 16),
-            deviceImageView.widthAnchor.constraint(equalToConstant: 90),
-            deviceImageView.heightAnchor.constraint(equalToConstant: 90),
-            
             // 设备名称
             deviceNameLabel.topAnchor.constraint(equalTo: bgView.topAnchor, constant: 20),
-            deviceNameLabel.leadingAnchor.constraint(equalTo: deviceImageView.trailingAnchor, constant: 16),
+            deviceNameLabel.leadingAnchor.constraint(equalTo: bgView.leadingAnchor, constant: 16),
             
             // 连接状态
             connectionStatusLabel.centerYAnchor.constraint(equalTo: deviceNameLabel.centerYAnchor),
@@ -205,139 +203,86 @@ class ProDeviceBaseMsgCell: UITableViewCell {
             connectionStatusLabel.widthAnchor.constraint(equalToConstant: 55),
             connectionStatusLabel.heightAnchor.constraint(equalToConstant: 30),
             
-            // 蓝牙状态
-            wifiStatusImageView.topAnchor.constraint(equalTo: deviceNameLabel.bottomAnchor, constant: 10),
-            wifiStatusImageView.leadingAnchor.constraint(equalTo: deviceImageView.trailingAnchor, constant: 16),
+            wifiStatusImageView.centerYAnchor.constraint(equalTo: deviceNameLabel.centerYAnchor),
+            wifiStatusImageView.leadingAnchor.constraint(equalTo: connectionStatusLabel.trailingAnchor, constant: 10),
             wifiStatusImageView.widthAnchor.constraint(equalToConstant: 16),
             wifiStatusImageView.heightAnchor.constraint(equalToConstant: 16),
             
             // 卫星状态
             satelliteStatusImageView.centerYAnchor.constraint(equalTo: wifiStatusImageView.centerYAnchor),
-            satelliteStatusImageView.leadingAnchor.constraint(equalTo: wifiStatusImageView.trailingAnchor, constant: 5),
+            satelliteStatusImageView.leadingAnchor.constraint(equalTo: wifiStatusImageView.trailingAnchor, constant: 8),
             satelliteStatusImageView.widthAnchor.constraint(equalToConstant: 16),
             satelliteStatusImageView.heightAnchor.constraint(equalToConstant: 16),
             
-            // 车载模式
-            modeCatImageView.topAnchor.constraint(equalTo: wifiStatusImageView.bottomAnchor, constant: 16),
-            modeCatImageView.leadingAnchor.constraint(equalTo: deviceImageView.trailingAnchor, constant: 16),
-            modeCatImageView.widthAnchor.constraint(equalToConstant: 12),
-            modeCatImageView.heightAnchor.constraint(equalToConstant: 12),
-            modeCatLabel.centerYAnchor.constraint(equalTo: modeCatImageView.centerYAnchor),
-            modeCatLabel.leadingAnchor.constraint(equalTo: modeCatImageView.trailingAnchor, constant: 5),
-            modeCatButton.centerYAnchor.constraint(equalTo: modeCatImageView.centerYAnchor),
-            modeCatButton.leadingAnchor.constraint(equalTo: deviceImageView.trailingAnchor, constant: 15),
-            modeCatButton.widthAnchor.constraint(equalToConstant: 80),
-            modeCatButton.heightAnchor.constraint(equalToConstant: 22),
+            // 当前模式
+            nowModelLabel.topAnchor.constraint(equalTo: deviceNameLabel.bottomAnchor, constant: 16),
+            nowModelLabel.leadingAnchor.constraint(equalTo: bgView.leadingAnchor, constant: 16),
             
-            // 地面模式
-            modeGroundImageView.topAnchor.constraint(equalTo: wifiStatusImageView.bottomAnchor, constant: 16),
-            modeGroundImageView.leadingAnchor.constraint(equalTo: modeCatButton.trailingAnchor, constant: 16),
-            modeGroundImageView.widthAnchor.constraint(equalToConstant: 12),
-            modeGroundImageView.heightAnchor.constraint(equalToConstant: 12),
-            modeGroundLabel.centerYAnchor.constraint(equalTo: modeGroundImageView.centerYAnchor),
-            modeGroundLabel.leadingAnchor.constraint(equalTo: modeGroundImageView.trailingAnchor, constant: 5),
-            modeGroundButton.centerYAnchor.constraint(equalTo: modeGroundImageView.centerYAnchor),
-            modeGroundButton.leadingAnchor.constraint(equalTo: modeCatButton.trailingAnchor, constant: 15),
-            modeGroundButton.widthAnchor.constraint(equalToConstant: 80),
-            modeGroundButton.heightAnchor.constraint(equalToConstant: 22),
+            // 设备图片
+            deviceImageView.topAnchor.constraint(equalTo: nowModelLabel.bottomAnchor, constant: 12),
+            deviceImageView.leadingAnchor.constraint(equalTo: bgView.leadingAnchor, constant: 16),
+            deviceImageView.widthAnchor.constraint(equalToConstant: 72),
+            deviceImageView.heightAnchor.constraint(equalToConstant: 72),
             
-            // 收藏按钮
-            collectButton.topAnchor.constraint(equalTo: modeCatButton.bottomAnchor, constant: 15),
-            collectButton.leadingAnchor.constraint(equalTo: deviceImageView.trailingAnchor, constant: 16),
-            collectButton.widthAnchor.constraint(equalToConstant: 90), // 增加宽度容纳指示器
-            collectButton.heightAnchor.constraint(equalToConstant: 32),
-            collectButton.bottomAnchor.constraint(equalTo: bgView.bottomAnchor, constant: -16),
+            // 卫星图片
+            satelliteImageView.topAnchor.constraint(equalTo: nowModelLabel.bottomAnchor, constant: 12),
+            satelliteImageView.trailingAnchor.constraint(equalTo: bgView.trailingAnchor, constant: -16),
+            satelliteImageView.widthAnchor.constraint(equalToConstant: 72),
+            satelliteImageView.heightAnchor.constraint(equalToConstant: 72),
             
-            // 收藏按钮活动指示器
-            collectActivityIndicator.centerYAnchor.constraint(equalTo: collectButton.centerYAnchor),
-            collectActivityIndicator.leadingAnchor.constraint(equalTo: collectButton.leadingAnchor, constant: 12),
+            // 上方箭头图片
+            upArrowImageView.centerYAnchor.constraint(equalTo: deviceImageView.centerYAnchor, constant: -7),
+            upArrowImageView.leadingAnchor.constraint(equalTo: deviceImageView.trailingAnchor, constant: 16),
+            upArrowImageView.trailingAnchor.constraint(equalTo: satelliteImageView.leadingAnchor, constant: -16),
+            upArrowImageView.heightAnchor.constraint(equalToConstant: 4),
+            // 下方箭头图片
+            downArrowImageView.centerYAnchor.constraint(equalTo: deviceImageView.centerYAnchor, constant: 7),
+            downArrowImageView.leadingAnchor.constraint(equalTo: deviceImageView.trailingAnchor, constant: 16),
+            downArrowImageView.trailingAnchor.constraint(equalTo: satelliteImageView.leadingAnchor, constant: -16),
+            downArrowImageView.heightAnchor.constraint(equalToConstant: 4),
+            // 上方没数据的
+            upNoDataLabel.bottomAnchor.constraint(equalTo: upArrowImageView.topAnchor, constant: -5),
+            upNoDataLabel.centerXAnchor.constraint(equalTo: upArrowImageView.centerXAnchor),
+            // 下方没数据的
+            downNoDataLabel.topAnchor.constraint(equalTo: downArrowImageView.bottomAnchor, constant: 2),
+            downNoDataLabel.centerXAnchor.constraint(equalTo: downArrowImageView.centerXAnchor),
+            // 上方有数据的
+            upNetworkMsgView.bottomAnchor.constraint(equalTo: upArrowImageView.topAnchor, constant: -5),
+            upNetworkMsgView.centerXAnchor.constraint(equalTo: bgView.centerXAnchor),
             
-            // 对星按钮
-            lineStarButton.centerYAnchor.constraint(equalTo: collectButton.centerYAnchor),
-            lineStarButton.leadingAnchor.constraint(equalTo: collectButton.trailingAnchor, constant: 16),
-            lineStarButton.widthAnchor.constraint(equalToConstant: 90), // 增加宽度容纳指示器
-            lineStarButton.heightAnchor.constraint(equalToConstant: 32),
+            upNetworkSpeedLabel.bottomAnchor.constraint(equalTo: upNetworkMsgView.bottomAnchor),
+            upNetworkSpeedLabel.leadingAnchor.constraint(equalTo: upNetworkMsgView.leadingAnchor),
+            upNetworkSpeedLabel.topAnchor.constraint(equalTo: upNetworkMsgView.topAnchor),
             
-            // 对星按钮活动指示器
-            lineStarActivityIndicator.centerYAnchor.constraint(equalTo: lineStarButton.centerYAnchor),
-            lineStarActivityIndicator.leadingAnchor.constraint(equalTo: lineStarButton.leadingAnchor, constant: 12),
+            upNetworkSignalImageView.centerYAnchor.constraint(equalTo: upNetworkMsgView.centerYAnchor),
+            upNetworkSignalImageView.leadingAnchor.constraint(equalTo: upNetworkSpeedLabel.trailingAnchor, constant: 8),
+            upNetworkSignalImageView.widthAnchor.constraint(equalToConstant: 12),
+            upNetworkSignalImageView.heightAnchor.constraint(equalToConstant: 12),
+            
+            upNetworkSignalLabel.bottomAnchor.constraint(equalTo: upNetworkMsgView.bottomAnchor),
+            upNetworkSignalLabel.leadingAnchor.constraint(equalTo: upNetworkSignalImageView.trailingAnchor, constant: 2),
+            upNetworkSignalLabel.trailingAnchor.constraint(equalTo: upNetworkMsgView.trailingAnchor),
+            upNetworkSignalLabel.topAnchor.constraint(equalTo: upNetworkMsgView.topAnchor),
+            
+            // 下方有数据的
+            downNetworkMsgView.topAnchor.constraint(equalTo: downArrowImageView.bottomAnchor, constant: 2),
+            downNetworkMsgView.centerXAnchor.constraint(equalTo: bgView.centerXAnchor),
+            
+            downNetworkSpeedLabel.bottomAnchor.constraint(equalTo: downNetworkMsgView.bottomAnchor),
+            downNetworkSpeedLabel.leadingAnchor.constraint(equalTo: downNetworkMsgView.leadingAnchor),
+            downNetworkSpeedLabel.topAnchor.constraint(equalTo: downNetworkMsgView.topAnchor),
+            
+            downNetworkSignalImageView.centerYAnchor.constraint(equalTo: downNetworkMsgView.centerYAnchor),
+            downNetworkSignalImageView.leadingAnchor.constraint(equalTo: downNetworkSpeedLabel.trailingAnchor, constant: 8),
+            downNetworkSignalImageView.widthAnchor.constraint(equalToConstant: 12),
+            downNetworkSignalImageView.heightAnchor.constraint(equalToConstant: 12),
+            
+            downNetworkSignalLabel.bottomAnchor.constraint(equalTo: downNetworkMsgView.bottomAnchor),
+            downNetworkSignalLabel.leadingAnchor.constraint(equalTo: downNetworkSignalImageView.trailingAnchor, constant: 2),
+            downNetworkSignalLabel.trailingAnchor.constraint(equalTo: downNetworkMsgView.trailingAnchor),
+            downNetworkSignalLabel.topAnchor.constraint(equalTo: downNetworkMsgView.topAnchor),
+            
         ])
-    }
-    
-    // MARK: - 按钮状态更新
-    private func updateCollectButtonState() {
-        switch isCollecting {
-        case .incomplete:
-            collectButton.setTitle("收藏", for: .normal)
-            collectButton.isEnabled = false
-            collectButton.setTitleColor(UIColor(str: "#C4C7CA"), for: .normal)
-            collectActivityIndicator.stopAnimating()
-            
-            // 重置标题位置
-            collectButton.titleEdgeInsets = .zero
-        case .inprogress:
-            collectButton.setTitle("收藏中", for: .normal)
-            collectButton.isEnabled = false
-            collectButton.setTitleColor(UIColor(str: "#FE6A00"), for: .normal)
-            collectActivityIndicator.startAnimating()
-            
-            // 调整标题位置
-            collectButton.titleEdgeInsets = UIEdgeInsets(top: 0, left: 20, bottom: 0, right: 0)
-        case .completed:
-            collectButton.setTitle("收藏", for: .normal)
-            collectButton.isEnabled = true
-            collectButton.setTitleColor(UIColor(str: "#FE6A00"), for: .normal)
-            collectActivityIndicator.stopAnimating()
-            
-            // 重置标题位置
-            collectButton.titleEdgeInsets = .zero
-        }
-    }
-    
-    private func updateLineStarButtonState() {
-        switch isLiningStar {
-        case .incomplete:
-            lineStarButton.setTitle("对星", for: .normal)
-            lineStarButton.isEnabled = true
-            lineStarButton.backgroundColor = UIColor(str: "#FE6A00")
-            lineStarActivityIndicator.stopAnimating()
-            
-            // 重置标题位置
-            lineStarButton.titleEdgeInsets = .zero
-        case .inprogress:
-            lineStarButton.setTitle("对星中", for: .normal)
-            lineStarButton.isEnabled = false
-            lineStarButton.backgroundColor = UIColor(str: "#FE6A00").withAlphaComponent(0.7)
-            lineStarActivityIndicator.startAnimating()
-            
-            // 调整标题位置
-            lineStarButton.titleEdgeInsets = UIEdgeInsets(top: 0, left: 20, bottom: 0, right: 0)
-        case .completed:
-            lineStarButton.setTitle("对星", for: .normal)
-            lineStarButton.isEnabled = true
-            lineStarButton.backgroundColor = UIColor(str: "#FE6A00")
-            lineStarActivityIndicator.stopAnimating()
-            
-            // 重置标题位置
-            lineStarButton.titleEdgeInsets = .zero
-        }
-    }
-    
-    // MARK: - 公开方法
-    func startCollecting() {
-        isCollecting = .inprogress
-    }
-    
-    func stopCollecting(with collectedSuccess: Bool) {
-        isCollecting = collectedSuccess ? .completed : .incomplete
-    }
-    
-    func startLiningStar() {
-        isLiningStar = .inprogress
-    }
-    
-    func stopLiningStar(with lineSuccese: Bool) {
-        isLiningStar = lineSuccese ? .completed : .incomplete
     }
     
     // MARK: - 设备图片连续点击处理
@@ -372,16 +317,12 @@ class ProDeviceBaseMsgCell: UITableViewCell {
     // MARK: - Actions
     @objc private func modeCatTapped() {
         print("车载按钮点击")
-        resendModlAction?(1)
-        modeCatImageView.image = PersonalModule.image(named: "device_pro_mode_sel")
-        modeGroundImageView.image = PersonalModule.image(named: "device_pro_mode")
+        nowModelLabel.text = "当前模式：车载模式"
     }
     
     @objc private func modeGroundTapped() {
         print("地面按钮点击")
-        resendModlAction?(0)
-        modeCatImageView.image = PersonalModule.image(named: "device_pro_mode")
-        modeGroundImageView.image = PersonalModule.image(named: "device_pro_mode_sel")
+        nowModelLabel.text = "当前模式：地面模式"
     }
     
     // 对星完成更新模式
@@ -392,32 +333,18 @@ class ProDeviceBaseMsgCell: UITableViewCell {
         if status.mode == 1 {
             modeCatTapped()
         }
-        satelliteStatusImageView.image = PersonalModule.image(named: "device_mini_line_satellite")
-        stopCollecting(with: true)
-    }
-    
-    @objc private func collectionButtonTapped() {
-        print("收藏按钮点击")
-        
-        // 开始收藏动画
-        startCollecting()
-        
-        // 延迟执行回调，模拟网络请求
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
-            self.collectionAction?()
+        if status.antennaStatus == .stableTracking {
+            satelliteStatusImageView.image = PersonalModule.image(named: "device_mini_line_satellite")
+            upNetworkMsgView.isHidden = false
+            downNetworkMsgView.isHidden = false
+
+        }else {
+            satelliteStatusImageView.image = PersonalModule.image(named: "device_mini_noLine_satellite")
+            upNetworkMsgView.isHidden = true
+            downNetworkMsgView.isHidden = true
+            
         }
-    }
-    
-    @objc private func lineStarButtonTapped() {
-        print("对星按钮点击")
         
-        // 开始对星动画
-        startLiningStar()
-        
-        // 延迟执行回调，模拟网络请求
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
-            self.lineStarAction?()
-        }
     }
     
     // 配置方法
@@ -438,16 +365,54 @@ class ProDeviceBaseMsgCell: UITableViewCell {
             connectionStatusLabel.textColor = UIColor(hex: "#A0A3A7")
             connectionStatusLabel.text = "  •未连接"
             connectionStatusLabel.backgroundColor = UIColor(hex: "#DFE0E2")
-            wifiStatusImageView.image = PersonalModule.image(named: "device_pro_noline_wifi")
+            wifiStatusImageView.image = PersonalModule.image(named: "device_pro_noLine_wifi")
         }
     }
     
+    func updateNetworkSpeed(upText: String, downText: String) {
+        DispatchQueue.main.async {
+            self.upNetworkSpeedLabel.text = upText
+            self.downNetworkSpeedLabel.text = downText
+        }
+    }
+    
+    func updateNetworkSNR(rxSnr: Int, txSnr: Int) {
+        let rxSnrNum = rxSnr/10
+        if (rxSnrNum <= 0){
+            upNetworkSignalImageView.image = PersonalModule.image(named: "signal-full-00")
+        }else if (rxSnrNum < 4){
+            upNetworkSignalImageView.image = PersonalModule.image(named: "signal-full-01")
+        }else if (rxSnrNum < 8){
+            upNetworkSignalImageView.image = PersonalModule.image(named: "signal-full-02")
+        }else if (rxSnrNum < 11){
+            upNetworkSignalImageView.image = PersonalModule.image(named: "signal-full-03")
+        }else if (rxSnrNum < 14){
+            upNetworkSignalImageView.image = PersonalModule.image(named: "signal-full-04")
+        }else{
+            upNetworkSignalImageView.image = PersonalModule.image(named: "signal-full-05")
+        }
+        upNetworkSignalLabel.text = "\(rxSnrNum)dB"
+        let txSnrNum = txSnr/10
+        if (txSnrNum <= 0){
+            downNetworkSignalImageView.image = PersonalModule.image(named: "signal-full-00")
+        }else if (txSnrNum < 4){
+            downNetworkSignalImageView.image = PersonalModule.image(named: "signal-full-01")
+        }else if (txSnrNum < 8){
+            downNetworkSignalImageView.image = PersonalModule.image(named: "signal-full-02")
+        }else if (txSnrNum < 11){
+            downNetworkSignalImageView.image = PersonalModule.image(named: "signal-full-03")
+        }else if (txSnrNum < 14){
+            downNetworkSignalImageView.image = PersonalModule.image(named: "signal-full-04")
+        }else{
+            downNetworkSignalImageView.image = PersonalModule.image(named: "signal-full-05")
+        }
+        downNetworkSignalLabel.text = "\(txSnrNum)dB"
+    }
+
     
     // 可以在cell重用前重置状态
     override func prepareForReuse() {
         super.prepareForReuse()
         resetTapCounter()
-        stopCollecting(with: false)
-        stopLiningStar(with: false)
     }
 }

@@ -392,6 +392,19 @@ public extension Double {
     var radiansToDegrees: Double {
         return self * 180 / .pi
     }
+    
+    // 转换为度分秒格式字符串
+    func convertToDMSString(isLongitude: Bool) -> String {
+        // 根据经纬度类型和正负添加方向标识
+        let direction: String
+        if isLongitude {
+            direction = self >= 0 ? "E" : "W"
+        } else {
+            direction = self >= 0 ? "N" : "S"
+        }
+        
+        return String(format: "%.6f°%@", abs(self), direction)
+    }
 }
 
 // MARK: - 自定义运算符

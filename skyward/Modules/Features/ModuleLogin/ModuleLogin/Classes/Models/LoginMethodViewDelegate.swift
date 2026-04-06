@@ -7,6 +7,7 @@
 
 
 import UIKit
+import SWTheme
 
 // MARK: - 协议
 protocol LoginMethodViewDelegate: AnyObject {
@@ -45,8 +46,8 @@ class LoginMethodView: UIView {
     var selectedIndex: Int = 0
     
     // 配置属性
-    var normalColor: UIColor = defaultBlackColor
-    var selectedColor: UIColor = defaultOrangeColor
+    var normalColor: UIColor = ThemeManager.current.titleColor
+    var selectedColor: UIColor = ThemeManager.current.mainColor
     var underlineHeight: CGFloat = 3
     var buttonFont: UIFont = UIFont.systemFont(ofSize: 16, weight: .medium)
     

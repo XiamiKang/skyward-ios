@@ -7,9 +7,10 @@
 
 
 import UIKit
+import SWTheme
 
 // MARK: - 输入框协议
-protocol InputFieldDelegate: AnyObject {
+public protocol InputFieldDelegate: AnyObject {
     func inputFieldDidBeginEditing(_ inputField: BaseInputField)
     func inputFieldDidEndEditing(_ inputField: BaseInputField)
     func inputFieldTextDidChange(_ inputField: BaseInputField, text: String)
@@ -37,12 +38,12 @@ enum InputValidationRule {
     }
 }
 
-class BaseInputField: UIView {
+public class BaseInputField: UIView {
     
     // MARK: - UI Components
     let containerView: UIView = {
         let view = UIView()
-        view.backgroundColor = UIColor(hex: "#F2F3F4")
+        view.backgroundColor = ThemeManager.current.mediumGrayBGColor
         view.layer.cornerRadius = 8
         view.layer.borderWidth = 1
         view.layer.borderColor = UIColor.clear.cgColor
@@ -78,9 +79,9 @@ class BaseInputField: UIView {
     private var containerHeightConstraint: NSLayoutConstraint!
     
     // MARK: - Properties
-    weak var delegate: InputFieldDelegate?
+    public weak var delegate: InputFieldDelegate?
     var validationRule: InputValidationRule = .none
-    var placeholder: String = "" {
+    public var placeholder: String = "" {
         didSet {
             placeholderLabel.text = placeholder
             textField.attributedPlaceholder = NSAttributedString(
@@ -90,7 +91,7 @@ class BaseInputField: UIView {
         }
     }
     
-    var text: String {
+    public var text: String {
         return textField.text ?? ""
     }
     
@@ -100,7 +101,7 @@ class BaseInputField: UIView {
         }
     }
     
-    var errorColor: UIColor = defaultOrangeColor
+    var errorColor: UIColor = ThemeManager.current.mainColor
     var normalBorderColor: UIColor = .clear
     
     // MARK: - 状态管理
@@ -172,7 +173,7 @@ class BaseInputField: UIView {
     }
     
     // MARK: - 修复 hitTest 方法
-    override func hitTest(_ point: CGPoint, with event: UIEvent?) -> UIView? {
+    public override func hitTest(_ point: CGPoint, with event: UIEvent?) -> UIView? {
         // 首先调用父类的 hitTest
         let hitView = super.hitTest(point, with: event)
         
@@ -190,7 +191,7 @@ class BaseInputField: UIView {
     }
     
     // MARK: - Public Methods
-    func configure(placeholder: String, height: CGFloat = 50) {
+    public func configure(placeholder: String, height: CGFloat = 50) {
         self.placeholder = placeholder
         self.containerHeight = height
     }
@@ -294,14 +295,14 @@ class BaseInputField: UIView {
 
 // MARK: - UITextFieldDelegate
 extension BaseInputField: UITextFieldDelegate {
-    func textFieldDidBeginEditing(_ textField: UITextField) {
+    public func textFieldDidBeginEditing(_ textField: UITextField) {
         updateBorderColor()
         updatePlaceholderVisibility()
         clearErrorWhenEditing()
         delegate?.inputFieldDidBeginEditing(self)
     }
     
-    func textFieldDidEndEditing(_ textField: UITextField) {
+    public func textFieldDidEndEditing(_ textField: UITextField) {
         updateBorderColor()
         updatePlaceholderVisibility()
         
@@ -313,7 +314,7 @@ extension BaseInputField: UITextFieldDelegate {
         delegate?.inputFieldDidEndEditing(self)
     }
     
-    func textFieldShouldReturn(_ textField: UITextField) -> Bool {
+    public func textFieldShouldReturn(_ textField: UITextField) -> Bool {
         textField.resignFirstResponder()
         return true
     }

@@ -13,9 +13,9 @@ import SWKit
 public class DeviceListViewController: PersonalBaseViewController {
     
     // MARK: - 数据
-    private var selectedDeviceType: Int = 0 // 0: 行者mini, 1: 行者pro
-    private var miniDevices: [MiniDeviceData] = []
-    private var proDevices: [WiFiDevice] = []
+    private var selectedDeviceType: Int
+    private var miniDevices: [MiniDeviceData]
+    private var proDevices: [WiFiDevice]
     private let viewModel = PersonalViewModel()
     
     // MARK: - UI组件
@@ -51,6 +51,25 @@ public class DeviceListViewController: PersonalBaseViewController {
         return button
     }()
     
+    private lazy var userManualButton: UIButton = {
+        let button = UIButton(type: .custom)
+        button.translatesAutoresizingMaskIntoConstraints = false
+        button.setTitle("手册", for: .normal)
+        button.setTitleColor(.black, for: .normal)
+        button.setImage(PersonalModule.image(named: "device_userManual"), for: .normal)
+        var configuration = UIButton.Configuration.plain()
+        configuration.imagePadding = 5
+        configuration.contentInsets = NSDirectionalEdgeInsets(top: 0, leading: 0, bottom: 0, trailing: 0)
+        configuration.titleTextAttributesTransformer = UIConfigurationTextAttributesTransformer { incoming in
+            var outgoing = incoming
+            outgoing.font = .systemFont(ofSize: 14, weight: .regular)
+            return outgoing
+        }
+        button.configuration = configuration
+        button.addTarget(self, action: #selector(userManualClick), for: .touchUpInside)
+        return button
+    }()
+    
     private let collectionView: UICollectionView = {
         let layout = UICollectionViewFlowLayout()
         layout.minimumLineSpacing = 12
@@ -63,6 +82,19 @@ public class DeviceListViewController: PersonalBaseViewController {
         collectionView.showsVerticalScrollIndicator = false
         return collectionView
     }()
+    
+    public init(selectedDeviceType: Int) {
+        self.selectedDeviceType = selectedDeviceType
+        self.miniDevices = []
+        self.proDevices = []
+        super.init(nibName: nil, bundle: nil)
+        self.updateOptionButtons()
+        self.loadInitialData()
+    }
+    
+    @MainActor required init?(coder: NSCoder) {
+        fatalError("init(coder:) has not been implemented")
+    }
     
     // MARK: - 生命周期
     public override func viewDidLoad() {
@@ -79,6 +111,7 @@ public class DeviceListViewController: PersonalBaseViewController {
         super.viewWillAppear(animated)
         navigationController?.setNavigationBarHidden(true, animated: animated)
         loadDevices()
+        BluetoothManager.shared.startScanningForFilteredDevices()
     }
     
 }
@@ -94,6 +127,9 @@ extension DeviceListViewController {
         // 添加选项视图
         optionView.addSubview(miniButton)
         optionView.addSubview(proButton)
+        
+        // 添加手册按钮
+        customNavView.addSubview(userManualButton)
         
         // 添加设备列表
         view.addSubview(collectionView)
@@ -116,6 +152,10 @@ extension DeviceListViewController {
             proButton.topAnchor.constraint(equalTo: optionView.topAnchor, constant: 2),
             proButton.bottomAnchor.constraint(equalTo: optionView.bottomAnchor, constant: -2),
             proButton.widthAnchor.constraint(equalToConstant: 96),
+            
+            // 手册按钮
+            userManualButton.centerYAnchor.constraint(equalTo: optionView.centerYAnchor),
+            userManualButton.trailingAnchor.constraint(equalTo: customNavView.trailingAnchor, constant: -10),
             
             // 设备列表
             collectionView.topAnchor.constraint(equalTo: customNavView.bottomAnchor),
@@ -142,7 +182,7 @@ extension DeviceListViewController {
     private func loadDevices() {
         if selectedDeviceType == 0 {
             if let data = MiniDeviceDBManager.shared.qureyFromMiniDeviceDataAllData() {
-                miniDevices = data
+                miniDevices = data.filter { $0.state == 0 }
             }
         } else {
             // 行者pro设备
@@ -198,6 +238,11 @@ extension DeviceListViewController {
         selectedDeviceType = 1
         updateOptionButtons()
         loadDevices()
+    }
+    
+    @objc private func userManualClick() {
+        let vc = PersonalManualViewController()
+        self.navigationController?.pushViewController(vc, animated: true)
     }
 }
 
@@ -266,8 +311,6 @@ extension DeviceListViewController: UICollectionViewDataSource, UICollectionView
                 let device = miniDevices[indexPath.item]
                 navigateToMiniDeviceDetail(with: device)
                 BluetoothManager.shared.stopScanning()
-               
-                
             }
         }else {
             if proDevices.isEmpty {
@@ -279,7 +322,12 @@ extension DeviceListViewController: UICollectionViewDataSource, UICollectionView
                     showBindDeviceSheet()
                     return
                 }
-                navigateToProDeviceDetail()
+                let device = proDevices[indexPath.item]
+                if device.isConnected {
+                    navigateToProDeviceDetail()
+                }else {
+                    view.sw_showWarningToast("请确认已连接到设备WiFi")
+                }
             }
         }
     }

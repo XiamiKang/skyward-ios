@@ -16,6 +16,16 @@ struct BufferMsgData {
 
 class MiniDeviceNoSendMsgViewController: PersonalBaseViewController {
     
+    init(imeiStr: String) {
+        self.imeiStr = imeiStr
+        super.init(nibName: nil, bundle: nil)
+    }
+    
+    @MainActor required init?(coder: NSCoder) {
+        fatalError("init(coder:) has not been implemented")
+    }
+    
+    let imeiStr: String
     let noMsgView = UIView()
     let noMsgImageView = UIImageView()
     let noMsgText = UILabel()
@@ -28,6 +38,8 @@ class MiniDeviceNoSendMsgViewController: PersonalBaseViewController {
         case safe = 1
         case location = 2
         case custom = 3   // 最低优先级
+        case cancelsos = 4
+        case platformReqLocation = 5
         
         var displayInfo: (imageName: String, title: String) {
             switch self {
@@ -39,6 +51,10 @@ class MiniDeviceNoSendMsgViewController: PersonalBaseViewController {
                 return ("device_mini_buffer_location", "设备定位")
             case .custom:
                 return ("device_mini_buffer_msg", "自定义消息")
+            case .cancelsos:
+                return ("device_mini_buffer_sos", "SOS解除")
+            case .platformReqLocation:
+                return ("device_mini_buffer_location", "点名位置信息")
             }
         }
         
@@ -70,6 +86,16 @@ class MiniDeviceNoSendMsgViewController: PersonalBaseViewController {
         return tableView
     }()
     
+    private lazy var recordButton: UIButton = {
+        let button = UIButton()
+        button.translatesAutoresizingMaskIntoConstraints = false
+        button.setTitle("发送结果", for: .normal)
+        button.setTitleColor(.black, for: .normal)
+        button.titleLabel?.font = .systemFont(ofSize: 14, weight: .regular)
+        button.addTarget(self, action: #selector(recordClick), for: .touchUpInside)
+        return button
+    }()
+    
     override func viewDidLoad() {
         super.viewDidLoad()
         
@@ -77,6 +103,7 @@ class MiniDeviceNoSendMsgViewController: PersonalBaseViewController {
         setupConstraint()
         setupNotifications()
         initializeData()
+        refreshTableView()
     }
     
     private func initializeData() {
@@ -88,6 +115,7 @@ class MiniDeviceNoSendMsgViewController: PersonalBaseViewController {
         view.backgroundColor = .white
         customTitle.text = "待发送队列"
         
+        customNavView.addSubview(recordButton)
         self.view.addSubview(tableView)
         
         noMsgView.backgroundColor = .white
@@ -108,6 +136,12 @@ class MiniDeviceNoSendMsgViewController: PersonalBaseViewController {
         noMsgText.translatesAutoresizingMaskIntoConstraints = false
         
         NSLayoutConstraint.activate([
+            
+            recordButton.centerYAnchor.constraint(equalTo: customTitle.centerYAnchor),
+            recordButton.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -10),
+            recordButton.widthAnchor.constraint(equalToConstant: 80),
+            recordButton.heightAnchor.constraint(equalToConstant: 35),
+            
             tableView.topAnchor.constraint(equalTo: customNavView.bottomAnchor),
             tableView.leadingAnchor.constraint(equalTo: view.leadingAnchor),
             tableView.trailingAnchor.constraint(equalTo: view.trailingAnchor),
@@ -142,20 +176,37 @@ class MiniDeviceNoSendMsgViewController: PersonalBaseViewController {
     @objc private func showDeviceBufferInfo(_ notification: Notification) {
         guard let userInfo = notification.userInfo else { return }
         if let deviceBufferInfo = userInfo["deviceBufferInfo"] as? Data {
-//            print("Mini设备缓存区信息---\(deviceBufferInfo.hexString)")
-            noMsgView.isHidden = true
-            guard let communicationFrame = BluetoothManager.shared.parseCommunicationFrame(deviceBufferInfo) else { return }
-            // 根据命令码更新对应类型的数量
-            switch communicationFrame.commandCode {
-            case .alarmReport:
-                // alarmReport交给showAlarmInfo处理
-                BluetoothManager.shared.handleAlarmReport(communicationFrame.messageContent)
-            case .positionReport:
-                updateMessageCount(for: .location, increment: 1)
-            case .appCustomData:
-                updateMessageCount(for: .custom, increment: 1)
-            default:
-                break
+            if BluetoothManager.shared.deviceType == .TXTS {
+                guard let communicationFrame = BluetoothManager.shared.parseResponseFrame(deviceBufferInfo) else { return }
+                print("Mini设备缓存区信息---\(communicationFrame)")
+                // 根据命令码更新对应类型的数量
+                switch communicationFrame.commandCode {
+                case Command.alarmReport.chengduCode:
+                    BluetoothManager.shared.handleAlarmReport(communicationFrame.messageContent)
+                case Command.positionReport.chengduCode:
+                    updateMessageCount(for: .location, increment: 1)
+                case Command.appCustomData.chengduCode:
+                    updateMessageCount(for: .custom, increment: 1)
+                default:
+                    break
+                }
+            }else {
+//                print("K01--Mini设备获取的数据---\(deviceBufferInfo.hexString)")
+                guard let communicationFrame = BluetoothManager.shared.parseSimpleFrame(deviceBufferInfo) else { return }
+//                print("K01--Mini设备缓存区信息---\(communicationFrame.commandCode)")
+                // 根据命令码更新对应类型的数量
+                switch communicationFrame.commandCode {
+                case Command.alarmReport.k01Code:
+                    BluetoothManager.shared.handleK01AlarmReport(communicationFrame.messageContent)
+                case Command.positionReport.k01Code:
+                    updateMessageCount(for: .location, increment: 1)
+                case Command.appCustomData.k01Code:
+                    updateMessageCount(for: .custom, increment: 1)
+                case Command.platformReqLocation.k01Code:
+                    updateMessageCount(for: .platformReqLocation, increment: 1)
+                default:
+                    break
+                }
             }
             refreshTableView()
         }else {
@@ -165,18 +216,31 @@ class MiniDeviceNoSendMsgViewController: PersonalBaseViewController {
     
     @objc private func showAlarmInfo(_ notification: Notification) {
         guard let userInfo = notification.userInfo else { return }
-        if let alarmInfo = userInfo["alarmInfo"] as? AlarmInfo {
-            switch alarmInfo.alarmType {
-            case 0: // SOS
-                updateMessageCount(for: .sos, increment: 1)
-            case 1: // 报平安
-                updateMessageCount(for: .safe, increment: 1)
-            default:
-                break
+        if BluetoothManager.shared.deviceType == .TXTS {
+            if let alarmInfo = userInfo["alarmInfo"] as? AlarmInfo {
+                switch alarmInfo.alarmType {
+                case 0: // SOS
+                    updateMessageCount(for: .sos, increment: 1)
+                case 1: // 报平安
+                    updateMessageCount(for: .safe, increment: 1)
+                default:
+                    break
+                }
             }
-            
-            refreshTableView()
+        }else {
+            if let alarmInfo = userInfo["alarmInfo"] as? K01AlarmInfo {
+                switch alarmInfo.alarmType {
+                case .sos: // SOS
+                    updateMessageCount(for: .sos, increment: 1)
+                case .safe: // 报平安
+                    updateMessageCount(for: .safe, increment: 1)
+                case .cancelSOS: // 取消SOS
+                    updateMessageCount(for: .cancelsos, increment: 1)
+                }
+            }
         }
+        refreshTableView()
+        
     }
     
     private func updateMessageCount(for type: MessageType, increment: Int = 1) {
@@ -186,13 +250,22 @@ class MiniDeviceNoSendMsgViewController: PersonalBaseViewController {
     
     private func refreshTableView() {
         // 检查是否有数据
-        let hasData = bufferData.values.contains { $0 > 0 }
-        noMsgView.isHidden = hasData
-        tableView.isHidden = !hasData
+        print("缓冲区数量----\(bufferData)")
+        let hasData = bufferData.contains { $0.value > 0 }
+        
+        // hasData = true 表示有数据，应该显示tableView
+        // 所以：
+        noMsgView.isHidden = hasData      // 有数据时隐藏无消息视图
+        tableView.isHidden = !hasData     // 有数据时显示tableView
         
         if hasData {
             tableView.reloadData()
         }
+    }
+    
+    @objc private func recordClick() {
+        let vc = MiniDeviceSatelliteSendResultController(imeiStr: imeiStr)
+        navigationController?.pushViewController(vc, animated: true)
     }
 }
 
@@ -212,6 +285,10 @@ extension MiniDeviceNoSendMsgViewController: UITableViewDelegate, UITableViewDat
     
     func tableView(_ tableView: UITableView, heightForRowAt indexPath: IndexPath) -> CGFloat {
         return 60 // 或者你想要的合适高度
+    }
+    
+    func tableView(_ tableView: UITableView, didSelectRowAt indexPath: IndexPath) {
+//        BluetoothManager.shared.getSatelliteRecords()
     }
     
 }
@@ -278,6 +355,7 @@ class DevieceBufferMsgCell: UITableViewCell {
             numLabel.widthAnchor.constraint(equalToConstant: 80),
             numLabel.heightAnchor.constraint(equalToConstant: 18),
         ])
+        
         
         // 设置单元格样式
         selectionStyle = .none

@@ -22,9 +22,16 @@ public enum PersonalAPI {
     case userLogout                                                // 用户退出
     case cancellationUser                                          // 注销用户
     case addEmergencyContact(_ model: EmergencyContactModel)       // 新增紧急联系人（也是修改紧急联系人的接口，后台会自动覆盖）
-    case getDeviceFirmware(_ model: DeviceFirmwareModel)           // 获取设备的固件信息
-    case getEmergencyContact                                       // 获取紧急联系人
+    case getDeviceFirmware(_ model: DeviceFirmwareModel)           // 获取行者mini设备的固件信息
     case getUserInfo                                               // 获取用户信息
+    case getEmergencyContactList                                   // 获取紧急联系人列表
+    case deleteEmergencyContact(id: String)                        // 删除紧急联系人
+    case checkAppVersion(versionStr: String)                       // 获取APP更新版本
+    case checkRealNameAuth(_ model: RealNameModel)                 // 实名认证
+    case changePhoneGetVerifySmsCode                               // 修改手机号获取验证码
+    case checkPhone(_ smsCode: String)                             // 修改手机号验证手机号
+    case updateUserPhone(_ phone: String, smsCode: String)         // 修改手机号
+    case getWb02DeviceFirmware(_ model: Wb02DeviceFirmwareModel)   // 获取行者Pro设备的固件（base,prototype,wb02）
 }
 
 // MARK: - TargetType 实现
@@ -56,10 +63,24 @@ extension PersonalAPI: NetworkAPI {
             return "/txts-user-center-app/api/v1/emergency-contact"
         case .getDeviceFirmware:
             return "/txts-system/api/v1/firmware-version/check/newVersion"
-        case .getEmergencyContact:
-            return "/txts-user-center-app/api/v1/emergency-contact/info"
         case .getUserInfo:
             return "/txts-user-center-app/api/v1/my-center/info"
+        case .getEmergencyContactList:
+            return "/txts-user-center-app/api/v1/emergency-contact/list"
+        case .deleteEmergencyContact(let id):
+            return "/txts-user-center-app/api/v1/emergency-contact/\(id)"
+        case .checkAppVersion(let versionStr):
+            return "/txts-system/api/v1/app-version/check/version/\(versionStr)"
+        case .checkRealNameAuth:
+            return "/txts-user-center-app/api/v1/real-name/auth"
+        case .changePhoneGetVerifySmsCode:
+            return "/txts-user-center-app/api/v1/my-center/send/verifySmsCode"
+        case .checkPhone:
+            return "/txts-user-center-app/api/v1/my-center/verifyPhone"
+        case .updateUserPhone:
+            return "/txts-user-center-app/api/v1/my-center/phone"
+        case .getWb02DeviceFirmware:
+            return "/txts-system/api/v1/firmware-version/check/broad/newVersion"
         }
     }
     
@@ -68,12 +89,17 @@ extension PersonalAPI: NetworkAPI {
         case    .getDeviceList,
                 .userLogout,
                 .getDeviceFirmware,
-                .getEmergencyContact,
-                .getUserInfo:
+                .getUserInfo,
+                .getEmergencyContactList,
+                .checkAppVersion,
+                .changePhoneGetVerifySmsCode,
+                .checkPhone,
+                .getWb02DeviceFirmware:
             return .get
         case    .addEmergencyContact:
             return .post
-        case    .unBingMiniDevice:
+        case    .unBingMiniDevice,
+                .deleteEmergencyContact:
             return .delete
         case    .updateUserAvatar,
                 .updateUserNickname,
@@ -81,7 +107,9 @@ extension PersonalAPI: NetworkAPI {
                 .updateUserSex,
                 .updateUserSign,
                 .updateUserPassword,
-                .cancellationUser:
+                .cancellationUser,
+                .checkRealNameAuth,
+                .updateUserPhone:
             return .put
         }
     }
@@ -128,9 +156,12 @@ extension PersonalAPI: NetworkAPI {
                 parameters: model.toDictionary(),
                 encoding: JSONEncoding.default
             )
-        case .userLogout:
-            return .requestPlain
-        case .cancellationUser:
+        case .userLogout,
+            .cancellationUser,
+            .getUserInfo,
+            .getEmergencyContactList,
+            .deleteEmergencyContact,
+            .changePhoneGetVerifySmsCode:
             return .requestPlain
         case .addEmergencyContact(let model):
             return .requestParameters(
@@ -142,10 +173,31 @@ extension PersonalAPI: NetworkAPI {
                 parameters: model.toDictionary(),
                 encoding: URLEncoding.default
             )
-        case .getEmergencyContact:
-            return .requestPlain
-        case .getUserInfo:
-            return .requestPlain
+        case .checkAppVersion(_):
+            return .requestParameters(
+                parameters: ["platform":"ios"],
+                encoding: URLEncoding.default
+            )
+        case .checkRealNameAuth(let model):
+            return .requestParameters(
+                parameters: model.toDictionary(),
+                encoding: URLEncoding.httpBody
+            )
+        case .checkPhone(let smsCode):
+            return .requestParameters(
+                parameters: ["smsCode": smsCode],
+                encoding: URLEncoding.default
+            )
+        case .updateUserPhone(let phone, let smsCode):
+            return .requestParameters(
+                parameters: ["phone": phone, "smsCode": smsCode],
+                encoding: JSONEncoding.default
+            )
+        case .getWb02DeviceFirmware(let model):
+            return .requestParameters(
+                parameters: model.toDictionary(),
+                encoding: URLEncoding.default
+            )
         }
     }
     
@@ -239,14 +291,22 @@ public struct UnBindModel {
 }
 
 public struct EmergencyContactModel {
+    public let id: String?
     public let name: String
     public let phone: String
     
     func toDictionary() -> [String: Any] {
-        return [
+        var dict: [String: Any] = [
             "name": name,
             "phone": phone
-            ]
+        ]
+        
+        // 如果id不为nil，就添加到字典中
+        if let id = id {
+            dict["id"] = id
+        }
+        
+        return dict
     }
 }
 
@@ -269,6 +329,12 @@ public struct DeviceFirmwareModel {
     let versionCode: String
     let hardwareModel: String
     
+    public init(deviceType: Int, versionCode: String, hardwareModel: String) {
+        self.deviceType = deviceType
+        self.versionCode = versionCode
+        self.hardwareModel = hardwareModel
+    }
+    
     func toDictionary() -> [String: Any] {
         return [
             "deviceType": deviceType,
@@ -277,3 +343,43 @@ public struct DeviceFirmwareModel {
         ]
     }
 }
+
+
+public struct Wb02DeviceFirmwareModel {
+    
+    let versionCode: String
+    let hardwareModel: String
+    
+    public init(versionCode: String, hardwareModel: String) {
+        self.versionCode = versionCode
+        self.hardwareModel = hardwareModel
+    }
+    
+    func toDictionary() -> [String: Any] {
+        return [
+            "versionCode": versionCode,
+            "hardwareModel": hardwareModel
+        ]
+    }
+}
+
+public struct RealNameModel {
+    let realName: String
+    let idCard: String
+    
+    public init(realName: String, idCard: String) {
+        self.realName = realName
+        self.idCard = idCard
+    }
+    
+    func toDictionary() -> [String: Any] {
+        return [
+            "realName": realName,
+            "idCard": idCard
+        ]
+    }
+}
+
+
+
+

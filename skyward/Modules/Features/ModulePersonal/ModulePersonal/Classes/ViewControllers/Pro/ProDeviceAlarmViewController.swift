@@ -163,6 +163,11 @@ class ProDeviceAlarmViewController: PersonalBaseViewController {
               let result = userInfo["warning"] as? FaultCodes else {
             return
         }
+        
+        updateUI(with: result)
+    }
+    
+    private func updateUI(with result: FaultCodes) {
         dataSource = [
             ProDeviceAlarmInfo(statu: result.imu, value: "姿态故障"),
             ProDeviceAlarmInfo(statu: result.beidou, value: "定位故障"),
@@ -174,7 +179,6 @@ class ProDeviceAlarmViewController: PersonalBaseViewController {
             self.showNormal()
             self.tableView.reloadData()
         }
-        
     }
 
     
@@ -213,8 +217,15 @@ class ProDeviceAlarmViewController: PersonalBaseViewController {
         // 点击按钮时显示加载状态
         showLoading()
         
-        // 模拟获取数据
-        WiFiDeviceManager.shared.queryDeviceWarning { _ in }
+        WiFiDeviceManager.shared.queryDeviceWarning { [weak self] result in
+            switch result {
+            case .success(let faultCodes):
+                self?.updateUI(with: faultCodes)
+            case .failure(_):
+                // 处理错误情况，例如显示空状态或加载失败提示等
+                print("获取失败")
+            }
+        }
     }
     
     // MARK: - 模拟数据获取

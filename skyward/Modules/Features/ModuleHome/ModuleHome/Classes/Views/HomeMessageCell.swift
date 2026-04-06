@@ -14,9 +14,25 @@ class HomeMessageCell: UITableViewCell {
     
     private let contentLabel: UILabel = {
         let label = UILabel()
-        label.textAlignment = .left
-        label.font = UIFont.systemFont(ofSize: 14, weight: .regular)
-        label.textColor = UIColor(str: "#74777B")
+        label.font = .pingFangFontRegular(ofSize: 14)
+        label.textColor = ThemeManager.current.textColor
+        label.numberOfLines = 1
+        return label
+    }()
+    
+    private let msgTitleLabel: UILabel = {
+        let label = UILabel()
+        label.font = .pingFangFontMedium(ofSize: 16)
+        label.textColor = ThemeManager.current.titleColor
+        label.numberOfLines = 1
+        return label
+    }()
+    
+    private let timeLabel: UILabel = {
+        let label = UILabel()
+        label.font = .pingFangFontRegular(ofSize: 12)
+        label.textColor = ThemeManager.current.textColor
+        label.numberOfLines = 1
         return label
     }()
     
@@ -27,12 +43,17 @@ class HomeMessageCell: UITableViewCell {
         return imageView
     }()
     
+    private let nextImageView: UIImageView = {
+        let imageView = UIImageView()
+        imageView.image = HomeModule.image(named: "home_cell_next")
+        imageView.contentMode = .scaleAspectFit
+        imageView.isUserInteractionEnabled = true
+        return imageView
+    }()
+    
     override init(style: UITableViewCell.CellStyle, reuseIdentifier: String?) {
         super.init(style: style, reuseIdentifier: reuseIdentifier)
-        backgroundColor = .clear
-        selectionStyle = .none
-        contentView.addSubview(iconImageView)
-        contentView.addSubview(contentLabel)
+        setupUI()
         setupConstraints()
     }
     
@@ -40,25 +61,61 @@ class HomeMessageCell: UITableViewCell {
         fatalError("init(coder:) has not been implemented")
     }
     
+    private func setupUI() {
+        backgroundColor = .clear
+        selectionStyle = .none
+        contentView.addSubview(iconImageView)
+        contentView.addSubview(msgTitleLabel)
+        contentView.addSubview(timeLabel)
+        contentView.addSubview(contentLabel)
+        contentView.addSubview(nextImageView)
+    }
+    
     private func setupConstraints() {
         iconImageView.translatesAutoresizingMaskIntoConstraints = false
+        msgTitleLabel.translatesAutoresizingMaskIntoConstraints = false
+        timeLabel.translatesAutoresizingMaskIntoConstraints = false
         contentLabel.translatesAutoresizingMaskIntoConstraints = false
+        nextImageView.translatesAutoresizingMaskIntoConstraints = false
         
         iconImageView.snp.makeConstraints { make in
-            make.width.height.equalTo(18)
-            make.left.equalToSuperview()
-            make.centerY.equalToSuperview()
+            make.width.height.equalTo(swAdaptedValue(40))
+            make.left.centerY.equalToSuperview()
+        }
+        
+        nextImageView.snp.makeConstraints { make in
+            make.width.height.equalTo(swAdaptedValue(16))
+            make.right.centerY.equalToSuperview()
         }
         
         contentLabel.snp.makeConstraints { make in
             make.left.equalTo(iconImageView.snp.right).offset(Layout.hSpacing)
-            make.centerY.equalToSuperview()
-            make.right.equalToSuperview()
+            make.right.equalTo(nextImageView.snp.left).offset(-Layout.hSpacing)
+            make.top.equalTo(msgTitleLabel.snp.bottom).offset(swAdaptedValue(4))
+            make.bottom.lessThanOrEqualToSuperview().inset(swAdaptedValue(10))
         }
+        
+        msgTitleLabel.snp.makeConstraints { make in
+            make.height.equalTo(swAdaptedValue(22))
+            make.top.equalToSuperview().inset(swAdaptedValue(10))
+            make.left.equalTo(iconImageView.snp.right).offset(Layout.hSpacing)
+        }
+        
+        timeLabel.snp.makeConstraints { make in
+            make.centerY.equalTo(msgTitleLabel)
+            make.left.equalTo(msgTitleLabel.snp.right).offset(swAdaptedValue(4))
+        }
+        
     }
     
     func configure(with message: HomeNoticeItem) {
-        if let icon = message.noticeType.icon {
+        msgTitleLabel.text = message.noticeType?.title
+        if let noticeTime = message.noticeTimeTimestamp {
+            timeLabel.text = DateFormatter.fullPretty.string(from: Date(timeIntervalSince1970: Double(noticeTime) / 1000))
+        } else {
+            timeLabel.text = nil
+        }
+        if let icon = message.noticeType?.icon {
             iconImageView.image = HomeModule.image(named: icon)
         } else {
             iconImageView.image = nil
@@ -67,6 +124,11 @@ class HomeMessageCell: UITableViewCell {
             contentLabel.text = content
         } else {
             contentLabel.text = nil
+        }
+        if message.noticeType == .weather {
+            contentLabel.numberOfLines = 2
+        }else {
+            contentLabel.numberOfLines = 1
         }
     }
 }

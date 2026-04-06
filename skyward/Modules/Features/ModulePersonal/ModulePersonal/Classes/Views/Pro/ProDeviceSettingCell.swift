@@ -7,6 +7,8 @@
 
 import UIKit
 import SWKit
+import TXKit
+import SWTheme
 
 class ProDeviceSettingCell: UITableViewCell {
 
@@ -27,6 +29,7 @@ class ProDeviceSettingCell: UITableViewCell {
         layout.minimumInteritemSpacing = 0
         
         let collectionView = UICollectionView(frame: .zero, collectionViewLayout: layout)
+        collectionView.backgroundColor = .clear
         collectionView.delegate = self
         collectionView.dataSource = self
         
@@ -55,7 +58,7 @@ class ProDeviceSettingCell: UITableViewCell {
     
     private func setupUI() {
         selectionStyle = .none
-        backgroundColor = UIColor(str: "#F2F3F4")
+        backgroundColor = ThemeManager.current.mediumGrayBGColor
         
         bgView.backgroundColor = .white
         bgView.layer.cornerRadius = 8
@@ -142,21 +145,27 @@ class ProDeviceSettingCell: UITableViewCell {
         }
         newVersion = false
         let currentVersion = String(result.ACUVersion.dropFirst())
-        let hardwareModel = "4.0.0"
-        let model = DeviceFirmwareModel(deviceType: 2, versionCode: currentVersion, hardwareModel: hardwareModel)
-        viewModel.fetchDeviceFirmware(model: model)
-            .receive(on: DispatchQueue.main)
-            .sink { _ in
-                
-            } receiveValue: { [weak self] firmwareData in
-                guard let self = self, let url = firmwareData.firmwareUrl else { return }
-                self.newVersion = true
-                DispatchQueue.main.async {
-                    self.collectionView.reloadData()
-                }
+        let savedVersion = FirmwareManager.shared.getCurrentStoredVersion(for: WiFiDeviceManager.shared.type)
+        switch currentVersion.compareVersion(savedVersion) {
+        case .orderedAscending:
+            print("\(currentVersion) < \(savedVersion)")
+            self.newVersion = true
+            DispatchQueue.main.async {
+                self.collectionView.reloadData()
             }
-            .store(in: &self.viewModel.cancellables)
-        
+        case .orderedDescending:
+            print("\(currentVersion) > \(savedVersion)")
+            self.newVersion = false
+            DispatchQueue.main.async {
+                self.collectionView.reloadData()
+            }
+        case .orderedSame:
+            print("\(currentVersion) == \(savedVersion)")
+            self.newVersion = false
+            DispatchQueue.main.async {
+                self.collectionView.reloadData()
+            }
+        }
     }
 }
 

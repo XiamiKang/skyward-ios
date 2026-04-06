@@ -24,6 +24,7 @@ class SevenDayForecastView: UIView {
         super.init(frame: frame)
         setupUI()
         setupTableView()
+        showNoData()
     }
     
     required init?(coder: NSCoder) {

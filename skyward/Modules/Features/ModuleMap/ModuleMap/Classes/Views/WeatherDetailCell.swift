@@ -40,7 +40,7 @@ class WeatherDetailCell: UITableViewCell {
     
     // MARK: - 设置UI
     private func setupUI() {
-        backgroundColor = .systemBackground
+        backgroundColor = .white
         selectionStyle = .none
         
         // 设置当前天气视图
@@ -48,6 +48,9 @@ class WeatherDetailCell: UITableViewCell {
         
         // 布局所有视图
         layoutAllViews()
+        
+        //  初始化
+        creatWeatherMetrics()
     }
     
     private func setupCurrentWeatherView() {
@@ -55,26 +58,26 @@ class WeatherDetailCell: UITableViewCell {
         currentWeatherView.translatesAutoresizingMaskIntoConstraints = false
         
         // 天气图标
-        weatherIconImageView.image = MapModule.image(named: "100")
+        weatherIconImageView.image = MapModule.image(named: "999")
         weatherIconImageView.contentMode = .scaleAspectFit
         weatherIconImageView.translatesAutoresizingMaskIntoConstraints = false
         
         // 温度标签
         temperatureLabel.font = UIFont.systemFont(ofSize: 20, weight: .medium)
         temperatureLabel.textColor = .black
-        temperatureLabel.text = "--°C"
+        temperatureLabel.text = "--"
         temperatureLabel.translatesAutoresizingMaskIntoConstraints = false
         
         // 天气状况文字
         weatherTextLabel.font = UIFont.systemFont(ofSize: 12, weight: .regular)
-        weatherTextLabel.textColor = .systemGray2
-        weatherTextLabel.text = "晴"
+        weatherTextLabel.textColor = UIColor(str: "#84888C")
+        weatherTextLabel.text = "--"
         weatherTextLabel.translatesAutoresizingMaskIntoConstraints = false
         
         // 最高最低温度
         highLowTempLabel.font = UIFont.systemFont(ofSize: 12, weight: .regular)
-        highLowTempLabel.textColor = .systemGray2
-        highLowTempLabel.text = "--°C/--°C"
+        highLowTempLabel.textColor = UIColor(str: "#84888C")
+        highLowTempLabel.text = "--"
         highLowTempLabel.translatesAutoresizingMaskIntoConstraints = false
         
         currentWeatherView.addSubview(weatherIconImageView)
@@ -146,6 +149,44 @@ class WeatherDetailCell: UITableViewCell {
         
         // 计算并更新最高最低温度
         updateHighLowTemperatures()
+    }
+    
+    // MARK: - 初始化
+    private func creatWeatherMetrics() {
+        let metrics = [
+            WeatherMetricItem(
+                title: "降水量",
+                iconName: "map_weather_precip",
+                value: "--"
+            ),
+            WeatherMetricItem(
+                title: "能见度",
+                iconName: "map_weather_vis",
+                value: "--"
+            ),
+            WeatherMetricItem(
+                title: "风",
+                iconName: "map_weather_windDir",
+                value: "--"
+            ),
+            WeatherMetricItem(
+                title: "湿度",
+                iconName: "map_weather_humidity",
+                value: "--"
+            ),
+            WeatherMetricItem(
+                title: "云量",
+                iconName: "map_weather_cloud",
+                value: "--"
+            ),
+            WeatherMetricItem(
+                title: "气压",
+                iconName: "map_weather_pressure",
+                value: "--"
+            )
+        ]
+        
+        metricsGridView.configure(with: metrics)
     }
     
     // MARK: - 更新当前天气

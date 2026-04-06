@@ -18,7 +18,7 @@ struct BottomButtonBarConfig {
     let buttonSize: CGFloat
     
     /// 默认配置
-    static let `default` = BottomButtonBarConfig(buttonImageNames: [], spacing: 48, buttonSize: swAdaptedValue(40))
+    static let `default` = BottomButtonBarConfig(buttonImageNames: [], spacing: 24, buttonSize: swAdaptedValue(40))
 }
 
 /// 通用底部按钮栏视图
@@ -96,12 +96,11 @@ class MeasureBottomView: BottomButtonBarView {
     // 便捷访问按钮
     var revocationButton: UIButton { buttons[0] }
     var deleteButton: UIButton { buttons[1] }
-    var exitButton: UIButton { buttons[2] }
     
     init() {
         let config = BottomButtonBarConfig(
-            buttonImageNames: ["measure_revocation", "measure_delete", "measure_exit"],
-            spacing: 48,
+            buttonImageNames: ["measure_revocation", "measure_delete"],
+            spacing: 24,
             buttonSize: swAdaptedValue(40)
         )
         super.init(config: config)
@@ -117,16 +116,28 @@ class RouteBottomView: BottomButtonBarView {
     
     // 便捷访问按钮
     var revocationButton: UIButton { buttons[0] }
-    var confirmButton: UIButton { buttons[1] }
-    var exitButton: UIButton { buttons[2] }
+    var confirmButton = UIButton()
+    var deleteButton: UIButton { buttons[1] }
     
     init() {
         let config = BottomButtonBarConfig(
-            buttonImageNames: ["measure_revocation", "route_confirm", "measure_exit"],
-            spacing: 48,
+            buttonImageNames: ["measure_revocation", "measure_delete"],
+            spacing: 24,
             buttonSize: swAdaptedValue(40)
         )
         super.init(config: config)
+        
+        confirmButton.backgroundColor = ThemeManager.current.mainColor
+        confirmButton.cornerRadius = config.buttonSize * 0.5
+        confirmButton.titleLabel?.font = .pingFangFontMedium(ofSize: 16)
+        confirmButton.setTitle("保存", for: .normal)
+        confirmButton.setTitleColor(.white, for: .normal)
+        confirmButton.translatesAutoresizingMaskIntoConstraints = false
+        NSLayoutConstraint.activate([
+            confirmButton.widthAnchor.constraint(equalToConstant: swAdaptedValue(128)),
+            confirmButton.heightAnchor.constraint(equalToConstant: config.buttonSize)
+        ])
+        insertArrangedSubview(confirmButton, at: 1)
     }
     
     required init(coder: NSCoder) {

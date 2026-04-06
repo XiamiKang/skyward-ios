@@ -229,7 +229,7 @@ public class ForgotPasswordViewController: LoginBaseViewController {
             passwordTipLabel.textColor = UIColor.init(hex: "#84888C")
         } else {
             passwordTipLabel.text = isValid ? "密码格式正确" : "需包含英文大小写和数字，长度6~20位"
-            passwordTipLabel.textColor = isValid ? UIColor.systemGreen : UIColor.orange
+            passwordTipLabel.textColor = isValid ? UIColor.green : UIColor.orange
         }
     }
     
@@ -240,7 +240,7 @@ public class ForgotPasswordViewController: LoginBaseViewController {
             confirmPasswordTipLabel.textColor = UIColor.init(hex: "#84888C")
         } else {
             confirmPasswordTipLabel.text = isValid ? "密码一致" : "两次输入的密码不一致"
-            confirmPasswordTipLabel.textColor = isValid ? UIColor.systemGreen : UIColor.orange
+            confirmPasswordTipLabel.textColor = isValid ? UIColor.green : UIColor.orange
         }
     }
     
@@ -306,7 +306,7 @@ public class ForgotPasswordViewController: LoginBaseViewController {
         
         // 这里添加实际的重置密码API调用
         print("开始重置密码: 手机号=\(phone), 验证码=\(verificationCode)")
-        view.sw_showSuccessToast("重置密码请求已发送")
+//        view.sw_showSuccessToast("重置密码请求已发送")
         
         viewModel.forgotPassword(phone: phone, smsCode: verificationCode, newPassword: newPassword) { [weak self] result in
             self?.handlePasswordResetResult(result)

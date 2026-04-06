@@ -20,7 +20,7 @@ public class PersonalViewModel: ObservableObject {
     // MARK: - 输出属性（使用 @Published 直接定义）
     @Published public var deviceListData: [MiniDeviceData]?
     @Published public var deviceFirmwareData: FirmwareData?
-    @Published public var emergencyInfoData: EmergencyInfoData?
+    @Published public var emergencyInfoData: [EmergencyInfoData]?
     @Published public var userInfoData: UserInfoData?
     @Published public var error: PersonalError?
     @Published public var isLoading = false
@@ -28,7 +28,7 @@ public class PersonalViewModel: ObservableObject {
     // MARK: - 输入
     public struct Input {
         public let deviceListRequest = PassthroughSubject<BaseModel, Never>()
-        let deviceFirmwareRequest = PassthroughSubject<DeviceFirmwareModel, Never>()
+        public let deviceFirmwareRequest = PassthroughSubject<DeviceFirmwareModel, Never>()
         let emergencyRequest = PassthroughSubject<Void, Never>()
         let getUserInfoRequest = PassthroughSubject<Void, Never>()
     }
@@ -83,11 +83,11 @@ public class PersonalViewModel: ObservableObject {
         
         // 绑定获取紧急联系人
         input.emergencyRequest
-            .flatMap { [weak self] model -> AnyPublisher<EmergencyInfoData, PersonalError> in
+            .flatMap { [weak self] model -> AnyPublisher<[EmergencyInfoData], PersonalError> in
                 guard let self = self else {
                     return Fail(error: .networkError("ViewModel 已释放")).eraseToAnyPublisher()
                 }
-                return self.checkEmergency()
+                return self.checkEmergencyList()
             }
             .receive(on: DispatchQueue.main)
             .sink { [weak self] completion in
@@ -279,21 +279,58 @@ extension PersonalViewModel {
         .eraseToAnyPublisher()
     }
     
-    // MARK: - 获取紧急联系人
-    public func checkEmergency() -> AnyPublisher<EmergencyInfoData, PersonalError> {
+    // MARK: - 获取紧急联系人列表
+    public func checkEmergencyList() -> AnyPublisher<[EmergencyInfoData], PersonalError> {
         isLoading = true
         
-        return Future<EmergencyInfoData, PersonalError> { [weak self] promise in
+        return Future<[EmergencyInfoData], PersonalError> { [weak self] promise in
             guard let self = self else { return }
             
-            self.personalService.getEmergencyContact { result in
+            self.personalService.getEmergencyContactList { result in
                 DispatchQueue.main.async {
                     self.isLoading = false
                     
                     switch result {
                     case .success(let response):
                         do {
-                            let baseResponse = try JSONDecoder().decode(BaseResponse<EmergencyInfoData>.self, from: response.data)
+                            let baseResponse = try JSONDecoder().decode(BaseResponse<[EmergencyInfoData]>.self, from: response.data)
+                            
+                            if baseResponse.success, let data = baseResponse.data {
+                                promise(.success(data))
+                            } else {
+                                promise(.failure(.businessError(
+                                    message: baseResponse.msg,
+                                    code: baseResponse.code
+                                )))
+                            }
+                        } catch {
+                            promise(.failure(.parseError("数据解析失败")))
+                        }
+                        
+                    case .failure(let error):
+                        promise(.failure(.networkError(error.localizedDescription)))
+                    }
+                }
+            }
+        }
+        .eraseToAnyPublisher()
+    }
+    
+    // MARK: - 获取紧急联系人列表
+    public func getEmergencyList() -> AnyPublisher<[EmergencyInfoData], PersonalError> {
+        isLoading = true
+        
+        return Future<[EmergencyInfoData], PersonalError> { [weak self] promise in
+            guard let self = self else { return }
+            
+            self.personalService.getEmergencyContactList { result in
+                DispatchQueue.main.async {
+                    self.isLoading = false
+                    
+                    switch result {
+                    case .success(let response):
+                        do {
+                            let baseResponse = try JSONDecoder().decode(BaseResponse<[EmergencyInfoData]>.self, from: response.data)
                             
                             if baseResponse.success, let data = baseResponse.data {
                                 promise(.success(data))
@@ -376,6 +413,43 @@ extension PersonalViewModel {
         .eraseToAnyPublisher()
     }
     
+    // 删除紧急联系人
+    public func deleteEmergencyContact(id: String) -> AnyPublisher<Bool, PersonalError> {
+        isLoading = true
+        
+        return Future<Bool, PersonalError> { [weak self] promise in
+            guard let self = self else { return }
+            
+            self.personalService.deleteEmergencyContact(id) { result in
+                DispatchQueue.main.async {
+                    self.isLoading = false
+                    
+                    switch result {
+                    case .success(let response):
+                        do {
+                            let baseResponse = try JSONDecoder().decode(BaseResponse<Bool>.self, from: response.data)
+                            
+                            if baseResponse.success, let data = baseResponse.data {
+                                promise(.success(data))
+                            } else {
+                                promise(.failure(.businessError(
+                                    message: baseResponse.msg,
+                                    code: baseResponse.code
+                                )))
+                            }
+                        } catch {
+                            promise(.failure(.parseError("数据解析失败")))
+                        }
+                        
+                    case .failure(let error):
+                        promise(.failure(.networkError(error.localizedDescription)))
+                    }
+                }
+            }
+        }
+        .eraseToAnyPublisher()
+    }
+    
     // MARK: - 获取用户信息
     public func checkUserInfo() -> AnyPublisher<UserInfoData, PersonalError> {
         isLoading = true
@@ -393,6 +467,9 @@ extension PersonalViewModel {
                             let baseResponse = try JSONDecoder().decode(BaseResponse<ResponseUserInfoData>.self, from: response.data)
                             
                             if baseResponse.success, let data = baseResponse.data?.userInfo {
+                                if let realNameAuth = baseResponse.data?.realNameAuthStatus {
+                                    UserManager.shared.realNameAuthStatus = realNameAuth == 1
+                                }
                                 promise(.success(data))
                             } else {
                                 promise(.failure(.businessError(
@@ -705,4 +782,193 @@ extension PersonalViewModel {
         .eraseToAnyPublisher()
     }
     
+    
+    // MARK: - 获取App更新版本
+    public func checkAppVersion(versionStr: String) -> AnyPublisher<AppVersionData, PersonalError> {
+        isLoading = true
+        
+        return Future<AppVersionData, PersonalError> { [weak self] promise in
+            guard let self = self else { return }
+            
+            self.personalService.checkAppVersion(versionStr) { result in
+                DispatchQueue.main.async {
+                    self.isLoading = false
+                    
+                    switch result {
+                    case .success(let response):
+                        do {
+                            let baseResponse = try JSONDecoder().decode(BaseResponse<AppVersionData>.self, from: response.data)
+                            
+                            if baseResponse.success, let data = baseResponse.data {
+                                promise(.success(data))
+                            } else {
+                                promise(.failure(.businessError(
+                                    message: baseResponse.msg,
+                                    code: baseResponse.code
+                                )))
+                            }
+                        } catch {
+                            promise(.failure(.parseError("数据解析失败")))
+                        }
+                        
+                    case .failure(let error):
+                        promise(.failure(.networkError(error.localizedDescription)))
+                    }
+                }
+            }
+        }
+        .eraseToAnyPublisher()
+    }
+    
+    // MARK: - 实名认证
+    public func checkRealNameAuth(model: RealNameModel) -> AnyPublisher<Bool, PersonalError> {
+        isLoading = true
+        
+        return Future<Bool, PersonalError> { [weak self] promise in
+            guard let self = self else { return }
+            
+            self.personalService.checkRealNameAuth(model: model) { result in
+                DispatchQueue.main.async {
+                    self.isLoading = false
+                    
+                    switch result {
+                    case .success(let response):
+                        do {
+                            let baseResponse = try JSONDecoder().decode(BaseResponse<Bool>.self, from: response.data)
+                            
+                            if baseResponse.success, let data = baseResponse.data {
+                                promise(.success(data))
+                            } else {
+                                promise(.failure(.businessError(
+                                    message: baseResponse.msg,
+                                    code: baseResponse.code
+                                )))
+                            }
+                        } catch {
+                            promise(.failure(.parseError("数据解析失败")))
+                        }
+                        
+                    case .failure(let error):
+                        promise(.failure(.networkError(error.localizedDescription)))
+                    }
+                }
+            }
+        }
+        .eraseToAnyPublisher()
+    }
+    
+    // MARK: - 修改手机号发送验证码验证原手机号
+    public func changePhoneSendSmsCode() -> AnyPublisher<Bool, PersonalError> {
+        isLoading = true
+        
+        return Future<Bool, PersonalError> { [weak self] promise in
+            guard let self = self else { return }
+            
+            self.personalService.changePhoneSendSmsCode() { result in
+                DispatchQueue.main.async {
+                    self.isLoading = false
+                    
+                    switch result {
+                    case .success(let response):
+                        do {
+                            let baseResponse = try JSONDecoder().decode(BaseResponse<Bool>.self, from: response.data)
+                            
+                            if baseResponse.success, let data = baseResponse.data {
+                                promise(.success(data))
+                            } else {
+                                promise(.failure(.businessError(
+                                    message: baseResponse.msg,
+                                    code: baseResponse.code
+                                )))
+                            }
+                        } catch {
+                            promise(.failure(.parseError("数据解析失败")))
+                        }
+                        
+                    case .failure(let error):
+                        promise(.failure(.networkError(error.localizedDescription)))
+                    }
+                }
+            }
+        }
+        .eraseToAnyPublisher()
+    }
+    
+    // MARK: - 修改手机号验证原手机号
+    public func checkPhone(smsCode: String) -> AnyPublisher<Bool, PersonalError> {
+        isLoading = true
+        
+        return Future<Bool, PersonalError> { [weak self] promise in
+            guard let self = self else { return }
+            
+            self.personalService.checkPhone(smsCode: smsCode) { result in
+                DispatchQueue.main.async {
+                    self.isLoading = false
+                    
+                    switch result {
+                    case .success(let response):
+                        do {
+                            let baseResponse = try JSONDecoder().decode(BaseResponse<Bool>.self, from: response.data)
+                            
+                            if baseResponse.success, let data = baseResponse.data {
+                                promise(.success(data))
+                            } else {
+                                promise(.failure(.businessError(
+                                    message: baseResponse.msg,
+                                    code: baseResponse.code
+                                )))
+                            }
+                        } catch {
+                            promise(.failure(.parseError("数据解析失败")))
+                        }
+                        
+                    case .failure(let error):
+                        promise(.failure(.networkError(error.localizedDescription)))
+                    }
+                }
+            }
+        }
+        .eraseToAnyPublisher()
+    }
+    
+    // MARK: - 修改手机号
+    public func updateUserPhone(phone: String, smsCode: String) -> AnyPublisher<Bool, PersonalError> {
+        isLoading = true
+        
+        return Future<Bool, PersonalError> { [weak self] promise in
+            guard let self = self else { return }
+            
+            self.personalService.updateUserPhont(phone: phone, smsCode: smsCode) { result in
+                DispatchQueue.main.async {
+                    self.isLoading = false
+                    
+                    switch result {
+                    case .success(let response):
+                        do {
+                            let baseResponse = try JSONDecoder().decode(BaseResponse<Bool>.self, from: response.data)
+                            
+                            if baseResponse.success, let data = baseResponse.data {
+                                promise(.success(data))
+                            } else {
+                                promise(.failure(.businessError(
+                                    message: baseResponse.msg,
+                                    code: baseResponse.code
+                                )))
+                            }
+                        } catch {
+                            promise(.failure(.parseError("数据解析失败")))
+                        }
+                        
+                    case .failure(let error):
+                        promise(.failure(.networkError(error.localizedDescription)))
+                    }
+                }
+            }
+        }
+        .eraseToAnyPublisher()
+    }
+    
 }
+
+
+

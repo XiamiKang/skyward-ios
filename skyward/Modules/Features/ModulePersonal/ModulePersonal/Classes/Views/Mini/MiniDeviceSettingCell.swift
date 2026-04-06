@@ -8,6 +8,7 @@
 
 import UIKit
 import SWKit
+import SWTheme
 
 class MiniDeviceSettingCell: UITableViewCell {
 
@@ -24,6 +25,7 @@ class MiniDeviceSettingCell: UITableViewCell {
         layout.minimumInteritemSpacing = 0
         
         let collectionView = UICollectionView(frame: .zero, collectionViewLayout: layout)
+        collectionView.backgroundColor = .white
         collectionView.delegate = self
         collectionView.dataSource = self
         
@@ -32,10 +34,11 @@ class MiniDeviceSettingCell: UITableViewCell {
     }()
     
     private let dataSource: [ProDeviceSettingManageData] = [
-        ProDeviceSettingManageData(imageStr: "device_mini_setting2", title: "设置"),
+        ProDeviceSettingManageData(imageStr: "device_mini_sendList", title: "待发送队列"),
         ProDeviceSettingManageData(imageStr: "device_pro_restart", title: "复位"),
         ProDeviceSettingManageData(imageStr: "device_pro_msg", title: "设备信息"),
         ProDeviceSettingManageData(imageStr: "device_pro_update", title: "固件升级"),
+        ProDeviceSettingManageData(imageStr: "device_mini_setting2", title: "设置"),
         
     ]
     
@@ -50,7 +53,7 @@ class MiniDeviceSettingCell: UITableViewCell {
     
     private func setupUI() {
         selectionStyle = .none
-        backgroundColor = UIColor(str: "#F2F3F4")
+        backgroundColor = ThemeManager.current.mediumGrayBGColor
         
         bgView.backgroundColor = .white
         bgView.layer.cornerRadius = 8

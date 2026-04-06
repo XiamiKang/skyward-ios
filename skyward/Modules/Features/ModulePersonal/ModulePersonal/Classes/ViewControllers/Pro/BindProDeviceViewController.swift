@@ -84,6 +84,7 @@ class BindProDeviceViewController: PersonalBaseViewController {
         setupConstraints()
         loadWifiData()
         getWiFiSSID()
+        setNotification()
     }
     
     private func setupUI() {
@@ -189,6 +190,7 @@ class BindProDeviceViewController: PersonalBaseViewController {
     
     @objc private func stateBindProClick() {
         // 显示 loading
+        
         if let wifiName = wifiName,
            wifiName.contains("天行探索") {
             showLoading()
@@ -267,15 +269,21 @@ class BindProDeviceViewController: PersonalBaseViewController {
         }
     }
     
-    func getWiFiSSID() {
-        WiFiDeviceManager.shared.checkWiFiPermission { [weak self] wifiInfo in
+    @objc func getWiFiSSID() {
+        WiFiDeviceManager.shared.checkWiFiPermission(completion: { [weak self] wifiInfo in
+            print("WiFi信息----\(wifiInfo)")
             if wifiInfo.isAvailable {
                 self?.wifiName = wifiInfo.ssid
                 self?.bssid = wifiInfo.bssid
                 self?.loadWifiData()
             }
-        }
+        })
     }
+    
+    private func setNotification() {
+        NotificationCenter.default.addObserver(self, selector: #selector(getWiFiSSID), name: .applicationDidBecomeActive, object: nil)
+    }
+
 }
 
 extension BindProDeviceViewController: UITableViewDelegate, UITableViewDataSource {
@@ -297,3 +305,8 @@ extension BindProDeviceViewController: UITableViewDelegate, UITableViewDataSourc
         }
     }
 }
+
+public extension Notification.Name {
+    static let applicationDidBecomeActive = Notification.Name("applicationDidBecomeActive")
+}
+

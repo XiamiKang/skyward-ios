@@ -11,8 +11,18 @@ import SWKit
 class ConvPageRouter: RoutableActionType {
     
     static func handle(_ url: any URLConvertible, _ callback: ((Any?) -> Void)?) -> Bool {
-        let vc = ConvViewController()
-        vc.title = "服务中心"
+        var params: [String : String] = [:]
+        if let queryParameters = url.urlValue?.queryParameters {
+            params = queryParameters
+        }
+        let convId = params["id"]
+        let conv : Conversation
+        if convId == UserManager.shared.userId {
+            conv = Conversation.serviceConversation()
+        } else {
+            conv = Conversation(id: convId, name: nil, type: nil, createTimeTimestamp: nil, enable: true)
+        }
+        let vc = ConvViewController(conversation: conv)
         UIWindow.topViewController()?.navigationController?.pushViewController(vc, animated: true)
 
         return true
@@ -20,20 +30,5 @@ class ConvPageRouter: RoutableActionType {
     
     static var patterns: [String] {
         return ["\(RouteTable.convPageUrl)[^\\s]*"]
-    }
-}
-
-class UrgentMessagePageRouter: RoutableActionType {
-    
-    static func handle(_ url: any URLConvertible, _ callback: ((Any?) -> Void)?) -> Bool {
-        let vc = UrgentMessageViewController()
-        vc.title = "服务中心"
-        UIWindow.topViewController()?.navigationController?.pushViewController(vc, animated: true)
-
-        return true
-    }
-    
-    static var patterns: [String] {
-        return ["\(RouteTable.urgentMessagePageUrl)[^\\s]*"]
     }
 }

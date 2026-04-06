@@ -12,12 +12,31 @@ import SWKit
 
 enum HomeAPI {
     case weatherInfo(longitude: Double, latitude: Double)
+    
+    case noticeList
+    
+    static var noticeNew_sub: String {
+        return "txts/home/servertoapp/notice/new/\(UserManager.shared.userId)"
+    }
+
+    static var cleanMessage_pub: String {
+        return "txts/home/apptoserver/notice/clean/\(UserManager.shared.userId)"
+    }
+
+    static var onlinePing_pub: String {
+        return "txts/user/apptoserver/online/\(UserManager.shared.userId)"
+    }
 }
 
 extension HomeAPI: NetworkAPI {
     
     var path: String {
-        return "/txts-data-app/api/v1/data/weather/current"
+        switch self {
+        case .weatherInfo:
+            return "/txts-data-app/api/v1/data/weather/current"
+        case .noticeList:
+            return "/txts-user-center-app/api/v1/notice/list"
+        }
     }
     
     var method: Moya.Method {
@@ -33,6 +52,12 @@ extension HomeAPI: NetworkAPI {
                 "latitude": latitude
             ]
             return .requestParameters(parameters: parameters, encoding: URLEncoding.queryString)
+        case .noticeList:
+            let parameters: [String: Any] = [
+                "pageNum": 1,
+                "pageSize": -1
+            ]
+            return .requestParameters(parameters: parameters, encoding: URLEncoding.queryString)
         }
     }
     
@@ -45,28 +70,4 @@ extension HomeAPI: NetworkAPI {
         
         return headers
     }
-}
-
-var noticeList_sub: String {
-    return "txts/home/servertoapp/notice/list/\(UserManager.shared.userId)"
-}
-
-var noticeList_pub: String {
-    return "txts/home/apptoserver/notice/list/\(UserManager.shared.userId)"
-}
-
-var latestMessage_sub: String {
-    return "txts/home/servertoapp/urgentMessage/latest/\(UserManager.shared.userId)"
-}
-
-var latestMessage_pub: String {
-    return "txts/home/apptoserver/urgentMessage/latest/\(UserManager.shared.userId)"
-}
-
-var cleanMessage_pub: String {
-    return "txts/home/apptoserver/urgentMessage/clean/\(UserManager.shared.userId)"
-}
-
-var onlinePing_pub: String {
-    return "txts/user/apptoserver/online/\(UserManager.shared.userId)"
 }

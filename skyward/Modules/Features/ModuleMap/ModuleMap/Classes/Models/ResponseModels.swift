@@ -8,12 +8,6 @@
 import Foundation
 import SWKit
 
-// 响应数据模型
-public struct RouteListData: Codable {
-    public let list: [RouteData]?   // 路线类型(0-路线 1-自动轨迹)
-    public let total: Int?
-}
-
 public struct RouteData: Codable {
     public let id: String?
     public let routeName: String?
@@ -26,18 +20,9 @@ public struct RouteData: Codable {
     public let distance: String?
     public let travelTime: String?
     public let description: String?
-    public let coordinates: [Coordinate]?
     public let imgUrlList: [String]?
+    public let fileUrl: String?
     public let type: Int?
-}
-
-public struct MapSearchPointMsgData: Codable {
-    public let regionCode: String?
-    public let name: String?
-    public let address: String?
-    public let longitude: Double?
-    public let latitude: Double?
-    public let altitude: String?
 }
 
 public struct WeatherData: Codable {
@@ -200,13 +185,4 @@ public struct WeatherWarningData: Codable {
     public let related: String?         //与本条预警相关联的预警ID
 }
 
-public struct UserPOIData: Codable {
-    public let poiId: String?
-    public let id: String?
-    public let name: String?
-    public let description: String?
-    public let lon: Double?
-    public let lat: Double?
-    public let category: Int?
-    public let imgUrlList: [String]?
-}
+

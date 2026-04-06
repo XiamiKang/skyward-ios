@@ -94,7 +94,7 @@ public class TeamMapViewModel: ObservableObject {
                     UIWindow.topWindow?.sw_showWarningToast("为获取到会话id")
                     return
                 }
-                guard let msgData = MessageGenerator.generateImSend(senderId: UserManager.shared.userId,
+                guard let msgData = MessageGenerator.generateTxtMessage(senderId: UserManager.shared.userId,
                                                                     targetId: convId,
                                                                     timestamp: Date().timeIntervalSince1970,
                                                                     message: msg) else {
@@ -112,9 +112,9 @@ public class TeamMapViewModel: ObservableObject {
     }
     
     func locationDetailDesc(data: MarkerData) -> (String, String, String) {
-        let coordinate = CLLocationCoordinate2D(latitude: data.coordinate.latitude, longitude: data.coordinate.longitude)
-        let longitudeString = convertToDMSString(coordinate.longitude, isLongitude: true)
-        let latitudeString = convertToDMSString(coordinate.latitude, isLongitude: false)
+        guard let coordinate = data.coordinate else { return ("", "", "") }
+        let longitudeString = coordinate.longitude.convertToDMSString(isLongitude: true)
+        let latitudeString = coordinate.latitude.convertToDMSString(isLongitude: false)
         let coordinateDes = longitudeString + "," + latitudeString
         
         if let userInfo = data.userInfo,
@@ -333,29 +333,5 @@ extension TeamMapViewModel {
                 MQTTManager.shared.publish(message: jsonStr, to: TeamAPI.memberLoaction_pub, qos:.qos1)
             }
         }
-    }
-}
-
-
-extension TeamMapViewModel {
-    
-    // 返回格式化经纬度字符串
-    func convertToDMSString(_ coordinate: Double, isLongitude: Bool) -> String {
-        let absCoordinate = abs(coordinate)
-        let degrees = Int(absCoordinate)
-        let minutesDecimal = (absCoordinate - Double(degrees)) * 60
-        let minutes = Int(minutesDecimal)
-        let secondsDecimal = (minutesDecimal - Double(minutes)) * 60
-        let seconds = Int(secondsDecimal)
-        
-        // 根据经纬度类型和正负添加方向标识
-        let direction: String
-        if isLongitude {
-            direction = coordinate >= 0 ? "E" : "W"
-        } else {
-            direction = coordinate >= 0 ? "N" : "S"
-        }
-        
-        return String(format: "%d°%d′%d″%@", degrees, minutes, seconds, direction)
     }
 }

@@ -15,6 +15,13 @@ class ProfileFunctionTwoCell: UITableViewCell {
     static let identifier = "ProfileFunctionTwoCell"
     
     // MARK: - UI组件
+    private let canvasView: UIView = {
+        let view = UIView()
+        view.translatesAutoresizingMaskIntoConstraints = false
+        view.backgroundColor = .white
+        return view
+    }()
+    
     private let iconImageView: UIImageView = {
         let imageView = UIImageView()
         imageView.image = PersonalModule.image(named: "profile_cell_device")
@@ -69,35 +76,41 @@ class ProfileFunctionTwoCell: UITableViewCell {
     // MARK: - UI设置
     private func setupUI() {
         self.selectionStyle = .none
-        self.backgroundColor = .white
+        self.backgroundColor = .clear
         
-        contentView.addSubview(iconImageView)
-        contentView.addSubview(titleLabel)
-        contentView.addSubview(miniImageView)
-        contentView.addSubview(proImageView)
-        contentView.addSubview(arrowImageView)
+        contentView.addSubview(canvasView)
+        canvasView.addSubview(iconImageView)
+        canvasView.addSubview(titleLabel)
+        canvasView.addSubview(miniImageView)
+        canvasView.addSubview(proImageView)
+        canvasView.addSubview(arrowImageView)
         
         NSLayoutConstraint.activate([
-            iconImageView.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 16),
-            iconImageView.centerYAnchor.constraint(equalTo: contentView.centerYAnchor),
+            canvasView.topAnchor.constraint(equalTo: contentView.topAnchor),
+            canvasView.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 16),
+            canvasView.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -16),
+            canvasView.bottomAnchor.constraint(equalTo: contentView.bottomAnchor),
+            
+            iconImageView.leadingAnchor.constraint(equalTo: canvasView.leadingAnchor, constant: 16),
+            iconImageView.centerYAnchor.constraint(equalTo: canvasView.centerYAnchor),
             iconImageView.widthAnchor.constraint(equalToConstant: 24),
             iconImageView.heightAnchor.constraint(equalToConstant: 24),
             
             titleLabel.leadingAnchor.constraint(equalTo: iconImageView.trailingAnchor, constant: 12),
-            titleLabel.centerYAnchor.constraint(equalTo: contentView.centerYAnchor),
+            titleLabel.centerYAnchor.constraint(equalTo: canvasView.centerYAnchor),
             
-            arrowImageView.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -16),
-            arrowImageView.centerYAnchor.constraint(equalTo: contentView.centerYAnchor),
+            arrowImageView.trailingAnchor.constraint(equalTo: canvasView.trailingAnchor, constant: -16),
+            arrowImageView.centerYAnchor.constraint(equalTo: canvasView.centerYAnchor),
             arrowImageView.widthAnchor.constraint(equalToConstant: 12),
             arrowImageView.heightAnchor.constraint(equalToConstant: 12),
             
             proImageView.trailingAnchor.constraint(equalTo: arrowImageView.leadingAnchor, constant: -5),
-            proImageView.centerYAnchor.constraint(equalTo: contentView.centerYAnchor),
+            proImageView.centerYAnchor.constraint(equalTo: canvasView.centerYAnchor),
             proImageView.widthAnchor.constraint(equalToConstant: 20),
             proImageView.heightAnchor.constraint(equalToConstant: 20),
             
             miniImageView.trailingAnchor.constraint(equalTo: proImageView.leadingAnchor, constant: -5),
-            miniImageView.centerYAnchor.constraint(equalTo: contentView.centerYAnchor),
+            miniImageView.centerYAnchor.constraint(equalTo: canvasView.centerYAnchor),
             miniImageView.widthAnchor.constraint(equalToConstant: 20),
             miniImageView.heightAnchor.constraint(equalToConstant: 20),
             

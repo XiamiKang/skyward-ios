@@ -6,6 +6,7 @@
 //
 
 import UIKit
+import SWTheme
 
 class BindProDeviceCell: UITableViewCell {
     static let identifier = "BindProDeviceCell"
@@ -22,6 +23,7 @@ class BindProDeviceCell: UITableViewCell {
         let label = UILabel()
         label.font = UIFont.systemFont(ofSize: 14, weight: .regular)
         label.textColor = .black
+        label.textAlignment = .right
         label.numberOfLines = 1
         return label
     }()
@@ -54,6 +56,7 @@ class BindProDeviceCell: UITableViewCell {
     
     // MARK: - UI Setup
     private func setupUI() {
+        
         contentView.addSubview(nameLabel)
         contentView.addSubview(contentLabel)
         contentView.addSubview(avatarImageView)
@@ -67,10 +70,10 @@ class BindProDeviceCell: UITableViewCell {
         NSLayoutConstraint.activate([
             nameLabel.centerYAnchor.constraint(equalTo: contentView.centerYAnchor),
             nameLabel.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 20),
-//            nameLabel.trailingAnchor.constraint(equalTo: contentLabel.leadingAnchor, constant: -16),
             
             contentLabel.centerYAnchor.constraint(equalTo: contentView.centerYAnchor),
             contentLabel.trailingAnchor.constraint(equalTo: arrowImageView.leadingAnchor, constant: -5),
+            contentLabel.widthAnchor.constraint(equalToConstant: UIScreen.main.bounds.width/2),
             
             avatarImageView.centerYAnchor.constraint(equalTo: contentView.centerYAnchor),
             avatarImageView.trailingAnchor.constraint(equalTo: arrowImageView.leadingAnchor, constant: -5),
@@ -96,6 +99,12 @@ class BindProDeviceCell: UITableViewCell {
         contentLabel.text = settingData.contentStr
         
         arrowImageView.isHidden = !settingData.canChange
+        
+        if settingData.contentStr == "已认证" {
+            contentLabel.textColor = ThemeManager.current.mainColor
+        }else {
+            contentLabel.textColor = .black
+        }
     }
     
     func settingConfigure(with settingData: SettingData) {

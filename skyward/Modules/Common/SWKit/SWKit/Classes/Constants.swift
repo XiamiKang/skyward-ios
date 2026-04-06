@@ -18,6 +18,8 @@ public enum Constants {
     /// t o k e n
     public static let accessTK = "accessTK"
     public static let refreshTK = "refreshTK"
+    
+    public static let pageSize = 20
 }
 
 /// 统一管理布局相关常量
@@ -93,4 +95,8 @@ public extension Notification.Name {
     static let switchSceneMapSuccess = Notification.Name(rawValue: "noti.switchSceneMapSuccess")
     /// 收到团队新消息
     static let receiveTeamNewMessage = Notification.Name(rawValue: "noti.receiveTeamNewMessage")
+    /// 收到新消息
+    static let receiveNewMessage = Notification.Name(rawValue: "noti.receiveNewMessage")
+    /// 离线上报状态
+    static let offlineReportState = Notification.Name(rawValue: "noti.offlineReportState")
 }

@@ -12,7 +12,12 @@ import SWKit
 class BindDevicePageRouter: RoutableActionType {
     
     static func handle(_ url: any URLConvertible, _ callback: ((Any?) -> Void)?) -> Bool {
-        UIWindow.topViewController()?.navigationController?.pushViewController(DeviceListViewController(), animated: true)
+        var params: [String : String] = [:]
+        if let queryParameters = url.urlValue?.queryParameters {
+            params = queryParameters
+        }
+        let selectedIndex = Int(params["selectedIndex"] ?? "0") ?? 0
+        UIWindow.topViewController()?.navigationController?.pushViewController(DeviceListViewController(selectedDeviceType: selectedIndex), animated: true)
         return true
     }
     

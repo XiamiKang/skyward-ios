@@ -7,6 +7,7 @@
 
 import Foundation
 import SnapKit
+import SWTheme
 
 class UserAgreementAgainView: MaskView {
     
@@ -76,17 +77,17 @@ class UserAgreementAgainView: MaskView {
     }()
     
     private let closeButton: UIButton = {
-        let button = UIButton(type: .system)
+        let button = UIButton(type: .custom)
         button.setTitle("不同意", for: .normal)
         button.titleLabel?.font = UIFont.systemFont(ofSize: 14, weight: .semibold)
         button.setTitleColor(.black, for: .normal)
-        button.backgroundColor = UIColor.init(hex: "#F2F3F4")
+        button.backgroundColor = ThemeManager.current.mediumGrayBGColor
         button.layer.cornerRadius = 6
         return button
     }()
     
     private let agreeButton: UIButton = {
-        let button = UIButton(type: .system)
+        let button = UIButton(type: .custom)
         button.setTitle("同意", for: .normal)
         button.titleLabel?.font = UIFont.systemFont(ofSize: 14, weight: .semibold)
         button.backgroundColor = UIColor.init(hex: "#FE6A00")

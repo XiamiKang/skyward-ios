@@ -109,13 +109,8 @@ class TeamMessageManager: MQTTManagerDelegate {
     static let shared = TeamMessageManager()
     
     func startMonitorNewMessage() {
-        
-        DBManager.shared.createTable(table: DBTableName.conversation.rawValue, of: Conversation.self)
-        DBManager.shared.createTable(table: DBTableName.message.rawValue, of: Message.self)
-        DBManager.shared.createTable(table: DBTableName.team.rawValue, of: Team.self)
-        
-        MQTTManager.shared.addDelegate(self)
-        MQTTManager.shared.subscribe(to: TeamAPI.receiveMessage_sub)
+//        MQTTManager.shared.addDelegate(self)
+//        MQTTManager.shared.subscribe(to: TeamAPI.receiveMessage_sub)
         
         // 监听窄带设备的自定义消息
         NotificationCenter.default.addObserver(

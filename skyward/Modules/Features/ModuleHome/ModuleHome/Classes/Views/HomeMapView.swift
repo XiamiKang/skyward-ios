@@ -33,7 +33,7 @@ class HomeMapView: UIView {
     
     override init(frame: CGRect) {
         super.init(frame: frame)
-        self.backgroundColor = .systemGray6
+        self.backgroundColor = .white
         self.clipsToBounds = true
         self.layer.cornerRadius = CornerRadius.large.rawValue
         setupViews()
@@ -83,7 +83,7 @@ class HomeMapView: UIView {
     }
     
     private func createIconButton(systemName: String) -> UIButton {
-        let button = UIButton(type: .system)
+        let button = UIButton(type: .custom)
         button.setImage(HomeModule.image(named: systemName), for: .normal)
         button.tintColor = .black  // 设置图标颜色为黑色
         button.layer.cornerRadius = CornerRadius.medium.rawValue

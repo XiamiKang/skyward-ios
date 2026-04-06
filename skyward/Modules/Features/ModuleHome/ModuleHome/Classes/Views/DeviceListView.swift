@@ -22,7 +22,6 @@ class MiniDeviceListView: UITableView, UITableViewDataSource, UITableViewDelegat
         super.init(frame: CGRectZero, style: .plain)
         self.dataSource = self
         self.delegate = self
-        self.bounces = false
         self.translatesAutoresizingMaskIntoConstraints = false
         
         self.register(cellType: DeviceCell.self)
@@ -100,7 +99,6 @@ class ProDeviceListView: UITableView, UITableViewDataSource, UITableViewDelegate
         super.init(frame: CGRectZero, style: .plain)
         self.dataSource = self
         self.delegate = self
-        self.bounces = false
         self.translatesAutoresizingMaskIntoConstraints = false
         
         self.register(cellType: DeviceCell.self)

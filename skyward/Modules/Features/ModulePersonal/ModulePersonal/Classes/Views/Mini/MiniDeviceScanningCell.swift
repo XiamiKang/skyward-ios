@@ -31,7 +31,7 @@ class MiniDeviceScanningCell: UITableViewCell {
     private let imeiLabel: UILabel = {
         let label = UILabel()
         label.font = UIFont.systemFont(ofSize: 12, weight: .regular)
-        label.textColor = .secondaryLabel
+        label.textColor = UIColor(str: "#84888C")
         label.numberOfLines = 1
         return label
     }()
@@ -138,13 +138,13 @@ class MiniDeviceScanningCell: UITableViewCell {
 //                // 已绑定设备的特殊显示
 //                imeiLabel.textColor = UIColor(hex: "#28A745")
 //            } else {
-                imeiLabel.textColor = .secondaryLabel
+                imeiLabel.textColor = UIColor(str: "#84888C")
 //            }
         } else {
             // 没有扫描信息时显示基本UUID
             let shortUUID = String(peripheral.identifier.uuidString.prefix(8)).uppercased()
             imeiLabel.text = "ID: \(shortUUID)"
-            imeiLabel.textColor = .secondaryLabel
+            imeiLabel.textColor = UIColor(str: "#84888C")
         }
         
         // 更新连接状态

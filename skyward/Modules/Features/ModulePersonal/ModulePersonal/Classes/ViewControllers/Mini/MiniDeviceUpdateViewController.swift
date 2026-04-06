@@ -13,8 +13,9 @@ class MiniDeviceUpdateViewController: PersonalBaseViewController {
     
     private let viewModel = PersonalViewModel()
     private var cancellables = Set<AnyCancellable>()
-    public var currentVersion: String = "1.0.0.0"
+    var currentVersion: String
     var currentFirmwareData: FirmwareData?
+    private let frqBluetoothManager = FRQBluetoothManager.share()
     
     // UI
     private var firmwareImageView = UIImageView()
@@ -26,6 +27,16 @@ class MiniDeviceUpdateViewController: PersonalBaseViewController {
     private var firmwareUpdateText = UILabel()
     private let firmwareUpdateActivityIndicator = UIActivityIndicatorView(style: .medium)
     
+    init(currentVersion: String = "1.0.0.0", currentFirmwareData: FirmwareData?) {
+        self.currentVersion = currentVersion
+        self.currentFirmwareData = currentFirmwareData
+        super.init(nibName: nil, bundle: nil)
+    }
+    
+    @MainActor required init?(coder: NSCoder) {
+        fatalError("init(coder:) has not been implemented")
+    }
+    
     override func viewDidLoad() {
         super.viewDidLoad()
         
@@ -33,6 +44,7 @@ class MiniDeviceUpdateViewController: PersonalBaseViewController {
         setConstraint()
         setupTapGesture()
         getVersionMsg()
+        setupFRQBluetoothManager()
     }
     
     override func viewWillDisappear(_ animated: Bool) {
@@ -162,7 +174,17 @@ class MiniDeviceUpdateViewController: PersonalBaseViewController {
             if FirmwareDownloadManager.shared.firmwareFileExists(firmwareData: firmwareData) {
                 self.updateButtonState(isDownloading: false, progress: 1.0, text: "下载完成，立即安装")
             }
+        }else {
+            firmwareVersionLabel.text = "当前版本：固件_\(self.currentVersion)"
+            firmwareMessageLabel.text = "已是最新版本"
+            self.firmwareWarnLabel.isHidden = true
+            self.firmwareWarnImageView.isHidden = true
+            self.firmwareUpdateView.isHidden = true
         }
+    }
+    
+    private func setupFRQBluetoothManager() {
+        frqBluetoothManager.delegate = self
     }
     
     private func updateUI(firmwareData: FirmwareData) {
@@ -180,6 +202,16 @@ class MiniDeviceUpdateViewController: PersonalBaseViewController {
                 self.firmwareWarnLabel.text = "此版本为强制更新，请务必下载并安装"
                 self.firmwareWarnLabel.textColor = UIColor(str: "#FF3B30")
             }
+        }
+    }
+    
+    private func resetUI(with firmwareVersion: String) {
+        DispatchQueue.main.async {
+            self.firmwareVersionLabel.text = "当前版本：固件_\(firmwareVersion)"
+            self.firmwareMessageLabel.text = "已是最新版本"
+            self.firmwareWarnLabel.isHidden = true
+            self.firmwareWarnImageView.isHidden = true
+            self.firmwareUpdateView.isHidden = true
         }
     }
     
@@ -223,14 +255,26 @@ class MiniDeviceUpdateViewController: PersonalBaseViewController {
     }
     
     private func installFirmware() {
-        guard let firmwareData = currentFirmwareData,
-              let fileURL = FirmwareDownloadManager.shared.getLocalFirmwareFileURL(firmwareData: firmwareData) else {
-            showErrorAlert(message: "没有找到固件文件")
-            return
+        switch BluetoothManager.shared.deviceType {
+        case .TXTS:
+            guard let firmwareData = currentFirmwareData,
+                  let fileURL = FirmwareDownloadManager.shared.getLocalFirmwareFileURL(firmwareData: firmwareData) else {
+                showErrorAlert(message: "没有找到固件文件")
+                return
+            }
+            
+            // 这里可以实现通过Wi-Fi安装固件的逻辑
+            showInstallAlert(fileURL: fileURL)
+        case .K01:
+            guard let firmwareData = currentFirmwareData, let fileURL = FirmwareDownloadManager.shared.getLocalFirmwareFileURL(firmwareData: firmwareData) else {
+                showErrorAlert(message: "没有找到固件文件")
+                return
+            }
+            print("固件URL---\(fileURL)")
+            print("固件URL---\(fileURL.path)")
+            startOTAUpgrade(with: fileURL.path)
         }
         
-        // 这里可以实现通过Wi-Fi安装固件的逻辑
-        showInstallAlert(fileURL: fileURL)
     }
     
     // MARK: - 处理下载状态
@@ -259,9 +303,6 @@ class MiniDeviceUpdateViewController: PersonalBaseViewController {
                 self.downloadedFileURL = fileURL
                 self.downloadProgress = 1.0
                 self.updateButtonState(isDownloading: false, progress: 1.0, text: "下载完成，立即安装")
-                
-                // 显示下载完成提示
-//                self.showSuccessAlert(message: "固件下载完成")
                 
             case .failed(let error):
                 self.isDownloading = false
@@ -345,7 +386,7 @@ extension MiniDeviceUpdateViewController {
             showErrorAlert(message: "无效的固件版本")
             return
         }
-                
+        
         // 创建蓝牙升级管理器
         let upgradeManager = BLEFirmwareUpgradeManager()
         
@@ -373,6 +414,9 @@ extension MiniDeviceUpdateViewController {
                 self?.showCanceledAlert()
             }
         )
+        dialog.onConfirmTapped = { [weak self] in
+            self?.showUpgradeSuccessAlert()
+        }
         
         // 保存dialog引用，防止被释放
         currentUpgradeDialog = dialog
@@ -388,6 +432,9 @@ extension MiniDeviceUpdateViewController {
     }
     
     private func showUpgradeSuccessAlert() {
+        self.resetUI(with: self.currentFirmwareData?.versionName ?? "1.0.0.0")
+        self.currentFirmwareData = nil
+        
         let alert = UIAlertController(
             title: "升级成功",
             message: "固件升级已完成，设备将自动重启。请稍后重新连接设备。",
@@ -395,8 +442,12 @@ extension MiniDeviceUpdateViewController {
         )
         
         alert.addAction(UIAlertAction(title: "确定", style: .default) { _ in
-            // 返回到设备列表或首页
-            self.navigationController?.popViewController(animated: true)
+            // 通知详情页的
+            NotificationCenter.default.post(
+                name: .didFirmwareUpdateOver,
+                object: nil,
+                userInfo: nil
+            )
         })
         
         present(alert, animated: true)
@@ -433,6 +484,179 @@ extension MiniDeviceUpdateViewController {
         alert.addAction(UIAlertAction(title: "确定", style: .default))
         
         present(alert, animated: true)
+    }
+}
+
+// MARK: - K01的升级方法
+extension MiniDeviceUpdateViewController {
+    
+    private func startOTAUpgrade(with firmwarePath: String) {
+        print("开始OTA升级")
+        
+        guard let peripheral = BluetoothManager.shared.connectedPeripheral else {
+            print("❌ 没有连接的蓝牙设备")
+            showErrorAlert(message: "没有连接的蓝牙设备")
+            return
+        }
+        
+        // 显示升级弹窗
+        let upgradeManager = BLEFirmwareUpgradeManager()
+        
+        // 创建升级弹窗（复用相同的弹窗类，但处理不同的升级流程）
+        let dialog = MiniFirmwareUpgradeDialog.showAndStartUpgrade(
+            in: self,
+            upgradeManager: upgradeManager,
+            firmwarePath: firmwarePath,
+            version: currentFirmwareData?.versionName ?? "未知版本",
+            isK01Mode: true,  // 新增参数，标识是K01模式
+            onProgress: { progress in
+                print("K01升级进度: \(progress * 100)%")
+                // 进度已经在FRQBluetoothManagerDelegate中处理
+            },
+            onComplete: { [weak self] result in
+                switch result {
+                case .success:
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 2) {
+                        self?.showUpgradeSuccessAlert()
+                    }
+                case .failure(let error):
+                    self?.showUpgradeErrorAlert(error: error)
+                }
+            },
+            onCancel: { [weak self] in
+                self?.showCanceledAlert()
+            }
+        )
+        
+        dialog.onConfirmTapped = { [weak self] in
+            self?.showUpgradeSuccessAlert()
+        }
+        
+        // 保存dialog引用
+        currentUpgradeDialog = dialog
+        
+        BluetoothManager.shared.disconnectPeripheral()
+        
+        DispatchQueue.main.asyncAfter(deadline: .now() + 5.0) { [weak self] in
+            guard let self = self else { return }
+            frqBluetoothManager.scanPeripherals()
+        }
+        
+        DispatchQueue.main.asyncAfter(deadline: .now() + 10.0) { [weak self] in
+            guard let self = self else { return }
+            frqBluetoothManager.connect(to: peripheral)
+        }
+        
+        DispatchQueue.main.asyncAfter(deadline: .now() + 15.0) { [weak self] in
+            guard let self = self else { return }
+            frqBluetoothManager.updateOTA(withFilePath: firmwarePath, to: peripheral)
+        }
+        
+    }
+}
+
+extension MiniDeviceUpdateViewController: FRQBluetoothManagerDelegate {
+    
+    func onBLEManagerConnect(_ ability: any FRBleAbility, peripheral: CBPeripheral, error: (any Error)) {
+        let nsError = error as NSError
+        
+        // 判断是否连接成功
+        // 常见表示成功的特征：code=0 或 domain包含"success" 或描述包含"success"
+        let isSuccess = nsError.code == 0 ||
+                        nsError.domain.lowercased().contains("noerror") ||
+                        nsError.localizedDescription.lowercased().contains("success") ||
+                        nsError.localizedDescription.lowercased().contains("成功")
+        
+        if isSuccess {
+            print("FRQBluetoothManager连接了蓝牙---\(peripheral)")
+            DispatchQueue.main.async { [weak self] in
+                self?.currentUpgradeDialog?.updateStatus("设备已连接，准备升级...")
+            }
+        } else {
+            print("FRQBluetoothManager连接蓝牙失败---\(error.localizedDescription)")
+            DispatchQueue.main.async { [weak self] in
+                self?.currentUpgradeDialog?.complete(
+                    success: false,
+                    message: "连接设备失败：\(error.localizedDescription)"
+                )
+            }
+        }
+    }
+    
+    func onBLEManagerBeginUpdateOTA(_ ability: any FRBleAbility) {
+        print("FRQBluetoothManager开始升级")
+        DispatchQueue.main.async { [weak self] in
+            self?.currentUpgradeDialog?.updateStatus("开始升级...")
+            self?.currentUpgradeDialog?.updateProgress(0.05) // 初始进度
+        }
+    }
+    
+    func onBLEManagerUpdateOTA(_ ability: any FRBleAbility, progress aProgress: Double) {
+        print("FRQBluetoothManager升级进行中-----进度：\(aProgress)")
+        
+        // FRQBluetoothKit的进度可能是0-100的值，需要转换为0-1
+        let normalizedProgress = aProgress / 100.0
+        
+        DispatchQueue.main.async { [weak self] in
+            // 根据进度更新状态文本
+            let progress = normalizedProgress
+            if progress < 0.3 {
+                self?.currentUpgradeDialog?.updateStatus("正在传输固件...")
+            } else if progress < 0.6 {
+                self?.currentUpgradeDialog?.updateStatus("正在写入固件...")
+            } else if progress < 0.9 {
+                self?.currentUpgradeDialog?.updateStatus("正在验证固件...")
+            } else {
+                self?.currentUpgradeDialog?.updateStatus("即将完成...")
+            }
+            
+            // 更新进度条
+            self?.currentUpgradeDialog?.updateProgress(progress)
+        }
+    }
+    
+    func onBLEManagerUpdateOTAFinish(_ ability: any FRBleAbility, error: (any Error)) {
+        let nsError = error as NSError
+        
+        // 判断是否连接成功
+        // 常见表示成功的特征：code=0 或 domain包含"success" 或描述包含"success"
+        let isSuccess = nsError.code == 0 ||
+                        nsError.domain.lowercased().contains("noerror") ||
+                        nsError.localizedDescription.lowercased().contains("success") ||
+                        nsError.localizedDescription.lowercased().contains("成功")
+        
+        if isSuccess {
+            print("FRQBluetoothManager升级成功")
+            DispatchQueue.main.async { [weak self] in
+                self?.currentUpgradeDialog?.complete(
+                    success: true,
+                    message: "固件升级成功！设备将自动重启"
+                )
+            }
+        } else {
+            print("FRQBluetoothManager升级失败----错误：\(error.localizedDescription)")
+            DispatchQueue.main.async { [weak self] in
+                self?.currentUpgradeDialog?.complete(
+                    success: false,
+                    message: "升级失败：\(error.localizedDescription)"
+                )
+            }
+        }
+        // 移除代理
+        frqBluetoothManager.delegate = nil
+    }
+    
+    // 可选：处理连接断开
+    func onBLEManagerDiscoverPeripheral(_ ability: any FRBleAbility, peripheral: CBPeripheral, advertisement advertisementData: [AnyHashable : Any], rssi RSSI: NSNumber) {
+        print("FRQBluetoothManager断开连接---\(peripheral)")
+        
+        // 如果不是正常升级完成导致的断开，可能是异常
+        if let currentDialog = currentUpgradeDialog,
+           !currentDialog.isUpgradeComplete {  // 需要给MiniFirmwareUpgradeDialog添加isUpgradeComplete属性
+            DispatchQueue.main.async { [weak self] in
+                self?.currentUpgradeDialog?.updateStatus("设备连接已断开")
+            }
+        }
     }
 }
 

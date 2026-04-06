@@ -11,22 +11,25 @@ import PhotosUI
 import SWKit
 import SWNetwork
 import Moya
+import SWTheme
+import SDWebImage
 
 // MARK: - 添加兴趣点页面
 class AddPOIViewController: UIViewController {
     
-    var customTransitioningDelegate: CustomTransitioningDelegate?
-    private let uploadService = UploadManager()
     private let viewModel = MapViewModel()
     
-    var deleteCustomMarker: (()-> Void)?
+    var deleteCustomMarker: ((UserPOILocalData?) -> Void)?
     
-    // MARK: - Properties
-    var coordinate: POICoordinate?
+    // MARK: - 新建
+    var coordinate: POICoordinate?                  // 经纬度
+    var poiData: MapSearchPointMsgData?             // 地址解析
+    
+    // MARK: - 属性
     var selectedType: POIType?
-    var selectedImages: [UIImage] = []
     var imgUrlList: [String] = []
     private let maxImageCount = 3
+    private var poiId: String?
     
     // 添加变量跟踪当前编辑的控件
     private var activeField: UIView?
@@ -41,17 +44,9 @@ class AddPOIViewController: UIViewController {
     
     private let titleLabel: UILabel = {
         let label = UILabel()
-        label.text = "添加兴趣点"
-        label.font = .systemFont(ofSize: 18, weight: .medium)
+        label.text = "保存兴趣点"
+        label.font = .systemFont(ofSize: 18, weight: .semibold)
         label.textColor = .black
-        return label
-    }()
-    
-    private let coordinateLabel: UILabel = {
-        let label = UILabel()
-        label.font = .systemFont(ofSize: 12, weight: .regular)
-        label.textColor = UIColor(str: "#84888C")
-        label.numberOfLines = 0
         return label
     }()
     
@@ -92,14 +87,33 @@ class AddPOIViewController: UIViewController {
         return label
     }()
     
+    private let nameTitleRemindLabel: UILabel = {
+        let label = UILabel()
+        label.text = "最长不超过60个字符"
+        label.font = .systemFont(ofSize: 12, weight: .regular)
+        label.textColor = UIColor(str: "#84888C")
+        return label
+    }()
+    
     private let nameTextField: UITextField = {
         let textField = UITextField()
-        textField.placeholder = "请输入兴趣点名称"
-        textField.font = .systemFont(ofSize: 14)
+        textField.textColor = .black
+        textField.font = .systemFont(ofSize: 14, weight: .medium)
         textField.borderStyle = .roundedRect
-        textField.backgroundColor = .systemGray6
+        textField.backgroundColor = ThemeManager.current.mediumGrayBGColor
         textField.clearButtonMode = .whileEditing
+        textField.tintColor = ThemeManager.current.mainColor
+        textField.textColor = .black
         return textField
+    }()
+    
+    private let nameTextPlaceholderLabel: UILabel = {
+        let label = UILabel()
+        label.text = "请输入兴趣点名称"
+        label.font = .systemFont(ofSize: 14)
+        label.textColor = .lightGray
+        label.numberOfLines = 0
+        return label
     }()
     
     // 类型选择
@@ -126,6 +140,47 @@ class AddPOIViewController: UIViewController {
     
     private var typeButtons: [POITypeButton] = []
     
+    // 位置
+    private let addressTitleLabel: UILabel = {
+        let label = UILabel()
+        label.text = "位置"
+        label.font = .systemFont(ofSize: 14, weight: .regular)
+        label.textColor = .black
+        return label
+    }()
+    
+    private lazy var addressNameLabel: UILabel = {
+        let label = UILabel()
+        label.text = poiData?.name ?? "--"
+        label.font = .systemFont(ofSize: 14, weight: .medium)
+        label.textColor = .black
+        return label
+    }()
+    
+    private lazy var addressLogAndLatLabel: UILabel = {
+        let label = UILabel()
+        label.text = "经纬度：--"
+        if let coordinate = coordinate {
+            let longitudeStr = String(format: "%.6f", coordinate.longitude)
+            let latitudeStr = String(format: "%.6f", coordinate.latitude)
+            label.text = "经纬度：\(longitudeStr)°E, \(latitudeStr)°N"
+        }
+        label.font = .systemFont(ofSize: 12, weight: .regular)
+        label.textColor = UIColor(str: "#84888C")
+        return label
+    }()
+    
+    private lazy var addressAltitudeLabel: UILabel = {
+        let label = UILabel()
+        label.text = "海拔：--"
+        if let altitude = poiData?.altitude {
+            label.text = "海拔：\(altitude)米"
+        }
+        label.font = .systemFont(ofSize: 12, weight: .regular)
+        label.textColor = UIColor(str: "#84888C")
+        return label
+    }()
+    
     // 照片
     private let photoTitleLabel: UILabel = {
         let label = UILabel()
@@ -146,7 +201,7 @@ class AddPOIViewController: UIViewController {
     private let addPhotoButton: UIButton = {
         let button = UIButton(type: .custom)
         button.setImage(MapModule.image(named: "map_poi_addImage"), for: .normal)
-        button.backgroundColor = UIColor(str: "#F2F3F4")
+        button.backgroundColor = ThemeManager.current.mediumGrayBGColor
         button.layer.cornerRadius = 8
         button.layer.masksToBounds = true
         return button
@@ -155,7 +210,9 @@ class AddPOIViewController: UIViewController {
     private let descriptionTextView: UITextView = {
         let textView = UITextView()
         textView.font = .systemFont(ofSize: 16)
-        textView.backgroundColor = .systemGray6
+        textView.textColor = .black
+        textView.backgroundColor = ThemeManager.current.mediumGrayBGColor
+        textView.tintColor = ThemeManager.current.mainColor
         textView.layer.cornerRadius = 8
         textView.layer.masksToBounds = true
         textView.textContainerInset = UIEdgeInsets(top: 12, left: 12, bottom: 12, right: 12)
@@ -176,7 +233,7 @@ class AddPOIViewController: UIViewController {
         let label = UILabel()
         label.text = "0/100"
         label.font = .systemFont(ofSize: 12)
-        label.textColor = .secondaryLabel
+        label.textColor = .lightGray
         label.textAlignment = .right
         return label
     }()
@@ -187,31 +244,21 @@ class AddPOIViewController: UIViewController {
         return view
     }()
     
-    private let cancelButton: UIButton = {
-        let button = UIButton(type: .system)
-        button.setTitle("取消", for: .normal)
-        button.setTitleColor(UIColor(str: "#070808"), for: .normal)
-        button.backgroundColor = UIColor(str: "#F2F3F4")
-        button.titleLabel?.font = .systemFont(ofSize: 16, weight: .medium)
-        button.layer.cornerRadius = 8
-        button.layer.masksToBounds = true
-        return button
-    }()
-    
     private let addButton: UIButton = {
-        let button = UIButton(type: .system)
-        button.setTitle("添加", for: .normal)
+        let button = UIButton(type: .custom)
+        button.setTitle("保存", for: .normal)
         button.setTitleColor(.white, for: .normal)
-        button.backgroundColor = UIColor(str: "#FE6A00")
+        button.backgroundColor = UIColor(str: "#FFE0B9")
         button.titleLabel?.font = .systemFont(ofSize: 16, weight: .medium)
         button.layer.cornerRadius = 8
         button.layer.masksToBounds = true
         return button
     }()
     
-    // MARK: - Lifecycle
-    init(coordinate: POICoordinate) {
+    // MARK: - Init
+    init(coordinate: POICoordinate, poiData: MapSearchPointMsgData?) {
         self.coordinate = coordinate
+        self.poiData = poiData
         super.init(nibName: nil, bundle: nil)
     }
     
@@ -221,17 +268,17 @@ class AddPOIViewController: UIViewController {
     
     override func viewDidLoad() {
         super.viewDidLoad()
+        poiId = "\(Date().timeIntervalSince1970)"
         setupUI()
         setupConstraints()
         setupActions()
         setupKeyboardObservers()
         
-        // 更新坐标显示
-        updateCoordinateDisplay()
         // 设置占位符初始状态
         updatePlaceholder()
-        // 默认选择第一个类型
-        selectFirstType()
+        updateNamePlaceholder()
+        // 添加监听
+        addTextFieldObserver()
     }
     
     deinit {
@@ -240,12 +287,11 @@ class AddPOIViewController: UIViewController {
     
     // MARK: - Setup
     private func setupUI() {
-        view.backgroundColor = .systemBackground
+        view.backgroundColor = .white
         
         // 头部
         view.addSubview(headerView)
         headerView.addSubview(titleLabel)
-        headerView.addSubview(coordinateLabel)
         headerView.addSubview(closeButton)
         
         // 滚动区域
@@ -255,13 +301,21 @@ class AddPOIViewController: UIViewController {
         // 名称
         contentView.addSubview(nameTitleLabel)
         contentView.addSubview(requiredLabel1)
+        contentView.addSubview(nameTitleRemindLabel)
         contentView.addSubview(nameTextField)
+        contentView.addSubview(nameTextPlaceholderLabel)
         
         // 类型
         contentView.addSubview(typeTitleLabel)
         contentView.addSubview(requiredLabel2)
         contentView.addSubview(typeContainerView)
         setupTypeButtons()
+        
+        // 位置
+        contentView.addSubview(addressTitleLabel)
+        contentView.addSubview(addressNameLabel)
+        contentView.addSubview(addressLogAndLatLabel)
+        contentView.addSubview(addressAltitudeLabel)
         
         // 照片
         contentView.addSubview(photoTitleLabel)
@@ -275,7 +329,6 @@ class AddPOIViewController: UIViewController {
         
         // 底部按钮
         view.addSubview(buttonContainerView)
-        buttonContainerView.addSubview(cancelButton)
         buttonContainerView.addSubview(addButton)
         
         // 设置代理
@@ -286,24 +339,19 @@ class AddPOIViewController: UIViewController {
     private func setupConstraints() {
         headerView.translatesAutoresizingMaskIntoConstraints = false
         titleLabel.translatesAutoresizingMaskIntoConstraints = false
-        coordinateLabel.translatesAutoresizingMaskIntoConstraints = false
         closeButton.translatesAutoresizingMaskIntoConstraints = false
         scrollView.translatesAutoresizingMaskIntoConstraints = false
         contentView.translatesAutoresizingMaskIntoConstraints = false
         
         // 头部约束
         NSLayoutConstraint.activate([
-            headerView.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor),
+            headerView.topAnchor.constraint(equalTo: view.topAnchor, constant: 20),
             headerView.leadingAnchor.constraint(equalTo: view.leadingAnchor),
             headerView.trailingAnchor.constraint(equalTo: view.trailingAnchor),
-            headerView.heightAnchor.constraint(equalToConstant: 80),
+            headerView.heightAnchor.constraint(equalToConstant: 50),
             
-            titleLabel.topAnchor.constraint(equalTo: headerView.topAnchor, constant: 16),
-            titleLabel.leadingAnchor.constraint(equalTo: headerView.leadingAnchor, constant: 16),
-            
-            coordinateLabel.topAnchor.constraint(equalTo: titleLabel.bottomAnchor, constant: 8),
-            coordinateLabel.leadingAnchor.constraint(equalTo: headerView.leadingAnchor, constant: 16),
-            coordinateLabel.trailingAnchor.constraint(equalTo: headerView.trailingAnchor, constant: -20),
+            titleLabel.topAnchor.constraint(equalTo: headerView.topAnchor, constant: 10),
+            titleLabel.leadingAnchor.constraint(equalTo: headerView.leadingAnchor, constant: 20),
             
             closeButton.centerYAnchor.constraint(equalTo: titleLabel.centerYAnchor),
             closeButton.trailingAnchor.constraint(equalTo: headerView.trailingAnchor, constant: -16),
@@ -332,7 +380,9 @@ class AddPOIViewController: UIViewController {
     private func setupFormConstraints() {
         nameTitleLabel.translatesAutoresizingMaskIntoConstraints = false
         requiredLabel1.translatesAutoresizingMaskIntoConstraints = false
+        nameTitleRemindLabel.translatesAutoresizingMaskIntoConstraints = false
         nameTextField.translatesAutoresizingMaskIntoConstraints = false
+        nameTextPlaceholderLabel.translatesAutoresizingMaskIntoConstraints = false
         
         // 名称部分
         NSLayoutConstraint.activate([
@@ -342,13 +392,20 @@ class AddPOIViewController: UIViewController {
             nameTitleLabel.centerYAnchor.constraint(equalTo: requiredLabel1.centerYAnchor),
             nameTitleLabel.leadingAnchor.constraint(equalTo: requiredLabel1.trailingAnchor, constant: 4),
             
+            nameTitleRemindLabel.centerYAnchor.constraint(equalTo: requiredLabel1.centerYAnchor),
+            nameTitleRemindLabel.leadingAnchor.constraint(equalTo: nameTitleLabel.trailingAnchor, constant: 10),
+            
             nameTextField.topAnchor.constraint(equalTo: nameTitleLabel.bottomAnchor, constant: 12),
             nameTextField.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 20),
             nameTextField.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -20),
-            nameTextField.heightAnchor.constraint(equalToConstant: 44)
+            nameTextField.heightAnchor.constraint(equalToConstant: 44),
+            
+            nameTextPlaceholderLabel.centerYAnchor.constraint(equalTo: nameTextField.centerYAnchor),
+            nameTextPlaceholderLabel.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 25),
         ])
         
         setupTypeConstraints()
+        setupAddressConstraints()
         setupPhotoConstraints()
         setupDescriptionConstraints()
     }
@@ -357,7 +414,7 @@ class AddPOIViewController: UIViewController {
         typeContainerView.subviews.forEach { $0.removeFromSuperview() }
         typeButtons.removeAll()
         
-        let itemWidth = (UIScreen.main.bounds.width - 60) / 3
+        let itemWidth = (UIScreen.main.bounds.width - 60) / 4
         let itemHeight: CGFloat = 80
         
         for (index, type) in POIType.allCases.enumerated() {
@@ -366,8 +423,8 @@ class AddPOIViewController: UIViewController {
             button.tag = index
             button.addTarget(self, action: #selector(typeButtonTapped(_:)), for: .touchUpInside)
             
-            let col = index % 3
-            let row = index / 3
+            let col = index % 4
+            let row = index / 4
             
             button.frame = CGRect(
                 x: CGFloat(col) * (itemWidth + 10),
@@ -381,7 +438,7 @@ class AddPOIViewController: UIViewController {
         }
         
         // 更新容器高度
-        let rows = ceil(CGFloat(POIType.allCases.count) / 3)
+        let rows = ceil(CGFloat(POIType.allCases.count) / 4)
         let totalHeight = rows * (itemHeight + 10) - 10
         
         typeContainerView.translatesAutoresizingMaskIntoConstraints = false
@@ -407,6 +464,29 @@ class AddPOIViewController: UIViewController {
         ])
     }
     
+    private func setupAddressConstraints() {
+        addressTitleLabel.translatesAutoresizingMaskIntoConstraints = false
+        addressNameLabel.translatesAutoresizingMaskIntoConstraints = false
+        addressLogAndLatLabel.translatesAutoresizingMaskIntoConstraints = false
+        addressAltitudeLabel.translatesAutoresizingMaskIntoConstraints = false
+        
+        NSLayoutConstraint.activate([
+            addressTitleLabel.topAnchor.constraint(equalTo: typeContainerView.bottomAnchor, constant: 24),
+            addressTitleLabel.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 20),
+            addressTitleLabel.widthAnchor.constraint(equalToConstant: 35),
+            
+            addressNameLabel.centerYAnchor.constraint(equalTo: addressTitleLabel.centerYAnchor),
+            addressNameLabel.leadingAnchor.constraint(equalTo: addressTitleLabel.trailingAnchor, constant: 10),
+            addressNameLabel.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -20),
+            
+            addressLogAndLatLabel.topAnchor.constraint(equalTo: addressNameLabel.bottomAnchor, constant: 5),
+            addressLogAndLatLabel.leadingAnchor.constraint(equalTo: addressTitleLabel.trailingAnchor, constant: 10),
+            
+            addressAltitudeLabel.topAnchor.constraint(equalTo: addressLogAndLatLabel.bottomAnchor, constant: 5),
+            addressAltitudeLabel.leadingAnchor.constraint(equalTo: addressTitleLabel.trailingAnchor, constant: 10),
+        ])
+    }
+    
     private func setupPhotoViews() {
         photoContainerView.subviews.forEach { $0.removeFromSuperview() }
         photoContainerView.addSubview(addPhotoButton)
@@ -417,9 +497,19 @@ class AddPOIViewController: UIViewController {
         let spacing: CGFloat = 16
         
         // 已选图片
-        for (index, image) in selectedImages.enumerated() {
+        for (index, imageUrl) in imgUrlList.enumerated() {
             let imageView = UIImageView()
-            imageView.image = image
+            if imageUrl.contains("http") {
+                imageView.sd_setImage(with: URL(string: imageUrl))
+            }else {
+                if FileManager.default.fileExists(atPath: imageUrl) {
+                    let image = UIImage(contentsOfFile: imageUrl)
+                    imageView.image = image
+                } else {
+                    print("文件不存在: \(imageUrl)")
+                }
+            }
+            
             imageView.contentMode = .scaleAspectFill
             imageView.layer.cornerRadius = 8
             imageView.layer.masksToBounds = true
@@ -442,11 +532,11 @@ class AddPOIViewController: UIViewController {
         }
         
         // 添加按钮位置
-        let addButtonX = CGFloat(selectedImages.count) * (itemSize + spacing)
+        let addButtonX = CGFloat(imgUrlList.count) * (itemSize + spacing)
         addPhotoButton.frame = CGRect(x: addButtonX, y: 0, width: itemSize, height: itemSize)
         
         // 更新添加按钮状态
-        addPhotoButton.isHidden = selectedImages.count >= maxImageCount
+        addPhotoButton.isHidden = imgUrlList.count >= maxImageCount
         
         setupPhotoConstraints()
     }
@@ -454,10 +544,9 @@ class AddPOIViewController: UIViewController {
     private func setupPhotoConstraints() {
         photoTitleLabel.translatesAutoresizingMaskIntoConstraints = false
         photoContainerView.translatesAutoresizingMaskIntoConstraints = false
-//        addPhotoButton.translatesAutoresizingMaskIntoConstraints = false
         
         NSLayoutConstraint.activate([
-            photoTitleLabel.topAnchor.constraint(equalTo: typeContainerView.bottomAnchor, constant: 24),
+            photoTitleLabel.topAnchor.constraint(equalTo: addressAltitudeLabel.bottomAnchor, constant: 24),
             photoTitleLabel.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 20),
             
             photoContainerView.topAnchor.constraint(equalTo: photoTitleLabel.bottomAnchor, constant: 12),
@@ -491,7 +580,6 @@ class AddPOIViewController: UIViewController {
     
     private func setupButtonConstraints() {
         buttonContainerView.translatesAutoresizingMaskIntoConstraints = false
-        cancelButton.translatesAutoresizingMaskIntoConstraints = false
         addButton.translatesAutoresizingMaskIntoConstraints = false
         
         NSLayoutConstraint.activate([
@@ -500,21 +588,15 @@ class AddPOIViewController: UIViewController {
             buttonContainerView.bottomAnchor.constraint(equalTo: view.safeAreaLayoutGuide.bottomAnchor),
             buttonContainerView.heightAnchor.constraint(equalToConstant: 80),
             
-            cancelButton.leadingAnchor.constraint(equalTo: buttonContainerView.leadingAnchor, constant: 20),
-            cancelButton.bottomAnchor.constraint(equalTo: buttonContainerView.bottomAnchor, constant: -20),
-            cancelButton.widthAnchor.constraint(equalToConstant: (UIScreen.main.bounds.width - 60) / 2),
-            cancelButton.heightAnchor.constraint(equalToConstant: 50),
-            
             addButton.trailingAnchor.constraint(equalTo: buttonContainerView.trailingAnchor, constant: -20),
             addButton.bottomAnchor.constraint(equalTo: buttonContainerView.bottomAnchor, constant: -20),
-            addButton.widthAnchor.constraint(equalToConstant: (UIScreen.main.bounds.width - 60) / 2),
+            addButton.leadingAnchor.constraint(equalTo: buttonContainerView.leadingAnchor, constant: 20),
             addButton.heightAnchor.constraint(equalToConstant: 50)
         ])
     }
     
     private func setupActions() {
         closeButton.addTarget(self, action: #selector(closeButtonTapped), for: .touchUpInside)
-        cancelButton.addTarget(self, action: #selector(cancelButtonTapped), for: .touchUpInside)
         addButton.addTarget(self, action: #selector(addButtonTapped), for: .touchUpInside)
         addPhotoButton.addTarget(self, action: #selector(addPhotoButtonTapped), for: .touchUpInside)
         
@@ -530,23 +612,50 @@ class AddPOIViewController: UIViewController {
     
     // MARK: - Actions
     @objc private func closeButtonTapped() {
-        deleteCustomMarker?()
-        dismiss(animated: true)
-    }
-    
-    @objc private func cancelButtonTapped() {
-        deleteCustomMarker?()
-        dismiss(animated: true)
+        let hasName = !(nameTextField.text?.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ?? true)
+        let hasType = selectedType != nil
+        let hasDescription = !descriptionTextView.text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+        let hasImages = !imgUrlList.isEmpty
+        
+        // 如果没有任何数据，直接关闭
+        if !hasName && !hasType && !hasDescription && !hasImages {
+            deleteCustomMarker?(nil)
+            dismiss(animated: true)
+            return
+        }
+        
+        SWAlertView.showAlert(title: nil, message: "确定不保存兴趣点吗？",confirmTitle: "继续编辑", cancelTitle: "不保存", confirmHandler: {
+            print("继续编辑")
+        }) { [weak self] in
+            print("不保存")
+            guard let self = self else { return }
+            self.deleteCustomMarker?(nil)
+            self.dismiss(animated: true)
+        }
     }
     
     @objc private func addButtonTapped() {
-        guard validateForm() else { return }
+        // 单独检查缺失的数据并提示
+        let hasName = !(nameTextField.text?.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ?? true)
+        let hasType = selectedType != nil
+        
+        if !hasName {
+            view.sw_showWarningToast("请输入兴趣点名称")
+            return
+        }
+        
+        if !hasType {
+            view.sw_showWarningToast("请选择兴趣点类型")
+            return
+        }
+        
         savePOI()
     }
     
     @objc private func typeButtonTapped(_ sender: POITypeButton) {
         selectedType = sender.type
         typeButtons.forEach { $0.isSelected = ($0.type == selectedType) }
+        updateAddButtonState()
     }
     
     @objc private func addPhotoButtonTapped() {
@@ -555,9 +664,10 @@ class AddPOIViewController: UIViewController {
     
     @objc private func deletePhotoTapped(_ sender: UIButton) {
         let index = sender.tag
-        guard index < selectedImages.count else { return }
+        guard index < imgUrlList.count else { return }
         
-        selectedImages.remove(at: index)
+        imgUrlList.remove(at: index)
+        
         setupPhotoViews()
     }
     
@@ -566,23 +676,13 @@ class AddPOIViewController: UIViewController {
     }
     
     // MARK: - Helper Methods
-    private func updateCoordinateDisplay() {
-        if let coord = coordinate {
-            coordinateLabel.text = coord.displayString
-        } else {
-            coordinateLabel.text = "未获取到位置信息"
-        }
-    }
-    
     private func updatePlaceholder() {
         placeholderLabel.isHidden = !descriptionTextView.text.isEmpty
     }
     
-    private func selectFirstType() {
-        guard let firstType = POIType.allCases.first else { return }
-        selectedType = firstType
-        // 重新设置按钮选中状态
-        setupTypeButtons()
+    private func updateNamePlaceholder() {
+        let text = nameTextField.text ?? ""
+        nameTextPlaceholderLabel.isHidden = !text.isEmpty
     }
     
     private func validateForm() -> Bool {
@@ -608,6 +708,29 @@ class AddPOIViewController: UIViewController {
         return true
     }
     
+    private func addTextFieldObserver() {
+        // 监听文本框变化
+        nameTextField.addTarget(self, action: #selector(textFieldDidChange), for: .editingChanged)
+    }
+
+    @objc private func textFieldDidChange() {
+        updateAddButtonState()
+        updateNamePlaceholder()
+    }
+
+    private func updateAddButtonState() {
+        let hasName = !(nameTextField.text?.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ?? true)
+        let hasType = selectedType != nil
+        
+        if hasName && hasType {
+            addButton.backgroundColor = ThemeManager.current.mainColor
+            addButton.isEnabled = true
+        } else {
+            addButton.backgroundColor = UIColor(str: "#FFE0B9")
+            addButton.isEnabled = false
+        }
+    }
+    
     private func savePOI() {
         // 这里实现保存逻辑，可以保存到本地或上传到服务器
         let poiName = nameTextField.text?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
@@ -616,29 +739,20 @@ class AddPOIViewController: UIViewController {
         let poiLon = coordinate?.longitude ?? 00.00
         let poiLat = coordinate?.latitude ?? 00.00
         let poiUrlList = imgUrlList
-        let userId = UserManager.shared.userId
-        if let number = Int(userId) {
-            print("转换成功: \(number)")  // 123
-            let poiModel = UserPOIModel(name: poiName, description: poiDescription, lon: poiLon, lat: poiLat, category: poiCategory, imgUrlList: poiUrlList, state: 0, userId: number)
-            viewModel.saveUserPoi(poiModel)
-                .sink { completion in
-                    switch completion {
-                    case .finished:
-                        print("操作完成")
-                    case .failure(let error):
-                        print("发生错误: \(error.localizedDescription)")
-                    }
-                } receiveValue: { [weak self] data in
-                    print("保存结果: \(data)")
-                    guard let self = self else { return }
-                    if data != nil {
-                        self.view.sw_showSuccessToast("保存兴趣点成功")
-                    }else {
-                        self.view.sw_showSuccessToast("保存兴趣点失败")
-                    }
-                    self.dismiss(animated: true)
-                }
-                .store(in: &viewModel.cancellables)
+        var userPOILocalData = UserPOILocalData(poiId: poiId, name: poiName, address: poiData?.name, description: poiDescription, lon: poiLon, lat: poiLat, category: poiCategory)
+        for (index, imageUrl) in imgUrlList.enumerated() {
+            if index == 0 {
+                userPOILocalData.imageData1 = imageUrl
+            }
+            if index == 1 {
+                userPOILocalData.imageData2 = imageUrl
+            }
+            if index == 2 {
+                userPOILocalData.imageData3 = imageUrl
+            }
+        }
+        if let altitude = Double(poiData?.altitude ?? "00") {
+            userPOILocalData.altitude = altitude
         }
         
         print("保存兴趣点:")
@@ -647,7 +761,17 @@ class AddPOIViewController: UIViewController {
         print("坐标: \(poiLon)--\(poiLat)")
         print("简介: \(poiDescription)")
         print("图片数量: \(poiUrlList.count)")
+        
+        if UserPOILocalDBManager.shared.insertOrUpdate(poiData: userPOILocalData) {
+            UIWindow.topWindow?.sw_showSuccessToast("保存兴趣点成功")
+            viewModel.uploadLocalPOIDataToNetwork(userPOILocalData, type: "save")
+            let poiData = UserPOILocalDBManager.shared.query(byPoiId: userPOILocalData.poiId ?? "")
+            self.deleteCustomMarker?(poiData)
+            self.dismiss(animated: true)
+        }
+        
     }
+    
     
     private func showAlert(title: String, message: String, completion: (() -> Void)? = nil) {
         let alert = UIAlertController(title: title, message: message, preferredStyle: .alert)
@@ -681,7 +805,7 @@ class AddPOIViewController: UIViewController {
     
     private func presentPhotoPicker() {
         var configuration = PHPickerConfiguration()
-        configuration.selectionLimit = maxImageCount - selectedImages.count
+        configuration.selectionLimit = maxImageCount - imgUrlList.count
         configuration.filter = .images
         
         let picker = PHPickerViewController(configuration: configuration)
@@ -742,10 +866,12 @@ extension AddPOIViewController: UITextFieldDelegate {
     
     func textFieldDidBeginEditing(_ textField: UITextField) {
         activeField = textField
+        nameTextPlaceholderLabel.isHidden = true
     }
     
     func textFieldDidEndEditing(_ textField: UITextField) {
         activeField = nil
+        updateNamePlaceholder()
     }
 }
 
@@ -759,7 +885,7 @@ extension AddPOIViewController: UITextViewDelegate {
             textView.text = String(textView.text.prefix(100))
             charCountLabel.textColor = .red
         } else {
-            charCountLabel.textColor = currentCount == 100 ? .red : .secondaryLabel
+            charCountLabel.textColor = currentCount == 100 ? .red : .lightGray
         }
         
         placeholderLabel.isHidden = true
@@ -801,43 +927,27 @@ extension AddPOIViewController: PHPickerViewControllerDelegate {
         
         for result in results {
             result.itemProvider.loadObject(ofClass: UIImage.self) { [weak self] object, error in
+                guard let self = self else { return }
                 if let image = object as? UIImage {
-                    DispatchQueue.main.async {
-                        
-                        self?.selectedImages.append(image)
-                        
-                        self?.uploadImage(image: image)
-                        
-                        self?.setupPhotoViews()
+                    // 保存图片到本地--返回图片路径
+                    let imageName = "\(poiId ?? "txts")-\(Date().timeIntervalSince1970)"
+                    ImageManager.shared.saveImage(image, name: imageName) { result in
+                        switch result {
+                        case .success(let path):
+                            print("图片保存成功: \(path)")
+                            DispatchQueue.main.async {
+                                self.imgUrlList.append(path)
+                                self.setupPhotoViews()
+                            }
+                        case .failure(let error):
+                            print("图片保存失败: \(error)")
+                        }
                     }
                 }
             }
         }
     }
-    
-    func uploadImage(image: UIImage) {
-        uploadService.uploadImage(
-            image,
-            fileName: "my_photo.jpg",
-            compressionQuality: 0.8,
-            progressHandler: { _ in
-            },
-            completion: { [weak self] result in
-                DispatchQueue.main.async {
-                    switch result {
-                    case .success(let response):
-                        if response.isSuccess, let fileUrl = response.data?.fileUrl {
-                            print("上传成功！文件URL: \(fileUrl)")
-                            self?.imgUrlList.append(fileUrl)
-                        } else {
-                            print("上传失败: \(response.msg ?? "未知错误")")
-                        }
-                    case .failure(let error):
-                        print("上传错误: \(error.localizedDescription)")
-                    }
-                }
-            }
-        )
-    }
 }
+
+
 
