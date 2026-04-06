@@ -196,7 +196,7 @@ public final class MQTTManager {
         connectionState = .connecting
         // CocoaMQTT5的connect()方法不抛出异常，移除try关键字
         let result = mqtt.connect()
-//        print("[MQTT] 连接请求发送结果: \(result)")
+        debugPrint("[MQTT] 连接请求结果: \(result)")
     }
     
     /// 断开MQTT连接
@@ -211,7 +211,7 @@ public final class MQTTManager {
     
     /// 重新连接
     public func reconnect() {
-//        debugPrint("[MQTT] 重新连接")
+        debugPrint("[MQTT] 重新连接")
         connectionState = .connecting
         isManuallyDisconnected = false // 重置手动断开标志
         setupMQTTClient()
@@ -271,11 +271,13 @@ public final class MQTTManager {
     @discardableResult
     public func publish(message: String, to topic: String, qos: CocoaMQTTQoS = .qos1) -> Bool {
         guard let mqtt = mqtt, connectionState == .connected else {
+            debugPrint("[MQTT] ❌ 发布失败 - 未连接 (状态: \(connectionState))")
             return false
         }
         let publishProperties = MqttPublishProperties()
         publishProperties.contentType = "JSON"
-        mqtt.publish(topic, withString: message, qos: qos, properties: publishProperties)
+        let result = mqtt.publish(topic, withString: message, qos: qos, properties: publishProperties)
+        debugPrint("[MQTT] 📤 发布到 \(topic): \(message.prefix(100)) 结果: \(result)")
         // 通知所有代理消息已发布
         delegates.forEach { $0.delegate?.mqttManager(self, didPublishMessage: message, toTopic: topic) }
         return true
@@ -293,7 +295,10 @@ public final class MQTTManager {
         
         // 如果已经连接，立即订阅
         if let mqtt = mqtt, connectionState == .connected {
-            mqtt.subscribe(topic, qos: qos)
+            let result: () = mqtt.subscribe(topic, qos: qos)
+            debugPrint("[MQTT] 📥 订阅 \(topic) - 结果: \(result)")
+        } else {
+            debugPrint("[MQTT] ⏳ 主题 \(topic) 已加入待订阅列表 (当前状态: \(connectionState))")
         }
     }
     
@@ -312,9 +317,10 @@ public final class MQTTManager {
     /// 重新订阅之前的所有主题（用于重连后恢复订阅）
     private func resubscribeToTopics() {
         guard let mqtt = mqtt, connectionState == .connected else { return }
-        
+        debugPrint("[MQTT] 🔄 恢复订阅 \(subscribedTopics.count) 个主题")
         for topic in subscribedTopics {
             mqtt.subscribe(topic)
+            debugPrint("[MQTT] 📥 恢复订阅: \(topic)")
         }
     }
     
@@ -389,14 +395,17 @@ extension MQTTManager: CocoaMQTT5Delegate {
         case .success:
             connectionState = .connected
             currentReconnectInterval = 0 // 重置重连间隔
+            debugPrint("[MQTT] ✅ 连接成功")
             resubscribeToTopics() // 恢复订阅
         default:
-            handleConnectionError(NSError(domain: "MQTT", code: Int(ack.rawValue), userInfo: [NSLocalizedDescriptionKey: "连接被拒绝"]))
+            let errorMsg = "连接失败，原因码: \(ack.rawValue)"
+            debugPrint("[MQTT] ❌ \(errorMsg)")
+            handleConnectionError(NSError(domain: "MQTT", code: Int(ack.rawValue), userInfo: [NSLocalizedDescriptionKey: errorMsg]))
         }
     }
     
     public func mqtt5(_ mqtt5: CocoaMQTT5, didStateChangeTo state: CocoaMQTTConnState) {
-//        print("mqtt5_didStateChangeTo : \(state.description)")
+        print("[MQTT] didStateChangeTo : \(state.description)")
         // 只处理连接状态的过渡，避免与didConnectAck和mqtt5DidDisconnect冲突
         switch state {
         case .connecting:
@@ -411,42 +420,42 @@ extension MQTTManager: CocoaMQTT5Delegate {
         let payload = message.string ?? ""
         // 通知所有代理消息已发布
         delegates.forEach { $0.delegate?.mqttManager(self, didPublishMessage: payload, toTopic: message.topic) }
-//        print("mqtt5_didPublishMessage: topic:\(message.topic) \n message: \(payload)")
+        print("[MQTT] didPublishMessage: topic:\(message.topic) \n message: \(payload)")
     }
     
     public func mqtt5(_ mqtt5: CocoaMQTT5, didPublishAck id: UInt16, pubAckData: MqttDecodePubAck?) {
-        print("mqtt5_didPublishAck: \(String(describing: pubAckData!.reasonCode))")
+        print("[MQTT] didPublishAck: \(String(describing: pubAckData!.reasonCode))")
     }
     
     public func mqtt5(_ mqtt5: CocoaMQTT5, didPublishRec id: UInt16, pubRecData: MqttDecodePubRec?) {
-        print("mqtt5_didPublishRec: \(String(describing: pubRecData!.reasonCode))")
+        print("[MQTT] didPublishRec: \(String(describing: pubRecData!.reasonCode))")
     }
     
     public func mqtt5(_ mqtt5: CocoaMQTT5, didPublishComplete id: UInt16,  pubCompData: MqttDecodePubComp?) {
-        print("mqtt5_didPublishComplete: \(String(describing: pubCompData!.reasonCode))")
+        print("[MQTT] didPublishComplete: \(String(describing: pubCompData!.reasonCode))")
     }
     
     public func mqtt5(_ mqtt5: CocoaMQTT5, didReceiveMessage message: CocoaMQTT5Message, id: UInt16, publishData: MqttDecodePublish?) {
         let payload = message.string ?? ""
         // 通知所有代理接收到消息
         delegates.forEach { $0.delegate?.mqttManager(self, didReceiveMessage: payload, fromTopic: message.topic) }
-        print("mqtt5_didReceiveMessage: topic:\(message.topic) \n  message: \(payload) ")
+        print("[MQTT] didReceiveMessage: topic:\(message.topic) \n  message: \(payload) ")
     }
     
     public func mqtt5(_ mqtt5: CocoaMQTT5, didSubscribeTopics success: NSDictionary, failed: [String], subAckData: MqttDecodeSubAck?) {
-        print("mqtt5_didSubscribeTopics: success:\(success) failed:\(failed) ")
+        print("[MQTT] didSubscribeTopics: success:\(success) failed:\(failed) ")
     }
     
     public func mqtt5(_ mqtt5: CocoaMQTT5, didUnsubscribeTopics topics: [String], unsubAckData: MqttDecodeUnsubAck?) {
-        print("mqtt5_didUnsubscribeTopics: \(topics)")
+        print("[MQTT] didUnsubscribeTopics: \(topics)")
     }
     
     public func mqtt5(_ mqtt5: CocoaMQTT5, didReceiveDisconnectReasonCode reasonCode: CocoaMQTTDISCONNECTReasonCode) {
-        print("mqtt5_didReceiveDisconnectReasonCode: \(reasonCode)")
+        print("[MQTT] didReceiveDisconnectReasonCode: \(reasonCode)")
     }
     
     public func mqtt5(_ mqtt5: CocoaMQTT5, didReceiveAuthReasonCode reasonCode: CocoaMQTTAUTHReasonCode) {
-        print("mqtt5_didReceiveAuthReasonCode: \(reasonCode)")
+        print("[MQTT] didReceiveAuthReasonCode: \(reasonCode)")
     }
     
     public func mqtt5DidPing(_ mqtt5: CocoaMQTT5) {
@@ -483,7 +492,11 @@ extension MQTTManager: CocoaMQTT5Delegate {
     }
     
     public func mqtt5DidDisconnect(_ mqtt5: CocoaMQTT5, withError err: (any Error)?) {
-//        print("mqtt5_mqtt5DidDisconnect: \(String(describing: err?.localizedDescription))")
+        if let error = err {
+            debugPrint("[MQTT] 🔌 断开连接: \(error.localizedDescription)")
+        } else {
+            debugPrint("[MQTT] 🔌 正常断开连接")
+        }
         connectionState = .disconnected
         if canReconnect() {
             scheduleReconnect()
