@@ -620,10 +620,12 @@ extension ConvViewController: UIGestureRecognizerDelegate {
         // 计算键盘高度
         let keyboardHeight = keyboardFrame.height
         
+        // 调整inputBottomView的底部约束
+        self.inputBottomConstraint?.update(inset: keyboardHeight)
+        
         // 使用与键盘相同的动画参数更新约束
         UIView.animate(withDuration: duration, delay: 0, options: UIView.AnimationOptions(rawValue: curve)) {
-            // 调整inputBottomView的底部约束
-            self.inputBottomConstraint?.update(inset: keyboardHeight)
+            self.view.layoutIfNeeded()
         } completion: { _ in
             self.scrollToBottom(animated: true)
         }
@@ -636,10 +638,12 @@ extension ConvViewController: UIGestureRecognizerDelegate {
             return
         }
         
+        // 恢复inputBottomView的原始底部约束
+        self.inputBottomConstraint?.update(inset: self.originalBottomInset)
+        
         // 使用与键盘相同的动画参数更新约束
         UIView.animate(withDuration: duration, delay: 0, options: UIView.AnimationOptions(rawValue: curve)) {
-            // 恢复inputBottomView的原始底部约束
-            self.inputBottomConstraint?.update(inset: self.originalBottomInset)
+            self.view.layoutIfNeeded()
         }
     }
     

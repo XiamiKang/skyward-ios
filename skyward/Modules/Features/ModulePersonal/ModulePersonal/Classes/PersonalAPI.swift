@@ -196,7 +196,7 @@ extension PersonalAPI: NetworkAPI {
         case .getWb02DeviceFirmware(let model):
             return .requestParameters(
                 parameters: model.toDictionary(),
-                encoding: JSONEncoding.default
+                encoding: URLEncoding.default
             )
         }
     }

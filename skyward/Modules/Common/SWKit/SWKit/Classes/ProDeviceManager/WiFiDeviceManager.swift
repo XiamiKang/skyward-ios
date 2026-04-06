@@ -42,7 +42,7 @@ public class WiFiDeviceManager {
             NotificationCenter.default.post(name: .proDeviceConnectStatus, object: nil, userInfo: ["status":isConnected])
         }
     }
-    public private(set) var type: FirmwareType = .base
+    public private(set) var type: FirmwareType = .wb02
     public private(set) var isLogStreaming = false
     
     // MARK: - 回调

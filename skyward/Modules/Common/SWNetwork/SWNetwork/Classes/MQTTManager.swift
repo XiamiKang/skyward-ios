@@ -79,7 +79,7 @@ public struct MQTTConfiguration {
 #else
         // 生产
         let config = MQTTConfiguration(host: "39.102.203.24",
-                                       port: 1883,
+                                       port: 8883,
                                        clientID: "ios-app-\(UUID().uuidString)",
                                        username: "txts-ios",
                                        password: "ios@txtsqaz.")
@@ -172,8 +172,19 @@ public final class MQTTManager {
         mqtt?.cleanSession = configuration.cleanSession
         mqtt?.delegate = self
         mqtt?.autoReconnect = false // 使用自定义重连逻辑
-//        mqtt?.enableSSL = false // 根据实际情况设置是否启用SSL
-//        mqtt?.allowUntrustCACertificate = true // 允许不信任的CA证书
+        
+        if configuration.port == 8883 {
+            mqtt?.enableSSL = true
+            // 如果服务器使用自签名证书，需要允许不信任的CA证书
+            // 生产环境建议设置为false，并配置正确的CA证书
+            mqtt?.allowUntrustCACertificate = true
+            // 如果需要指定SSL证书（可选）
+            // mqtt?.sslSettings = CocoaMQTTSSLSettings(
+            //     enableSSL: true,
+            //     certPath: Bundle.main.path(forResource: "client", ofType: "p12"),
+            //     certPassword: "password"
+            // )
+        }
     }
     
     // MARK: - 连接管理

@@ -156,10 +156,14 @@ public struct ProDeviceInfo {
     }
     
     public var firwareType: FirmwareType {
-        if deviceSN.contains("2501") {
-            return .prototype
-        } else {
-            return .base
+        if deviceSN.contains("250") {
+            if deviceSN.contains("2501") {
+                return .prototype
+            } else {
+                return .base
+            }
+        }else {
+            return .wb02
         }
     }
 }

@@ -137,7 +137,11 @@ public class AdvancedFirmwareUpdateManager {
         
         // 异步执行升级流程
         DispatchQueue.global(qos: .userInitiated).async {
-            self.performUpgrade(firmwarePath: firmwarePath, completion: completion)
+            if deviceManager.type == .wb02 {
+                self.wb02PerformUpgrade(firmwarePath: firmwarePath, completion: completion)
+            }else {
+                self.performUpgrade(firmwarePath: firmwarePath, completion: completion)
+            }
         }
     }
     
@@ -171,6 +175,55 @@ public class AdvancedFirmwareUpdateManager {
             
             // 4. 发送固件信息
             try sendFirmwareInfoCommand(firmwareInfo: firmwareInfo, firmwareSize: firmwareData.count)
+            
+            // 5. 发送固件数据
+            try sendFirmwareData(firmwareData: firmwareData)
+            
+            // 6. 发送OTA_END命令
+            try endOTAProcess()
+            
+            // 升级成功
+            DispatchQueue.main.async {
+                self.isUpgrading = false
+                self.progress = 1.0
+                self.currentPhase = "升级完成"
+                self.onProgressUpdate?(self.progress, self.currentPhase)
+                self.addLog("✅ OTA升级成功完成")
+                completion(.success(true))
+            }
+            
+        } catch {
+            DispatchQueue.main.async {
+                self.isUpgrading = false
+                self.addLog("❌ 升级失败: \(error.localizedDescription)")
+                completion(.failure(error))
+            }
+        }
+    }
+    
+    private func wb02PerformUpgrade(firmwarePath: String, completion: @escaping (Result<Bool, Error>) -> Void) {
+        do {
+            // 停止采集数据
+            DeviceDataCollectionScheduler.shared.stopCollection()
+            // 1. 准备固件数据
+            addLog("准备固件数据...")
+            let firmwareData = try Data(contentsOf: URL(fileURLWithPath: firmwarePath))
+            let firmwareInfo = try parseFirmwareInfo(from: firmwarePath)
+            
+            self.firmwareData = firmwareData
+            self.firmwareInfo = firmwareInfo
+            
+            addLog("固件版本: \(firmwareInfo.version)")
+            addLog("固件大小: \(firmwareData.count) 字节")
+            
+            // 2. 发送OTA_START命令
+            try startOTAProcess()
+            
+            // 3. 延时等待固件擦除
+            Thread.sleep(forTimeInterval: 8.0)
+            
+            // 4. 发送固件信息
+            try sendWb02FirmwareInfoCommand(firmwareInfo: firmwareInfo, firmwareData: firmwareData)
             
             // 5. 发送固件数据
             try sendFirmwareData(firmwareData: firmwareData)
@@ -305,6 +358,95 @@ public class AdvancedFirmwareUpdateManager {
         return data
     }
     
+    private func createWb02InfoPacket(sequence: UInt16, firmwareInfo: FirmwareFileInfo, firmwareData: Data) -> Data {
+        let firmwareSize = firmwareData.count
+        var data = Data(count: frameSize)
+        
+        // 帧头
+        data[0] = 0xAA
+        data[1] = 0x55
+        
+        // 帧长度
+        data[2] = 0x17
+        data[3] = 0x01
+        
+        // 指令类型
+        data[4] = CommandType.info.rawValue
+        
+        // 包序号 (从0开始)
+        data[5] = UInt8(sequence & 0xFF)
+        data[6] = UInt8((sequence >> 8) & 0xFF)
+        
+        // 固件信息结构体长度 (120 = 0x0078)
+        data[7] = 0x00
+        data[8] = 0x78
+        
+        // 9-12: 固定为0x01
+        for i in 9...12 {
+            data[i] = 0x01
+        }
+        
+        // 固件程序地址 (0x80100000)
+        let address: UInt32 = 0x80100000
+        data[13] = UInt8(address & 0xFF)
+        data[14] = UInt8((address >> 8) & 0xFF)
+        data[15] = UInt8((address >> 16) & 0xFF)
+        data[16] = UInt8((address >> 24) & 0xFF)
+        
+        // 升级日期时分 (例如: 12月2号15:25 -> "12021525")
+//        let dateStr = "12021525" // 应该使用当前时间
+        let dateData = generateDateTimeData()
+        for (index, byte) in dateData.enumerated() {
+            data[17 + index] = byte
+        }
+        
+        // 升级年份 (例如: 2025 -> "20250000")
+        let yearData = generateYearData()
+        for (index, byte) in yearData.enumerated() {
+            data[25 + index] = byte
+        }
+        
+        // 固件版本号
+        let versionData = firmwareInfo.version.data(using: .ascii)!
+        for (index, byte) in versionData.prefix(4).enumerated() {
+            data[33 + index] = byte
+        }
+        
+        // 固件总长度
+        let totalSize = UInt32(firmwareSize)
+        data[37] = UInt8(totalSize & 0xFF)
+        data[38] = UInt8((totalSize >> 8) & 0xFF)
+        data[39] = UInt8((totalSize >> 16) & 0xFF)
+        data[40] = UInt8((totalSize >> 24) & 0xFF)
+        
+        // 41-64: 保留，固定为0x00
+        
+        // 固件文件名 (不超过64字节)
+        let fileNameData = firmwareInfo.fileName.data(using: .ascii)!
+        for (index, byte) in fileNameData.prefix(64).enumerated() {
+            data[65 + index] = byte
+        }
+        
+        // 129-132: 固件所有字节的CRC32校验码
+        let firmwareCRC32 = calculateCRC32(for: firmwareData)
+        data[129] = UInt8(firmwareCRC32 & 0xFF)
+        data[130] = UInt8((firmwareCRC32 >> 8) & 0xFF)
+        data[131] = UInt8((firmwareCRC32 >> 16) & 0xFF)
+        data[132] = UInt8((firmwareCRC32 >> 24) & 0xFF)
+        
+        // 133-276: 固定为0x00
+        for i in 133...276 {
+            data[i] = 0x00
+        }
+        
+        // 计算校验和
+        let checksum = calculateChecksum(for: data.subdata(in: 0..<277))
+        data[277] = UInt8(checksum & 0xFF)
+        data[278] = UInt8((checksum >> 8) & 0xFF)
+        
+        return data
+    }
+    
     private func createDataPacket(sequence: UInt16, packetData: Data, isLast: Bool) -> Data {
         var data = Data(count: frameSize)
         
@@ -420,6 +562,17 @@ public class AdvancedFirmwareUpdateManager {
         addLog("✅ 固件信息发送成功")
     }
     
+    public func sendWb02FirmwareInfoCommand(firmwareInfo: FirmwareFileInfo, firmwareData: Data) throws {
+        currentPhase = "发送固件信息"
+        progress = 0.3
+        onProgressUpdate?(progress, currentPhase)
+        addLog("发送固件信息...")
+        
+        let infoPacket = createWb02InfoPacket(sequence: 0, firmwareInfo: firmwareInfo, firmwareData: firmwareData)
+        try sendBinaryPacketWithRetry(packet: infoPacket, expectedResponse: "$ACK,IN")
+        addLog("✅ 固件信息发送成功")
+    }
+    
     /// 发送固件数据（带断点续传支持）
     public func sendFirmwareData(firmwareData: Data, startPacket: Int = 0) throws {
         currentPhase = "发送固件数据"
@@ -528,25 +681,7 @@ public class AdvancedFirmwareUpdateManager {
             throw error
         }
     }
-
-//    private func sendBinaryPacketWithRetry(packet: Data, expectedResponse: String) throws {
-//        let result = try sendWithRetry {
-//            try self.sendBinaryPacketAndWait(packet)
-//        }
-//        
-//        switch result {
-//        case .success(let response):
-//            if response.contains(expectedResponse) {
-//                return
-//            } else {
-//                throw FirmwareUpdateError.invalidResponse
-//            }
-//        case .failure(let error):
-//            throw error
-//        }
-//    }
     
-    // 在 AdvancedFirmwareUpdateManager.swift 中添加这个方法
     /// 重置OTA状态（当发现设备状态异常时调用）
     func resetOTAState() {
         addLog("🔄 重置OTA状态")
@@ -877,6 +1012,23 @@ public class AdvancedFirmwareUpdateManager {
         
         // 转为ASCII字节数组
         return yearStr.utf8.map { $0 }
+    }
+    
+    private func calculateCRC32(for data: Data) -> UInt32 {
+        var crc: UInt32 = 0xFFFFFFFF
+        
+        for byte in data {
+            crc ^= UInt32(byte)
+            for _ in 0..<8 {
+                if crc & 1 != 0 {
+                    crc = (crc >> 1) ^ 0xEDB88320
+                } else {
+                    crc = crc >> 1
+                }
+            }
+        }
+        
+        return ~crc
     }
 }
 
